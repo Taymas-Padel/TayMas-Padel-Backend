@@ -2,36 +2,41 @@ from django.db import models
 from django.utils.translation import gettext_lazy as _
 
 class Court(models.Model):
-    """
-    Модель падел-корта.
-    """
+    class CourtType(models.TextChoices):
+        INDOOR = 'INDOOR', _('Indoor (Крытый)')
+        OUTDOOR = 'OUTDOOR', _('Outdoor (Открытый)')
+        PANORAMIC = 'PANORAMIC', _('Panoramic (Панорамный)')
+
     name = models.CharField(
         max_length=50, 
         unique=True, 
         verbose_name=_("Название/Номер корта")
     )
     
-    # Тип покрытия (важно для игроков)
+    court_type = models.CharField(
+        max_length=20, 
+        choices=CourtType.choices, 
+        default=CourtType.INDOOR,
+        verbose_name=_("Тип корта")
+    )
+
     description = models.TextField(
         blank=True, 
-        verbose_name=_("Описание / Покрытие")
+        verbose_name=_("Описание")
     )
     
-    # Базовая цена за час (по умолчанию)
     price_per_hour = models.DecimalField(
         max_digits=10, 
         decimal_places=2, 
-        default=0.00,
-        verbose_name=_("Цена за час (базовая)")
+        default=8000.00,  # Поставил реалистичную цену по умолчанию
+        verbose_name=_("Цена за час")
     )
 
-    # Работает корт или на ремонте
     is_active = models.BooleanField(
         default=True, 
         verbose_name=_("Активен")
     )
 
-    # Фото корта (для мобильного приложения)
     image = models.ImageField(
         upload_to='courts/', 
         blank=True, 
@@ -45,4 +50,4 @@ class Court(models.Model):
         ordering = ['name']
 
     def __str__(self):
-        return f"{self.name} ({int(self.price_per_hour)} ₸)"
+        return f"{self.name} ({self.get_court_type_display()})"

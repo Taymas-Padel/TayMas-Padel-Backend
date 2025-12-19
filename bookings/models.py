@@ -1,59 +1,62 @@
 from django.db import models
-from django.conf import settings
+from django.contrib.auth import get_user_model
 from courts.models import Court
 from django.utils.translation import gettext_lazy as _
+from inventory.models import Service
+
+User = get_user_model()
 
 class Booking(models.Model):
     class Status(models.TextChoices):
-        PENDING = 'PENDING', _('Ожидает подтверждения')
         CONFIRMED = 'CONFIRMED', _('Подтверждено')
+        PENDING = 'PENDING', _('Ожидает оплаты')
         CANCELED = 'CANCELED', _('Отменено')
         COMPLETED = 'COMPLETED', _('Завершено')
 
-    # Связи
+    user = models.ForeignKey(
+        User, 
+        on_delete=models.CASCADE, 
+        related_name='bookings',
+        verbose_name=_("Клиент")
+    )
+    
+    # --- НОВОЕ ПОЛЕ: ТРЕНЕР ---
+    coach = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL, # Если тренер уволится, бронь останется (просто без тренера)
+        null=True,
+        blank=True,
+        related_name='coach_bookings',
+        verbose_name=_("Тренер")
+    )
+    # --------------------------
+    price = models.DecimalField(
+            max_digits=10, 
+            decimal_places=2, 
+            default=0.00,
+            verbose_name="Итоговая цена"
+        )
     court = models.ForeignKey(
         Court, 
         on_delete=models.CASCADE, 
         related_name='bookings',
         verbose_name=_("Корт")
     )
-    client = models.ForeignKey(
-        settings.AUTH_USER_MODEL, 
-        on_delete=models.CASCADE, 
-        related_name='bookings',
-        verbose_name=_("Клиент")
-    )
-    # Опционально: Тренер
-    coach = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='coach_bookings',
-        limit_choices_to={'role__in': ['COACH_PADEL', 'COACH_FITNESS']},
-        verbose_name=_("Тренер")
-    )
 
-    # Время
-    start_time = models.DateTimeField(verbose_name=_("Начало"))
-    end_time = models.DateTimeField(verbose_name=_("Конец"))
+    start_time = models.DateTimeField(verbose_name=_("Начало аренды"))
+    end_time = models.DateTimeField(verbose_name=_("Конец аренды"))
 
-    # Финансы
-    price = models.DecimalField(
-        max_digits=10, 
-        decimal_places=2, 
-        default=0,
-        verbose_name=_("Итоговая стоимость")
-    )
-    is_paid = models.BooleanField(default=False, verbose_name=_("Оплачено"))
-    
     status = models.CharField(
         max_length=20, 
         choices=Status.choices, 
-        default=Status.CONFIRMED,
+        default=Status.PENDING,
         verbose_name=_("Статус")
     )
-
+    is_paid = models.BooleanField(
+        default=False, 
+        verbose_name=_("Оплачено")
+    )
+    
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -62,10 +65,18 @@ class Booking(models.Model):
         ordering = ['-start_time']
 
     def __str__(self):
-        return f"{self.court.name} | {self.start_time.strftime('%d.%m %H:%M')} | {self.client}"
+        return f"{self.court.name} | {self.start_time.strftime('%d.%m %H:%M')} | {self.user.username}"
 
     @property
-    def duration_minutes(self):
-        """Считает длительность в минутах"""
-        delta = self.end_time - self.start_time
-        return int(delta.total_seconds() / 60)
+    def duration_hours(self):
+        diff = self.end_time - self.start_time
+        return diff.total_seconds() / 3600
+    
+class BookingService(models.Model):
+    booking = models.ForeignKey(Booking, on_delete=models.CASCADE, related_name='services', verbose_name="Бронь")
+    service = models.ForeignKey(Service, on_delete=models.CASCADE, verbose_name="Услуга")
+    quantity = models.PositiveIntegerField(default=1, verbose_name="Количество")
+    price_at_moment = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Цена на момент покупки")
+
+    def __str__(self):
+        return f"{self.service.name} x {self.quantity}"

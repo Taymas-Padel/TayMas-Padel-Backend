@@ -46,12 +46,16 @@ INSTALLED_APPS = [
     'rest_framework',  # Для API мобилки
     'djoser',
     'drf_yasg',
+    'corsheaders',  # <--- Добавь это
     # Наши приложения (Apps)
     'users.apps.UsersConfig',
     'courts.apps.CourtsConfig',
     'bookings.apps.BookingsConfig',
     'finance.apps.FinanceConfig',
     'gamification.apps.GamificationConfig',
+    'inventory.apps.InventoryConfig',
+    'core.apps.CoreConfig',
+    'memberships.apps.MembershipsConfig',
 ]
 
 # Настройки DRF
@@ -71,11 +75,24 @@ SIMPLE_JWT = {
 
 # Настройки Djoser (регистрация и управление юзерами)
 DJOSER = {
-    'LOGIN_FIELD': 'username', # Или 'email', если хочешь вход по почте
+    'LOGIN_FIELD': 'email',  # Или 'username', как у тебя настроено
+    'USER_CREATE_PASSWORD_RETYPE': True,
+    'USERNAME_CHANGED_EMAIL_CONFIRMATION': True,
+    'PASSWORD_CHANGED_EMAIL_CONFIRMATION': True,
+    'SEND_CONFIRMATION_EMAIL': False,
+    'SET_USERNAME_RETYPE': True,
+    'SET_PASSWORD_RETYPE': True,
+    'PASSWORD_RESET_CONFIRM_URL': 'password/reset/confirm/{uid}/{token}',
+    'USERNAME_RESET_CONFIRM_URL': 'email/reset/confirm/{uid}/{token}',
+    'ACTIVATION_URL': 'activate/{uid}/{token}',
+    'SEND_ACTIVATION_EMAIL': False,
+    
+    # ВОТ ЭТО САМОЕ ВАЖНОЕ: ССЫЛКА НА ТВОЙ ФАЙЛ
     'SERIALIZERS': {
-        'user_create': 'users.serializers.UserCreateSerializer', # Наш кастомный сериализатор (создадим ниже)
-        'current_user': 'users.serializers.UserSerializer',      # Для просмотра профиля
-    }
+        'user_create': 'users.serializers.UserCreateSerializer',
+        'user': 'users.serializers.UserSerializer',          # <-- Это для списка
+        'current_user': 'users.serializers.UserSerializer',  # <-- Это для /users/me/
+    },
 }
 
 MIDDLEWARE = [
@@ -86,6 +103,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'corsheaders.middleware.CorsMiddleware',  # <--- Добавь это
 ]
 
 ROOT_URLCONF = 'config.urls'
@@ -168,6 +186,10 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/4.2/howto/static-files/
 
 STATIC_URL = 'static/'
+STATIC_ROOT = BASE_DIR / 'static'  # Папка, куда сервер соберет все файлы
+
+MEDIA_URL = 'media/'
+MEDIA_ROOT = BASE_DIR / 'media'    # Папка для аватарок
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
@@ -176,3 +198,8 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Указываем Django использовать нашу модель пользователя
 AUTH_USER_MODEL = 'users.User'
+
+
+# CORS SETTINGS
+CORS_ALLOW_ALL_ORIGINS = True  # Разрешить всем стучаться к нам
+CORS_ALLOW_CREDENTIALS = True

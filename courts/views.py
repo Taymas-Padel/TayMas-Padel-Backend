@@ -2,13 +2,13 @@ from rest_framework import generics, permissions
 from .models import Court
 from .serializers import CourtSerializer
 
-class CourtListAPIView(generics.ListCreateAPIView): # <--- БЫЛО ListAPIView, СТАЛО ListCreateAPIView
+class CourtListAPIView(generics.ListCreateAPIView):
     """
-    GET: Возвращает список всех кортов (доступно всем).
+    GET: Возвращает список активных кортов (доступно всем).
     POST: Создает новый корт (доступно только авторизованным).
     """
+    # Показываем только активные корты (не на ремонте)
     queryset = Court.objects.filter(is_active=True)
     serializer_class = CourtSerializer
     
-    # Это значит: читать могут все, а менять/создавать - только если вошел в систему
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
