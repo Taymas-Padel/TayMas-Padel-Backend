@@ -4,5 +4,5 @@ from .models import Court
 class CourtSerializer(serializers.ModelSerializer):
     class Meta:
         model = Court
-        # Какие поля отдавать мобилке
-        fields = ['id', 'name', 'description', 'price_per_hour', 'image', 'is_active']
+        # Добавили 'court_type', чтобы фронтенд знал (Крытый/Открытый)
+        fields = ['id', 'name', 'court_type', 'description', 'price_per_hour', 'image', 'is_active']

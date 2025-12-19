@@ -4,16 +4,22 @@ from .models import User
 
 @admin.register(User)
 class CustomUserAdmin(UserAdmin):
-    # Какие поля показывать в списке пользователей
-    list_display = ('username', 'email', 'role', 'phone_number', 'is_staff')
+    # 1. Поля, которые видны в СПИСКЕ пользователей
+    list_display = ('id', 'username', 'email', 'first_name', 'last_name', 'role', 'price_per_hour', 'is_staff')
     
-    # По каким полям можно фильтровать справа
+    # 2. Фильтры справа
     list_filter = ('role', 'is_staff', 'is_active')
     
-    # Поиск по имени и телефону
-    search_fields = ('username', 'email', 'phone_number')
-    
-    # Добавляем наши поля (role, phone, avatar) в форму редактирования
+    # 3. Поля, которые видны внутри КАРТОЧКИ пользователя (Редактирование)
     fieldsets = UserAdmin.fieldsets + (
-        ('Дополнительная информация', {'fields': ('role', 'phone_number', 'avatar', 'rating_elo')}),
+        ('Дополнительная информация', {
+            'fields': ('role', 'phone_number', 'avatar', 'rating_elo', 'price_per_hour')
+        }),
+    )
+
+    # 4. Поля, которые видны при СОЗДАНИИ пользователя
+    add_fieldsets = UserAdmin.add_fieldsets + (
+        (None, {
+            'fields': ('email', 'first_name', 'last_name', 'role', 'phone_number', 'price_per_hour')
+        }),
     )
