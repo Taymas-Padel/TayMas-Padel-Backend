@@ -3,7 +3,8 @@ from .views import (
     UserBookingsListView, 
     CreateBookingView, 
     CancelBookingView, 
-    CheckAvailabilityView
+    CheckAvailabilityView,
+    ManagerScheduleView,
 )
 
 urlpatterns = [
@@ -15,4 +16,5 @@ urlpatterns = [
     path('<int:pk>/cancel/', CancelBookingView.as_view(), name='cancel-booking'),
     # GET: проверить свободное время (?court_id=1&date=2025-12-20)
     path('check-availability/', CheckAvailabilityView.as_view(), name='check-availability'),
+    path('manager/schedule/', ManagerScheduleView.as_view(), name='manager-schedule'),
 ]

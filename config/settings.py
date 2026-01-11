@@ -31,8 +31,11 @@ DEBUG = os.getenv('DEBUG') == 'True'
 
 ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS').split(',')
 
-
+CSRF_TRUSTED_ORIGINS = ['https://*.ngrok-free.app']
 # Application definition
+# Исправление ссылок для ngrok / прокси
+USE_X_FORWARDED_HOST = True
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -41,6 +44,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'rest_framework_simplejwt.token_blacklist', # <--- Обязательно добавь это
 
     # Сторонние библиотеки
     'rest_framework',  # Для API мобилки
@@ -56,6 +60,10 @@ INSTALLED_APPS = [
     'inventory.apps.InventoryConfig',
     'core.apps.CoreConfig',
     'memberships.apps.MembershipsConfig',
+    'marketing.apps.MarketingConfig',
+    'gym.apps.GymConfig',
+    'analytics.apps.AnalyticsConfig',
+    'friends.apps.FriendsConfig',
 ]
 
 # Настройки DRF
@@ -63,13 +71,16 @@ REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication', # Используем JWT
         'rest_framework.authentication.SessionAuthentication', # Оставляем для админки
+        
     ),
 }
 
 # Настройки Simple JWT
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(days=1), # Токен живет 1 день (для удобства разработки)
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    'ACCESS_TOKEN_LIFETIME': timedelta(days=1),   # Пропуск (1 день)
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=90), # 🔥 Паспорт (3 месяца - чтобы не вылетало)
+    'ROTATE_REFRESH_TOKENS': True, # Обновлять паспорт при каждом использовании
+    'BLACKLIST_AFTER_ROTATION': True,
     'AUTH_HEADER_TYPES': ('Bearer',),
 }
 
@@ -129,9 +140,17 @@ TEMPLATES = [
 SWAGGER_SETTINGS = {
     'DEFAULT_AUTO_SCHEMA_CLASS': 'drf_yasg.inspectors.SwaggerAutoSchema',
     'USE_SESSION_AUTH': False,
-    # Add this to avoid naming conflicts automatically
     'DEFAULT_MODEL_SERIALIZER_CLASS': 'rest_framework.serializers.ModelSerializer',
-}  
+    
+    # 👇 ДОБАВЛЯЕМ ЭТОТ БЛОК, ЧТОБЫ ПОЯВИЛОСЬ ПОЛЕ ДЛЯ ТОКЕНА
+    'SECURITY_DEFINITIONS': {
+        'Bearer': {
+            'type': 'apiKey',
+            'name': 'Authorization',
+            'in': 'header'
+        }
+    }
+}
 
 
 WSGI_APPLICATION = 'config.wsgi.application'

@@ -37,12 +37,8 @@ class Court(models.Model):
         verbose_name=_("Активен")
     )
 
-    image = models.ImageField(
-        upload_to='courts/', 
-        blank=True, 
-        null=True,
-        verbose_name=_("Фото корта")
-    )
+    image = models.ImageField(upload_to='courts/', blank=True, null=True, verbose_name="Главное фото")
+
 
     class Meta:
         verbose_name = _("Корт")
@@ -51,3 +47,10 @@ class Court(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.get_court_type_display()})"
+
+class CourtImage(models.Model):
+    court = models.ForeignKey(Court, related_name='gallery', on_delete=models.CASCADE, verbose_name="Корт")
+    image = models.ImageField(upload_to='courts/gallery/', verbose_name="Фото")
+
+    def __str__(self):
+        return f"Фото для {self.court.name}"
