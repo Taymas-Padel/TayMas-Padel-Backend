@@ -19,6 +19,14 @@ class Booking(models.Model):
         related_name='bookings',
         verbose_name=_("Клиент")
     )
+    # 🔥 ДОБАВЛЯЕМ ВОТ ЭТО ПОЛЕ
+    participants = models.ManyToManyField(
+        User,
+        related_name='participated_bookings',
+        blank=True,
+        verbose_name=_("Участники (Друзья)")
+    )
+    # ---------------------------
     
     # --- НОВОЕ ПОЛЕ: ТРЕНЕР ---
     coach = models.ForeignKey(

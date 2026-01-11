@@ -8,6 +8,7 @@ from finance.models import Transaction
 from core.models import ClubSetting, ClosedDay
 from memberships.models import UserMembership
 from decimal import Decimal
+from marketing.models import Promotion # Импорт нашей новой модели
 
 User = get_user_model()
 
@@ -32,11 +33,29 @@ class BookingSerializer(serializers.ModelSerializer):
     court_name = serializers.CharField(source='court.name', read_only=True)
     coach_name = serializers.CharField(source='coach.username', read_only=True, allow_null=True)
     services = BookingServiceSerializer(many=True, read_only=True) # Показываем купленные услуги
-
+# 🔥 Добавляем отображение друзей (можно просто имена)
+    participants_names = serializers.SlugRelatedField(
+        many=True, 
+        read_only=True, 
+        slug_field='username', # Или 'first_name'
+        source='participants'
+    )
     class Meta:
         model = Booking
-        fields = ['id', 'court', 'court_name', 'start_time', 'end_time', 'price', 'status', 'coach', 'coach_name', 'services']
-
+        # 👇 ВЫ ЗАБЫЛИ ДОБАВИТЬ ЭТО В СПИСОК НИЖЕ
+        fields = [
+            'id', 
+            'court', 
+            'court_name', 
+            'start_time', 
+            'end_time', 
+            'price', 
+            'status', 
+            'coach', 
+            'coach_name', 
+            'services', 
+            'participants_names' # <--- ДОБАВЬТЕ СЮДА ЗАПЯТУЮ И ЭТО ПОЛЕ
+        ]
 
 # --- 3. Сериализаторы для СОЗДАНИЯ (POST) ---
 
@@ -48,7 +67,7 @@ class BookingServiceInputSerializer(serializers.Serializer):
 class CreateBookingSerializer(serializers.ModelSerializer):
     """Сложный сериализатор для создания брони с расчетами"""
     duration = serializers.IntegerField(write_only=True)
-    
+    promo_code = serializers.CharField(write_only=True, required=False, allow_blank=True)
     coach = serializers.PrimaryKeyRelatedField(
         queryset=User.objects.filter(role='COACH_PADEL'),
         required=False, 
@@ -57,10 +76,36 @@ class CreateBookingSerializer(serializers.ModelSerializer):
     
     # Принимаем список услуг
     services = BookingServiceInputSerializer(many=True, required=False, write_only=True)
+# 🔥 НОВОЕ ПОЛЕ ДЛЯ ВХОДА (Список ID друзей)
+    friends_ids = serializers.ListField(
+        child=serializers.IntegerField(),
+        required=False,
+        write_only=True
+    )
 
+    # 🔥🔥🔥 ДОБАВИТЬ ВОТ ЭТО ПОЛЕ СЮДА (ты забыл его скопировать) 🔥🔥🔥
+    participants_names = serializers.SlugRelatedField(
+        many=True, 
+        read_only=True, 
+        slug_field='username', # Или 'phone_number', если хочешь видеть номера
+        source='participants'
+    )
     class Meta:
         model = Booking
-        fields = ['id', 'court', 'start_time', 'duration', 'coach', 'services', 'price', 'end_time', 'status']
+        # 👇 ТЕБЕ НУЖНО ДОБАВИТЬ 'promo_code' В ЭТОТ СПИСОК
+        fields = [
+            'id', 
+            'court', 
+            'start_time', 
+            'duration', 
+            'services', 
+            'coach', 
+            'price', 
+            'status',
+            'promo_code',
+            'friends_ids',
+            'participants_names'  # <--- ДОБАВЬ ЭТУ СТРОЧКУ
+        ]
         read_only_fields = ['id', 'price', 'end_time', 'status']
 
     def validate(self, data):
@@ -83,7 +128,13 @@ class CreateBookingSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 f"В этот день клуб закрыт. Причина: {closed_day.reason or 'Санитарный день'}."
             )
-
+        friends_ids = data.get('friends_ids', [])
+        if len(friends_ids) > 3:
+            raise serializers.ValidationError("Можно добавить максимум 3 друзей.")
+            
+        # (Опционально) Проверка, что нельзя добавить самого себя
+        if self.context['request'].user.id in friends_ids:
+             raise serializers.ValidationError("Не нужно добавлять себя в список друзей, вы и так организатор.")
         # # 3. ПРОВЕРКА: График работы (Учитываем ДЛИТЕЛЬНОСТЬ) ⏰
         open_setting = ClubSetting.objects.filter(key='OPEN_TIME').first()
         close_setting = ClubSetting.objects.filter(key='CLOSE_TIME').first()
@@ -143,7 +194,7 @@ class CreateBookingSerializer(serializers.ModelSerializer):
         services_data = validated_data.pop('services', [])
         duration = validated_data.pop('duration')
         end_time = validated_data.pop('calculated_end_time')
-        
+        friends_ids = validated_data.pop('friends_ids', [])
         court = validated_data['court']
         coach = validated_data.get('coach')
         user = validated_data['user'] # Нам нужен юзер для поиска абонемента
@@ -153,10 +204,11 @@ class CreateBookingSerializer(serializers.ModelSerializer):
         hours = Decimal(duration) / Decimal(60)
 
         # --- 🔥 1. ЛОГИКА АБОНЕМЕНТА (НОВОЕ) ---
-        # Ищем активный пакет, где хватает часов
+# --- ЛОГИКА АБОНЕМЕНТА ---
         active_membership = UserMembership.objects.filter(
             user=user,
             is_active=True,
+            is_frozen=False, # <--- ДОБАВЬ ЭТО! (Ищем только НЕ замороженные)
             end_date__gte=timezone.now(),
             hours_remaining__gte=hours
         ).order_by('end_date').first()
@@ -207,12 +259,73 @@ class CreateBookingSerializer(serializers.ModelSerializer):
         # --- 3. ИТОГОВАЯ СУММА К ОПЛАТЕ ---
         total_price_money = final_court_price + final_coach_price + services_price
 
+        # --- 🔥 4. ЛОГИКА ЛОЯЛЬНОСТИ (НОВОЕ) ---
+        loyalty_discount = 0
+        loyalty_info = ""
+        
+        # Ищем активный абонемент, у которого discount_on_court > 0
+        gym_membership = UserMembership.objects.filter(
+            user=user,
+            is_active=True,
+            is_frozen=False,
+            end_date__gte=timezone.now(),
+            membership_type__discount_on_court__gt=0 # Есть скидка
+        ).order_by('-membership_type__discount_on_court').first() # Берем самую большую
+        
+        # Если нашли и оплата НЕ часами (часами скидка не нужна)
+        if gym_membership and not paid_by_membership:
+            percent = gym_membership.membership_type.discount_on_court
+            discount_value = final_court_price * (Decimal(percent) / Decimal(100))
+            
+            total_price_money -= discount_value # Отнимаем от цены
+            
+            loyalty_discount = discount_value
+            loyalty_info = f" (Loyalty {percent}%: -{discount_value}₸)"
+        # --- 🔥 ЛОГИКА ПРОМОКОДА (НОВОЕ) ---
+        promo_code_str = validated_data.pop('promo_code', None)
+        discount_amount = Decimal(0)
+        promo_description = ""
+
+        if promo_code_str:
+            try:
+                # Ищем активную акцию
+                promo = Promotion.objects.get(
+                    promo_code__iexact=promo_code_str, # Нечувствителен к регистру
+                    is_active=True,
+                    start_date__lte=timezone.now(),
+                    end_date__gte=timezone.now()
+                )
+                
+                # Считаем скидку
+                if promo.discount_type == 'PERCENT':
+                    # Например: 10000 * 0.20 = 2000
+                    discount_amount = total_price_money * (promo.discount_value / Decimal(100))
+                elif promo.discount_type == 'FIXED':
+                    discount_amount = promo.discount_value
+                
+                # Защита: скидка не может быть больше цены
+                if discount_amount > total_price_money:
+                    discount_amount = total_price_money
+                
+                # Вычитаем
+                total_price_money -= discount_amount
+                promo_description = f" (Промокод {promo.title}: -{discount_amount}₸)"
+
+            except Promotion.DoesNotExist:
+                # Если код не найден - просто игнорируем (или можно raise ValidationError)
+                pass
         # --- 4. СОЗДАЕМ БРОНЬ ---
         booking = Booking.objects.create(
             end_time=end_time, 
             price=total_price_money, 
             **validated_data
         )
+        
+        # 🔥 ДОБАВЛЯЕМ ДРУЗЕЙ К БРОНИ
+        if friends_ids:
+            # Находим юзеров по ID и добавляем их
+            friends = User.objects.filter(id__in=friends_ids)
+            booking.participants.set(friends)
 
         # Определяем статус: 
         # Если к оплате 0 (всё покрыл абонемент) -> Сразу CONFIRMED
@@ -249,21 +362,63 @@ class CreateBookingSerializer(serializers.ModelSerializer):
             items_list = [f"{item['service'].name} x{item['quantity']}" for item in services_to_create]
             details.append(f"Инвентарь: [{', '.join(items_list)}]")
 
-        Transaction.objects.create(
-            user=booking.user,
-            booking=booking,
+# --- 6. ТРАНЗАКЦИЯ ---
+        if total_price_money > 0:
+            Transaction.objects.create(
+                user=booking.user,
+                booking=booking,
+                amount=total_price_money,
+                amount_court=final_court_price,
+                amount_coach=final_coach_price,
+                amount_services=services_price,
+                amount_discount=discount_amount,
+                transaction_type=Transaction.TransactionType.BOOKING_PAYMENT,
+                payment_method=Transaction.PaymentMethod.KASPI,
+                description=", ".join(details) + promo_description
+            )
             
-            # Общая сумма ДЕНЕГ
-            amount=total_price_money,
-            
-            # Детализация (Четко раскладываем по полкам)
-            amount_court=final_court_price,
-            amount_coach=final_coach_price,
-            amount_services=services_price,
-            
-            transaction_type='PAYMENT',
-            description=", ".join(details)
-        )
-        
+            # 👇 ДОБАВЬ ВОТ ЭТИ СТРОКИ (Фиксация оплаты)
+            booking.is_paid = True
+            booking.status = 'CONFIRMED'
+            booking.save() 
+            # 👆 ТЕПЕРЬ БРОНЬ БУДЕТ ЗЕЛЕНОЙ
+
         return booking
 
+
+class ManagerScheduleSerializer(serializers.ModelSerializer):
+    """
+    Расширенный вид брони для Админа.
+    Показывает контакты клиента и детали оплаты.
+    """
+    client_name = serializers.SerializerMethodField()
+    client_phone = serializers.CharField(source='user.phone_number', read_only=True)
+    court_name = serializers.CharField(source='court.name', read_only=True)
+    coach_name = serializers.CharField(source='coach.username', read_only=True, allow_null=True)
+# 🔥🔥🔥 ДОБАВЛЯЕМ ВЫВОД ДРУЗЕЙ ДЛЯ АДМИНА 🔥🔥🔥
+    participants = serializers.SlugRelatedField(
+        many=True, 
+        read_only=True, 
+        slug_field='username', # Будет показывать юзернеймы/телефоны друзей
+        source='participants'
+    )
+    class Meta:
+        model = Booking
+        fields = [
+            'id', 
+            'start_time', 
+            'end_time', 
+            'court_name',
+            'client_name', 
+            'client_phone', # 🔥 Главное для админа
+            'status', 
+            'is_paid', 
+            'price', 
+            'coach_name',
+            'participants' # 👈 Не забудь добавить в список полей
+        ]
+
+    def get_client_name(self, obj):
+        # Если есть Имя+Фамилия, берем их. Если нет - никнейм.
+        full_name = f"{obj.user.first_name} {obj.user.last_name}".strip()
+        return full_name if full_name else obj.user.username

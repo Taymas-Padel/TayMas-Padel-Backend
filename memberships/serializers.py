@@ -11,4 +11,19 @@ class UserMembershipSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = UserMembership
-        fields = ['id', 'type_name', 'start_date', 'end_date', 'hours_remaining', 'is_active']
+        # 👇 ДОБАВЛЯЕМ 'is_frozen' и 'freeze_start_date' В КОНЕЦ СПИСКА
+        fields = [
+            'id', 
+            'type_name', 
+            'start_date', 
+            'end_date', 
+            'hours_remaining', 
+            'is_active', 
+            'is_frozen',        # <--- НОВОЕ
+            'freeze_start_date' # <--- НОВОЕ (чтобы знать, когда заморозили)
+        ]
+
+
+
+
+

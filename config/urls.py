@@ -6,7 +6,8 @@ from django.http import HttpResponse
 from rest_framework import permissions
 from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
-
+from django.conf.urls.static import static
+from django.conf import settings
 # Настройка Swagger
 schema_view = get_schema_view(
    openapi.Info(
@@ -36,4 +37,14 @@ urlpatterns = [
     path('api/gamification/', include('gamification.urls')),
     path('api/core/', include('core.urls')),
     path('api/memberships/', include('memberships.urls')),
+    path('api/marketing/', include('marketing.urls')),
+    path('api/gym/', include('gym.urls')),
+    path('api/auth/', include('users.urls')),
+
+    path('api/analytics/', include('analytics.urls')), # 👈 Добавь это
+    path('api/friends/', include('friends.urls')),
 ]
+
+# 👇 ДОБАВЬ ЭТОТ БЛОК В КОНЕЦ, ЕСЛИ ЕГО НЕТ
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
