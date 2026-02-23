@@ -397,11 +397,10 @@ class ManagerScheduleSerializer(serializers.ModelSerializer):
     coach_name = serializers.CharField(source='coach.username', read_only=True, allow_null=True)
 # 🔥🔥🔥 ДОБАВЛЯЕМ ВЫВОД ДРУЗЕЙ ДЛЯ АДМИНА 🔥🔥🔥
     participants = serializers.SlugRelatedField(
-        many=True, 
-        read_only=True, 
-        slug_field='username', # Будет показывать юзернеймы/телефоны друзей
-        source='participants'
-    )
+            many=True, 
+            read_only=True, 
+            slug_field='username' # Будет показывать юзернеймы друзей
+        )
     class Meta:
         model = Booking
         fields = [

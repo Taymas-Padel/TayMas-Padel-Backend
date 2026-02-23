@@ -1,21 +1,29 @@
 from django.urls import path
-from rest_framework_simplejwt.views import TokenRefreshView
 from .views import (
-    SendCodeView, 
-    MobileLoginView, 
+    SendCodeView,
+    MobileLoginView,
+    CRMLoginView,
     UserSearchView,
-    # 👇 Не забудь импортировать новые вьюхи!
-    search_user_view, 
-    manager_user_action_view
+    receptionist_search_view,
+    receptionist_action_view,
+    receptionist_user_detail_view,
 )
 
 urlpatterns = [
+    # === Мобильное приложение — вход по SMS ===
     path('mobile/send-code/', SendCodeView.as_view(), name='mobile-send-code'),
     path('mobile/login/', MobileLoginView.as_view(), name='mobile-login'),
-    path('jwt/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
 
-    # 👇 НОВЫЕ ПУТИ ДЛЯ МЕНЕДЖЕРА
-    path('manager/search/', search_user_view, name='manager-search'),
-    path('manager/user/<int:pk>/action/', manager_user_action_view, name='manager-action'),
+    # === CRM — вход по паролю (ресепшн / админ) ===
+    path('crm/login/', CRMLoginView.as_view(), name='crm-login'),
+
+    # === Ресепшн — работа с клиентами ===
+    path('reception/search/', receptionist_search_view, name='reception-search'),
+    path('reception/user/<int:pk>/', receptionist_user_detail_view, name='reception-user-detail'),
+    path('reception/user/<int:pk>/action/', receptionist_action_view, name='reception-action'),
+
+    # === Публичный поиск (приложение — друзья) ===
     path('search/', UserSearchView.as_view(), name='user-search'),
+
+    # УБРАЛИ: jwt/refresh/ — он уже есть в djoser.urls.jwt, дублирование не нужно
 ]

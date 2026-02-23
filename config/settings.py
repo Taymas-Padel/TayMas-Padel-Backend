@@ -73,6 +73,14 @@ REST_FRAMEWORK = {
         'rest_framework.authentication.SessionAuthentication', # Оставляем для админки
         
     ),
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.ScopedRateThrottle',
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        # Эти значения перезаписываются в views.py через кастомные throttle-классы,
+        # но на всякий случай:
+        'anon': '100/hour',
+    },
 }
 
 # Настройки Simple JWT
