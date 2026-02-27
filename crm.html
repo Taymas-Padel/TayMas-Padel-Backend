@@ -1,0 +1,1334 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🏢 Padel CRM</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0c0e14;--s:#13151d;--s2:#1b1d28;--bd:#262836;--bda:#3a3d52;--tx:#e4e4ef;--dm:#7c7e96;
+--ac:#5b6cf7;--acl:#8b96ff;--g:#34d399;--gd:rgba(52,211,153,.12);--r:#f87171;--rd:rgba(248,113,113,.1);
+--o:#fbbf24;--od:rgba(251,191,36,.1);--rad:9px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--tx);min-height:100vh;overflow:hidden}
+.topbar{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(12,14,20,.92);backdrop-filter:blur(20px);border-bottom:1px solid var(--bd);padding:10px 20px;display:flex;align-items:center;gap:14px;height:48px}
+.topbar h1{font-size:15px;font-weight:700;color:var(--acl);white-space:nowrap}
+.tag{font-size:9px;background:var(--ac);color:#fff;padding:2px 6px;border-radius:4px;font-weight:700}
+.topbar input{background:var(--s2);border:1px solid var(--bd);color:var(--tx);padding:4px 9px;border-radius:6px;font-family:'JetBrains Mono',monospace;font-size:11px;width:200px}
+.topbar input:focus{outline:none;border-color:var(--ac)}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--r);flex-shrink:0}.dot.on{background:var(--g)}
+.status-lbl{font-size:11px;color:var(--dm)}
+.ml{margin-left:auto;display:flex;align-items:center;gap:10px}
+
+.layout{display:grid;grid-template-columns:196px 1fr 320px;height:calc(100vh - 48px);margin-top:48px}
+
+/* sidebar */
+.side{background:var(--s);border-right:1px solid var(--bd);overflow-y:auto;padding:10px 0}
+.side .lbl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;color:var(--dm);padding:10px 14px 3px;opacity:.5}
+.side button{display:flex;align-items:center;gap:8px;width:100%;padding:8px 14px;background:none;border:none;color:var(--dm);font-family:'Outfit',sans-serif;font-size:12px;cursor:pointer;transition:.12s;text-align:left;border-left:2px solid transparent}
+.side button:hover{background:var(--s2);color:var(--tx)}
+.side button.on{background:linear-gradient(90deg,rgba(91,108,247,.1),transparent);color:var(--acl);border-left-color:var(--ac)}
+.side button i{font-style:normal;width:16px;text-align:center;font-size:13px;flex-shrink:0}
+.side .cnt-badge{font-size:8px;background:var(--r);color:#fff;padding:1px 5px;border-radius:8px;margin-left:auto;font-weight:700}
+
+/* main content */
+.main{overflow-y:auto;padding:20px 24px}
+.sec{display:none}.sec.show{display:block}
+.sec-title{font-size:17px;font-weight:700;margin-bottom:3px}
+.sec-sub{font-size:11px;color:var(--dm);margin-bottom:18px;line-height:1.6}
+.sec-sub code{background:var(--s2);padding:1px 5px;border-radius:3px;font-family:'JetBrains Mono',monospace;font-size:10px}
+
+/* forms */
+.fg{margin-bottom:13px}
+.fg label{display:block;font-size:9px;font-weight:600;color:var(--dm);margin-bottom:3px;text-transform:uppercase;letter-spacing:.4px}
+.fg input,.fg select,.fg textarea{width:100%;padding:8px 10px;background:var(--s);border:1px solid var(--bd);border-radius:var(--rad);color:var(--tx);font-family:'JetBrains Mono',monospace;font-size:12px;transition:.15s}
+.fg input:focus,.fg select:focus{outline:none;border-color:var(--ac)}
+.fg input::placeholder{color:var(--dm);opacity:.35}
+.fg select option{background:var(--s)}
+.fg .hint{font-size:9px;color:var(--dm);margin-top:2px;opacity:.6}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+
+/* buttons */
+.btns{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.b{padding:8px 16px;border:none;border-radius:var(--rad);font-family:'Outfit',sans-serif;font-size:12px;font-weight:600;cursor:pointer;transition:.15s;display:inline-flex;align-items:center;gap:5px}
+.b1{background:var(--ac);color:#fff}.b1:hover{background:var(--acl)}
+.b2{background:var(--s2);color:var(--tx);border:1px solid var(--bd)}.b2:hover{border-color:var(--bda)}
+.bg{background:var(--gd);color:var(--g)}.bg:hover{background:rgba(52,211,153,.18)}
+.br{background:var(--rd);color:var(--r)}.br:hover{background:rgba(248,113,113,.16)}
+.bo{background:var(--od);color:var(--o)}.bo:hover{background:rgba(251,191,36,.16)}
+
+/* cards */
+.card{background:var(--s);border:1px solid var(--bd);border-radius:var(--rad);padding:11px 13px;margin-bottom:8px}
+.card .cl{font-size:8px;font-weight:600;text-transform:uppercase;letter-spacing:.7px;color:var(--dm);margin-bottom:3px}
+.card .cv{font-family:'JetBrains Mono',monospace;font-size:12px;word-break:break-all}
+.cv-g{color:var(--g)}.cv-r{color:var(--r)}.cv-o{color:var(--o)}.cv-a{color:var(--acl)}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:10px}
+.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:10px}
+.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-bottom:10px}
+.hr{border:none;border-top:1px solid var(--bd);margin:14px 0}
+
+/* alerts */
+.al{padding:8px 12px;border-radius:var(--rad);margin-bottom:10px;font-size:11px;line-height:1.5}
+.al-i{background:rgba(91,108,247,.08);border:1px solid rgba(91,108,247,.2);color:var(--acl)}
+.al-s{background:var(--gd);border:1px solid rgba(52,211,153,.2);color:var(--g)}
+.al-e{background:var(--rd);border:1px solid rgba(248,113,113,.2);color:var(--r)}
+.al-w{background:var(--od);border:1px solid rgba(251,191,36,.2);color:var(--o)}
+
+/* KPI blocks */
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}
+.kpi{background:var(--s);border:1px solid var(--bd);border-radius:var(--rad);padding:14px}
+.kpi .kv{font-size:22px;font-weight:700;color:var(--acl);font-family:'JetBrains Mono',monospace}
+.kpi .kl{font-size:10px;color:var(--dm);margin-top:3px}
+
+/* client row */
+.uc{display:flex;align-items:center;gap:10px;background:var(--s2);border:1px solid var(--bd);border-radius:var(--rad);padding:9px 12px;margin-bottom:6px;cursor:pointer;transition:.12s}
+.uc:hover{border-color:var(--ac)}
+.uc .av{width:32px;height:32px;border-radius:50%;background:var(--ac);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;color:#fff;flex-shrink:0}
+.uc .ui{flex:1;min-width:0}
+.uc .un{font-weight:600;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.uc .up{font-size:10px;color:var(--dm);font-family:'JetBrains Mono',monospace}
+.uc .ub{display:flex;gap:3px;margin-top:2px;flex-wrap:wrap}
+.badge{font-size:8px;padding:1px 6px;border-radius:8px;font-weight:600;text-transform:uppercase;letter-spacing:.3px}
+.bd-a{background:rgba(91,108,247,.15);color:var(--acl)}
+.bd-bl{background:var(--rd);color:var(--r)}
+.bd-ok{background:var(--gd);color:var(--g)}
+.bd-o{background:var(--od);color:var(--o)}
+.uc .uact{display:flex;gap:4px;flex-shrink:0}
+
+/* booking rows */
+.brow{background:var(--s2);border:1px solid var(--bd);border-radius:var(--rad);padding:10px 12px;margin-bottom:6px}
+.brow .bh{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
+.brow .bn{font-weight:600;font-size:12px}
+.brow .bs{font-size:9px;padding:2px 7px;border-radius:6px;font-weight:600}
+.bs-c{background:var(--gd);color:var(--g)}.bs-p{background:var(--od);color:var(--o)}.bs-x{background:var(--rd);color:var(--r)}.bs-done{background:rgba(91,108,247,.15);color:var(--acl)}
+.brow .bi{font-size:10px;color:var(--dm);line-height:1.7}
+
+/* log panel */
+.logp{background:var(--s);border-left:1px solid var(--bd);display:flex;flex-direction:column;overflow:hidden}
+.logh{padding:9px 13px;border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.logh h3{font-size:11px;font-weight:600}
+.logh button{background:none;border:none;color:var(--dm);font-size:10px;cursor:pointer;font-family:'Outfit',sans-serif}
+.logb{flex:1;overflow-y:auto;padding:8px;font-family:'JetBrains Mono',monospace;font-size:9px;line-height:1.7}
+.le{padding:5px 7px;border-radius:4px;margin-bottom:3px}
+.le.rq{background:rgba(91,108,247,.05);border-left:2px solid var(--ac)}
+.le.ok{background:var(--gd);border-left:2px solid var(--g)}
+.le.er{background:var(--rd);border-left:2px solid var(--r)}
+.le .t{color:var(--dm);font-size:8px}
+.le .bd{margin-top:2px;color:var(--dm);font-size:9px;white-space:pre-wrap;word-break:break-all;max-height:80px;overflow-y:auto}
+
+/* schedule */
+.sch-court{margin-bottom:14px}
+.sch-court .sch-name{font-size:13px;font-weight:700;margin-bottom:5px;padding-bottom:4px;border-bottom:1px solid var(--bd);color:var(--acl)}
+.sch-slot{display:flex;align-items:center;gap:8px;background:var(--s2);border:1px solid var(--bd);border-radius:7px;padding:8px 10px;margin-bottom:5px}
+.sch-time{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;white-space:nowrap;color:var(--o);min-width:90px}
+.sch-info{flex:1;min-width:0}
+.sch-client{font-size:11px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sch-detail{font-size:9px;color:var(--dm)}
+
+/* news items */
+.ni{background:var(--s2);border:1px solid var(--bd);border-radius:var(--rad);padding:10px 12px;margin-bottom:6px}
+.ni .nt{font-weight:600;font-size:12px;margin-bottom:3px}
+.ni .nd{font-size:10px;color:var(--dm);line-height:1.5}
+.ni .nb{display:flex;gap:5px;margin-top:6px;align-items:center;justify-content:space-between}
+
+.hidden{display:none!important}
+::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--bd);border-radius:2px}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <h1>🏢 PADEL CRM</h1><span class="tag">MVP</span>
+  <input type="text" id="baseUrl" value="http://127.0.0.1:8000">
+  <div class="ml">
+    <div class="dot" id="dot"></div>
+    <span class="status-lbl" id="stxt">Не авторизован</span>
+  </div>
+</div>
+
+<div class="layout">
+  <!-- SIDEBAR -->
+  <nav class="side">
+    <div class="lbl">Авторизация</div>
+    <button class="on" data-s="login"><i>🔑</i> Вход в CRM</button>
+
+    <div class="lbl">Дашборды</div>
+    <button data-s="dash-r"><i>📊</i> Ресепшн</button>
+    <button data-s="dash-d"><i>📈</i> Директор</button>
+
+    <div class="lbl">Расписание</div>
+    <button data-s="schedule"><i>📅</i> Расписание</button>
+    <button data-s="all-bookings"><i>📋</i> Все брони</button>
+    <button data-s="new-booking"><i>➕</i> Создать бронь</button>
+
+    <div class="lbl">Клиенты</div>
+    <button data-s="clients"><i>👥</i> Клиенты</button>
+    <button data-s="client-card"><i>👤</i> Карточка</button>
+    <button data-s="client-actions"><i>⚙️</i> Действия</button>
+
+    <div class="lbl">Финансы</div>
+    <button data-s="finance"><i>💰</i> Транзакции</button>
+    <button data-s="finance-summary"><i>📊</i> Сводка</button>
+
+    <div class="lbl">Абонементы</div>
+    <button data-s="memberships"><i>🎫</i> Выдать абонемент</button>
+    <button data-s="memberships-list"><i>📋</i> Все абонементы</button>
+
+    <div class="lbl">Управление (как в админке)</div>
+    <button data-s="services"><i>🛠</i> Услуги</button>
+    <button data-s="mem-types"><i>🎫</i> Типы абонементов</button>
+    <button data-s="promos-mgr"><i>🏷</i> Акции / Промокоды</button>
+    <button data-s="courts"><i>🎾</i> Корты</button>
+    <button data-s="qr-scan"><i>📱</i> QR-сканер</button>
+    <button data-s="news-mgr"><i>📰</i> Новости</button>
+
+    <div class="lbl">Сессия</div>
+    <button data-s="session"><i>🪪</i> Сессия</button>
+  </nav>
+
+  <!-- MAIN -->
+  <main class="main">
+
+    <!-- ===== LOGIN ===== -->
+    <div id="s-login" class="sec show">
+      <div class="sec-title">🔑 Вход в CRM</div>
+      <div class="sec-sub">POST <code>/api/auth/crm/login/</code> — Только ADMIN и RECEPTIONIST</div>
+      <div class="al al-i">Клиенты и тренеры получат 403 — им вход по SMS в мобильном приложении</div>
+      <div class="row2">
+        <div class="fg"><label>Логин (username или телефон)</label><input id="crmUser" placeholder="reception1"></div>
+        <div class="fg"><label>Пароль</label><input type="password" id="crmPass" placeholder="••••••••"></div>
+      </div>
+      <div class="btns"><button class="b b1" onclick="crmLogin()">🔑 Войти</button></div>
+      <div id="loginRes" class="hidden">
+        <div class="g2" style="margin-top:12px">
+          <div class="card"><div class="cl">User ID</div><div class="cv cv-a" id="cId">—</div></div>
+          <div class="card"><div class="cl">Роль</div><div class="cv" id="cRole">—</div></div>
+          <div class="card"><div class="cl">Имя</div><div class="cv" id="cName">—</div></div>
+          <div class="card"><div class="cl">Access Token</div><div class="cv cv-g" id="cToken" style="font-size:9px">—</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== RECEPTION DASHBOARD ===== -->
+    <div id="s-dash-r" class="sec">
+      <div class="sec-title">📊 Дашборд ресепшн</div>
+      <div class="sec-sub">GET <code>/api/analytics/reception/</code> — сегодняшние данные</div>
+      <div class="btns"><button class="b b1" onclick="loadReceptionDash()">🔄 Загрузить</button></div>
+      <div id="receptionDash"></div>
+    </div>
+
+    <!-- ===== DIRECTOR DASHBOARD ===== -->
+    <div id="s-dash-d" class="sec">
+      <div class="sec-title">📈 Дашборд директора</div>
+      <div class="sec-sub">GET <code>/api/analytics/dashboard/</code> — только ADMIN</div>
+      <div class="btns"><button class="b b1" onclick="loadDirectorDash()">🔄 Загрузить</button></div>
+      <div id="directorDash"></div>
+    </div>
+
+    <!-- ===== SCHEDULE ===== -->
+    <div id="s-schedule" class="sec">
+      <div class="sec-title">📅 Расписание кортов</div>
+      <div class="sec-sub">GET <code>/api/bookings/manager/schedule/?date=</code></div>
+      <div class="row2">
+        <div class="fg"><label>Дата</label><input type="date" id="schedDate"></div>
+      </div>
+      <div class="btns">
+        <button class="b b1" onclick="loadSchedule()">📅 Загрузить</button>
+        <button class="b b2" onclick="$('schedDate').value=today();loadSchedule()">Сегодня</button>
+      </div>
+      <div id="scheduleResult"></div>
+    </div>
+
+    <!-- ===== ALL BOOKINGS ===== -->
+    <div id="s-all-bookings" class="sec">
+      <div class="sec-title">📋 Все бронирования</div>
+      <div class="sec-sub">GET <code>/api/bookings/all/?date=&status=&court_id=</code></div>
+      <div class="row3">
+        <div class="fg"><label>Дата</label><input type="date" id="abDate"></div>
+        <div class="fg"><label>Статус</label>
+          <select id="abStatus">
+            <option value="">Все</option>
+            <option value="CONFIRMED">Confirmed</option>
+            <option value="PENDING">Pending</option>
+            <option value="CANCELED">Canceled</option>
+            <option value="COMPLETED">Completed</option>
+          </select>
+        </div>
+        <div class="fg"><label>Корт ID</label><input type="number" id="abCourt" placeholder="Все"></div>
+      </div>
+      <div class="btns">
+        <button class="b b1" onclick="loadAllBookings()">🔍 Найти</button>
+        <button class="b b2" onclick="clearAllBookings()">Сброс</button>
+      </div>
+      <div id="allBookingsList"></div>
+    </div>
+
+    <!-- ===== NEW BOOKING (RECEPTION) ===== -->
+    <div id="s-new-booking" class="sec">
+      <div class="sec-title">➕ Создать бронь</div>
+      <div class="sec-sub">POST <code>/api/bookings/reception/create/</code> — от имени клиента</div>
+
+      <div class="fg">
+        <label>Поиск клиента</label>
+        <input id="nbClientSearch" placeholder="Имя или телефон клиента" oninput="searchNBClient()">
+        <div id="nbClientResults" style="margin-top:6px"></div>
+        <input type="number" id="nbClient" placeholder="ID клиента" style="margin-top:6px;background:var(--s2);color:var(--acl)">
+        <div class="hint">Нажмите на клиента в списке или введите ID вручную</div>
+      </div>
+
+      <div class="btns"><button class="b b2" onclick="initNBForm()">🔄 Загрузить корты и тренеров</button></div>
+
+      <div class="row2">
+        <div class="fg"><label>Корт</label>
+          <select id="nbCourt" onchange="updateNBTotal()"><option value="">— Загрузить —</option></select>
+        </div>
+        <div class="fg"><label>Тренер (необязательно)</label>
+          <select id="nbCoach" onchange="updateNBTotal()"><option value="">Без тренера</option></select>
+        </div>
+      </div>
+      <div class="row2">
+        <div class="fg"><label>Дата и время начала</label><input type="datetime-local" id="nbStart" onchange="updateNBTotal()"></div>
+        <div class="fg"><label>Длительность</label>
+          <select id="nbDur" onchange="updateNBTotal()">
+            <option value="60">60 мин</option>
+            <option value="90">90 мин</option>
+            <option value="120">120 мин</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Services for CRM booking -->
+      <div class="fg">
+        <label>Услуги и инвентарь (необязательно)</label>
+        <div id="nbServicesBox" style="background:var(--s);border:1px solid var(--bd);border-radius:var(--rad);padding:8px;min-height:36px">
+          <span style="color:var(--dm);font-size:11px">Нажмите «Загрузить» выше</span>
+        </div>
+      </div>
+
+      <div class="fg"><label>Способ оплаты</label>
+        <select id="nbPayMethod">
+          <option value="KASPI">Kaspi QR</option>
+          <option value="CASH">Наличные</option>
+          <option value="CARD">Банковская карта</option>
+        </select>
+      </div>
+      <div class="fg"><label>Промокод</label><input id="nbPromo" placeholder="Необязательно"></div>
+
+      <!-- Price preview -->
+      <div id="nbPricePreview" style="display:none;background:var(--gd);border:1px solid rgba(52,211,153,.2);border-radius:var(--rad);padding:12px;margin-bottom:10px">
+        <div style="font-size:10px;color:var(--dm);margin-bottom:4px">Предварительный расчёт</div>
+        <div id="nbPriceLines" style="font-size:11px;color:var(--dm);line-height:1.9"></div>
+        <div style="border-top:1px solid rgba(52,211,153,.2);margin-top:6px;padding-top:6px;display:flex;justify-content:space-between">
+          <span style="font-size:12px;font-weight:600">Итого:</span>
+          <span id="nbPriceTotal" style="font-size:16px;font-weight:700;color:var(--g)">0₸</span>
+        </div>
+      </div>
+
+      <div class="btns">
+        <button class="b b1" onclick="createBookingReception()">➕ Создать бронь</button>
+      </div>
+      <div id="nbRes"></div>
+    </div>
+
+    <!-- ===== CLIENTS ===== -->
+    <div id="s-clients" class="sec">
+      <div class="sec-title">👥 Клиенты</div>
+      <div class="sec-sub">GET <code>/api/auth/clients/?search=&role=</code></div>
+      <div class="row2">
+        <div class="fg"><label>Поиск (имя, телефон, username)</label><input id="clSearch" placeholder="Иван или +77..."></div>
+        <div class="fg"><label>Роль</label>
+          <select id="clRole">
+            <option value="CLIENT">Клиенты</option>
+            <option value="COACH_PADEL">Тренеры падел</option>
+            <option value="COACH_FITNESS">Тренеры фитнес</option>
+            <option value="">Все роли</option>
+          </select>
+        </div>
+      </div>
+      <div class="btns"><button class="b b1" onclick="loadClients()">🔍 Найти</button></div>
+      <div id="clientsList"></div>
+    </div>
+
+    <!-- ===== CLIENT CARD ===== -->
+    <div id="s-client-card" class="sec">
+      <div class="sec-title">👤 Карточка клиента</div>
+      <div class="sec-sub">GET <code>/api/auth/reception/user/{id}/</code></div>
+      <div class="fg"><label>User ID</label><input type="number" id="ccId" placeholder="ID"></div>
+      <div class="btns"><button class="b b1" onclick="loadClientCard()">📥 Загрузить</button></div>
+      <div id="clientCardRes"></div>
+    </div>
+
+    <!-- ===== CLIENT ACTIONS ===== -->
+    <div id="s-client-actions" class="sec">
+      <div class="sec-title">⚙️ Действия с клиентом</div>
+      <div class="sec-sub">POST <code>/api/auth/reception/user/{id}/action/</code></div>
+      <div class="fg"><label>User ID</label><input type="number" id="actId" placeholder="ID клиента"></div>
+      <div class="hr"></div>
+      <div style="font-weight:600;font-size:13px;margin-bottom:8px">QR-доступ</div>
+      <div class="btns"><button class="b bg" onclick="doAction('unblock_qr')">✅ Разблокировать QR</button></div>
+      <div class="hr"></div>
+      <div style="font-weight:600;font-size:13px;margin-bottom:8px">Обновить данные</div>
+      <div class="row2">
+        <div class="fg"><label>Новое имя</label><input id="actFn" placeholder="Иван"></div>
+        <div class="fg"><label>Новая фамилия</label><input id="actLn" placeholder="Иванов"></div>
+      </div>
+      <div class="btns"><button class="b b1" onclick="doAction('update_info')">💾 Сохранить</button></div>
+      <div class="hr"></div>
+      <div style="font-weight:600;font-size:13px;margin-bottom:8px">Аккаунт</div>
+      <div class="btns">
+        <button class="b br" onclick="doAction('deactivate')">🚫 Деактивировать</button>
+        <button class="b bg" onclick="doAction('activate')">✅ Активировать</button>
+      </div>
+
+      <div class="hr"></div>
+      <div style="font-weight:600;font-size:13px;margin-bottom:8px">Подтверждение оплаты брони</div>
+      <div class="row2">
+        <div class="fg"><label>ID брони</label><input type="number" id="actBkId" placeholder="ID брони"></div>
+        <div class="fg"><label>Способ оплаты</label>
+          <select id="actPayMethod"><option value="KASPI">Kaspi QR</option><option value="CASH">Наличные</option><option value="CARD">Карта</option></select>
+        </div>
+      </div>
+      <div class="btns"><button class="b bo" onclick="confirmPayment()">💵 Подтвердить оплату</button></div>
+      <div id="actRes"></div>
+    </div>
+
+    <!-- ===== FINANCE ===== -->
+    <div id="s-finance" class="sec">
+      <div class="sec-title">💰 Транзакции</div>
+      <div class="sec-sub">GET <code>/api/finance/transactions/?date=&type=&method=&user_id=</code></div>
+      <div class="row3">
+        <div class="fg"><label>Дата</label><input type="date" id="finDate"></div>
+        <div class="fg"><label>Тип</label>
+          <select id="finType">
+            <option value="">Все</option>
+            <option value="BOOKING">Бронь</option>
+            <option value="MEMBERSHIP">Абонемент</option>
+            <option value="REFUND">Возврат</option>
+            <option value="SALARY">Зарплата</option>
+            <option value="OTHER">Прочее</option>
+          </select>
+        </div>
+        <div class="fg"><label>Оплата</label>
+          <select id="finMethod">
+            <option value="">Все</option>
+            <option value="KASPI">Kaspi QR</option>
+            <option value="CASH">Наличные</option>
+            <option value="CARD">Карта</option>
+          </select>
+        </div>
+      </div>
+      <div class="fg"><label>User ID (необязательно)</label><input type="number" id="finUser" placeholder="Все пользователи"></div>
+      <div class="btns"><button class="b b1" onclick="loadTransactions()">🔍 Найти</button></div>
+      <div id="transList"></div>
+    </div>
+
+    <!-- ===== FINANCE SUMMARY ===== -->
+    <div id="s-finance-summary" class="sec">
+      <div class="sec-title">📊 Финансовая сводка</div>
+      <div class="sec-sub">GET <code>/api/finance/summary/?period=today|month|all</code></div>
+      <div class="btns">
+        <button class="b b1" onclick="loadSummary('today')">Сегодня</button>
+        <button class="b b2" onclick="loadSummary('month')">Месяц</button>
+        <button class="b b2" onclick="loadSummary('all')">Всё время</button>
+      </div>
+      <div id="summaryRes"></div>
+    </div>
+
+    <!-- ===== MEMBERSHIPS - ISSUE ===== -->
+    <div id="s-memberships" class="sec">
+      <div class="sec-title">🎫 Выдать абонемент клиенту</div>
+      <div class="sec-sub">POST <code>/api/memberships/reception/buy/</code> — ресепшн выдаёт абонемент</div>
+
+      <div class="row2">
+        <div class="fg">
+          <label>Поиск клиента</label>
+          <input id="memClientSearch" placeholder="Имя или телефон" oninput="searchMemClient()">
+        </div>
+        <div class="fg">
+          <label>Выбранный клиент</label>
+          <input id="memClientId" type="number" placeholder="ID (заполняется автоматически)" readonly style="background:var(--s2);color:var(--acl)">
+        </div>
+      </div>
+      <div id="memClientResults" style="margin-bottom:12px"></div>
+
+      <div class="fg">
+        <label>Тип абонемента</label>
+        <div id="memTypesList" style="background:var(--s);border:1px solid var(--bd);border-radius:var(--rad);padding:8px;min-height:44px">
+          <button class="b b2" style="padding:5px 12px;font-size:11px" onclick="loadMemTypes()">🔄 Загрузить типы</button>
+        </div>
+        <input type="hidden" id="memTypeId">
+        <div id="memTypeSelected" style="font-size:10px;color:var(--acl);margin-top:4px"></div>
+      </div>
+
+      <div class="fg">
+        <label>Способ оплаты</label>
+        <select id="memPayMethod">
+          <option value="CASH">Наличные</option>
+          <option value="KASPI">Kaspi QR</option>
+          <option value="CARD">Банковская карта</option>
+        </select>
+      </div>
+
+      <!-- Price preview -->
+      <div id="memPricePreview" style="display:none;background:var(--gd);border:1px solid rgba(52,211,153,.2);border-radius:var(--rad);padding:12px;margin-bottom:10px">
+        <div style="font-size:10px;color:var(--dm);margin-bottom:4px">Абонемент</div>
+        <div id="memPriceLine" style="font-size:16px;font-weight:700;color:var(--g)"></div>
+        <div id="memTypeDesc" style="font-size:10px;color:var(--dm);margin-top:3px"></div>
+      </div>
+
+      <div class="btns">
+        <button class="b b1" onclick="receptionBuyMembership()">🎫 Выдать абонемент</button>
+      </div>
+      <div id="memBuyRes"></div>
+    </div>
+
+    <!-- ===== MEMBERSHIPS - LIST ===== -->
+    <div id="s-memberships-list" class="sec">
+      <div class="sec-title">📋 Все абонементы</div>
+      <div class="sec-sub">GET <code>/api/memberships/all/?client_id=&is_active=</code></div>
+      <div class="row2">
+        <div class="fg"><label>ID клиента (необязательно)</label><input type="number" id="mlClientId" placeholder="Все клиенты"></div>
+        <div class="fg"><label>Статус</label>
+          <select id="mlActive">
+            <option value="">Все</option>
+            <option value="true">Только активные</option>
+            <option value="false">Только неактивные</option>
+          </select>
+        </div>
+      </div>
+      <div class="btns"><button class="b b1" onclick="loadAllMemberships()">🔍 Найти</button></div>
+      <div id="mlList"></div>
+    </div>
+
+    <!-- ===== QR SCANNER ===== -->
+    <div id="s-qr-scan" class="sec">
+      <div class="sec-title">📱 QR-сканер</div>
+      <div class="sec-sub">POST <code>/api/gym/qr/scan/</code> — ADMIN и RECEPTIONIST</div>
+      <div class="al al-w">Скопируйте QR-контент из мобильного приложения</div>
+      <div class="fg"><label>QR Content (скопировать из app.html)</label><input id="qrContent" placeholder="2:1vuUZi:zvrSNipTTJ5..."></div>
+      <div class="fg"><label>Локация</label>
+        <select id="qrLocation">
+          <option value="GYM">Турникет зала</option>
+          <option value="PADEL">Ресепшн падела</option>
+          <option value="ALL">Общий вход</option>
+        </select>
+      </div>
+      <div class="btns"><button class="b b1" onclick="scanQR()">📱 Сканировать</button></div>
+      <div id="qrRes"></div>
+    </div>
+
+    <!-- ===== NEWS MANAGER ===== -->
+    <div id="s-news-mgr" class="sec">
+      <div class="sec-title">📰 Управление новостями</div>
+      <div class="al al-w">Создание/редактирование требует роль ADMIN</div>
+      <div class="btns"><button class="b b2" onclick="loadNewsAdmin()">🔄 Загрузить новости</button></div>
+      <div id="newsAdminList"></div>
+      <div class="hr"></div>
+      <div style="font-weight:600;font-size:13px;margin-bottom:10px">Создать новость</div>
+      <div class="fg"><label>Заголовок</label><input id="ntTitle" placeholder="Заголовок новости"></div>
+      <div class="fg"><label>Категория</label>
+        <select id="ntCat">
+          <option value="NEWS">Новость</option>
+          <option value="EVENT">Мероприятие / Турнир</option>
+          <option value="PROMO">Акция</option>
+          <option value="ANNOUNCEMENT">Объявление</option>
+        </select>
+      </div>
+      <div class="fg"><label>Текст</label><textarea id="ntContent" placeholder="Текст новости..." style="padding:8px;background:var(--s);border:1px solid var(--bd);border-radius:var(--rad);color:var(--tx);font-family:'Outfit',sans-serif;font-size:12px;min-height:80px;width:100%"></textarea></div>
+      <div class="fg"><label>Ссылка на картинку</label><input id="ntImg" placeholder="https://..."></div>
+      <div class="btns"><button class="b b1" onclick="createNews()">➕ Создать</button></div>
+      <div id="ntRes"></div>
+    </div>
+
+    <!-- ===== SERVICES (CRUD) ===== -->
+    <div id="s-services" class="sec">
+      <div class="sec-title">🛠 Услуги / Инвентарь</div>
+      <div class="sec-sub">Создание и редактирование как в админке. API: <code>/api/inventory/services/manage/</code></div>
+      <div class="hr"></div>
+      <div style="font-weight:600;margin-bottom:8px">➕ Создать услугу</div>
+      <div class="row2">
+        <div class="fg"><label>Название</label><input id="svcName" placeholder="Ракетка"></div>
+        <div class="fg"><label>Цена (₸)</label><input type="number" id="svcPrice" placeholder="5000"></div>
+      </div>
+      <div class="btns"><button class="b b1" onclick="createService()">Создать</button><button class="b b2" onclick="loadServicesManage()">🔄 Список</button></div>
+      <div id="servicesList"></div>
+    </div>
+
+    <!-- ===== MEMBERSHIP TYPES (CRUD) ===== -->
+    <div id="s-mem-types" class="sec">
+      <div class="sec-title">🎫 Типы абонементов</div>
+      <div class="sec-sub">API: <code>/api/memberships/types/manage/</code></div>
+      <div class="hr"></div>
+      <div style="font-weight:600;margin-bottom:8px">➕ Создать тип</div>
+      <div class="row2">
+        <div class="fg"><label>Название</label><input id="mtName" placeholder="Падел 10 часов"></div>
+        <div class="fg"><label>Тип услуги</label><select id="mtServiceType"><option value="PADEL">Падел</option><option value="GYM_UNLIMITED">Зал безлимит</option><option value="GYM_PACK">Зал пакет</option></select></div>
+      </div>
+      <div class="row2">
+        <div class="fg"><label>Цена (₸)</label><input type="number" id="mtPrice" placeholder="25000"></div>
+        <div class="fg"><label>Дней действия</label><input type="number" id="mtDays" value="30"></div>
+      </div>
+      <div class="row2">
+        <div class="fg"><label>Часов (для падел)</label><input type="number" id="mtHours" value="10" step="0.1"></div>
+        <div class="fg"><label>Посещений (для зала)</label><input type="number" id="mtVisits" value="0"></div>
+      </div>
+      <div class="fg"><label>Скидка на корт (%)</label><input type="number" id="mtDiscount" value="0"></div>
+      <div class="btns"><button class="b b1" onclick="createMembershipType()">Создать</button><button class="b b2" onclick="loadMembershipTypesManage()">🔄 Список</button></div>
+      <div id="memTypesListManage"></div>
+    </div>
+
+    <!-- ===== PROMOS (CRUD) ===== -->
+    <div id="s-promos-mgr" class="sec">
+      <div class="sec-title">🏷 Акции и промокоды</div>
+      <div class="sec-sub">API: <code>/api/marketing/manage/</code></div>
+      <div class="hr"></div>
+      <div style="font-weight:600;margin-bottom:8px">➕ Создать акцию</div>
+      <div class="fg"><label>Заголовок</label><input id="prTitle" placeholder="Скидка 20%"></div>
+      <div class="fg"><label>Описание</label><input id="prDesc" placeholder="На первое посещение"></div>
+      <div class="row2">
+        <div class="fg"><label>Промокод</label><input id="prCode" placeholder="WELCOME20"></div>
+        <div class="fg"><label>Тип скидки</label><select id="prType"><option value="PERCENT">Процент</option><option value="FIXED">Сумма (₸)</option></select></div>
+      </div>
+      <div class="row2">
+        <div class="fg"><label>Значение скидки</label><input type="number" id="prValue" placeholder="20"></div>
+        <div class="fg"><label>Приоритет</label><input type="number" id="prPriority" value="0"></div>
+      </div>
+      <div class="row2">
+        <div class="fg"><label>Начало</label><input type="datetime-local" id="prStart"></div>
+        <div class="fg"><label>Конец</label><input type="datetime-local" id="prEnd"></div>
+      </div>
+      <div class="btns"><button class="b b1" onclick="createPromo()">Создать</button><button class="b b2" onclick="loadPromosManage()">🔄 Список</button></div>
+      <div id="promosListManage"></div>
+    </div>
+
+    <!-- ===== COURTS (CRUD) ===== -->
+    <div id="s-courts" class="sec">
+      <div class="sec-title">🎾 Корты</div>
+      <div class="sec-sub">API: <code>/api/courts/manage/</code> — создание и редактирование</div>
+      <div class="hr"></div>
+      <div style="font-weight:600;margin-bottom:8px">➕ Создать корт</div>
+      <div class="row2">
+        <div class="fg"><label>Название</label><input id="courtName" placeholder="Корт 1"></div>
+        <div class="fg"><label>Тип</label><select id="courtType"><option value="INDOOR">Закрытый</option><option value="OUTDOOR">Открытый</option></select></div>
+      </div>
+      <div class="row2">
+        <div class="fg"><label>Цена/час (₸)</label><input type="number" id="courtPrice" placeholder="15000"></div>
+        <div class="fg"><label>Описание</label><input id="courtDesc" placeholder="—"></div>
+      </div>
+      <div class="btns"><button class="b b1" onclick="createCourt()">Создать</button><button class="b b2" onclick="loadCourtsManage()">🔄 Список</button></div>
+      <div id="courtsAdminList"></div>
+    </div>
+
+    <!-- ===== SESSION ===== -->
+    <div id="s-session" class="sec">
+      <div class="sec-title">🪪 Сессия</div>
+      <div class="g2">
+        <div class="card"><div class="cl">User ID</div><div class="cv cv-a" id="sesId">—</div></div>
+        <div class="card"><div class="cl">Роль</div><div class="cv" id="sesRole">—</div></div>
+        <div class="card"><div class="cl">Access</div><div class="cv" id="sesAt" style="font-size:8px">—</div></div>
+        <div class="card"><div class="cl">Refresh</div><div class="cv" id="sesRt" style="font-size:8px">—</div></div>
+      </div>
+      <div class="btns">
+        <button class="b b1" onclick="doRefresh()">🔄 Обновить токен</button>
+        <button class="b b2" onclick="doVerify()">✔️ Проверить токен</button>
+      </div>
+      <div id="sesVer"></div>
+      <div class="hr"></div>
+      <div class="btns"><button class="b br" onclick="doLogout()">🚪 Выйти</button></div>
+    </div>
+
+  </main>
+
+  <!-- LOG PANEL -->
+  <aside class="logp">
+    <div class="logh"><h3>📋 Логи запросов</h3><button onclick="$('logB').innerHTML=''">Очистить</button></div>
+    <div class="logb" id="logB"></div>
+  </aside>
+</div>
+
+<script>
+let AT=null,RT=null,UID=null,ROLE=null;
+const B=()=>document.getElementById('baseUrl').value.replace(/\/+$/,'');
+const $=id=>document.getElementById(id);
+const esc=t=>{const d=document.createElement('div');d.textContent=t;return d.innerHTML};
+const fmtMoney=n=>Number(n||0).toLocaleString('ru-RU')+'₸';
+const today=()=>new Date().toISOString().split('T')[0];
+const uN=u=>(u.first_name&&u.last_name)?`${u.first_name} ${u.last_name}`:(u.username||'User#'+u.id);
+
+// ---- NAV ----
+document.querySelectorAll('.side button[data-s]').forEach(b=>{
+  b.addEventListener('click',()=>{
+    document.querySelectorAll('.side button').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on');
+    document.querySelectorAll('.sec').forEach(s=>s.classList.remove('show'));
+    const el=$('s-'+b.dataset.s);
+    if(el) el.classList.add('show');
+  });
+});
+
+// ---- LOG ----
+function log(type,method,url,body,status,res){
+  const t=new Date().toLocaleTimeString();
+  const c=type==='rq'?'rq':(status<400?'ok':'er');
+  let h=`<div class="le ${c}"><span class="t">${t}</span> <b>${method}</b> <span style="color:var(--dm)">${url}</span>`;
+  if(status!==undefined) h+=` → <b style="${status<400?'color:var(--g)':'color:var(--r)'}">${status}</b>`;
+  if(body) h+=`<div class="bd">${esc(JSON.stringify(body,null,1))}</div>`;
+  if(res) h+=`<div class="bd">${esc(typeof res==='object'?JSON.stringify(res,null,1):res)}</div>`;
+  h+=`</div>`;
+  $('logB').insertAdjacentHTML('afterbegin',h);
+}
+
+// ---- API ----
+async function api(method,path,body=null,auth=true){
+  const url=B()+path;
+  const h={'Content-Type':'application/json'};
+  if(auth&&AT) h['Authorization']=`Bearer ${AT}`;
+  const o={method,headers:h};
+  if(body&&method!=='GET') o.body=JSON.stringify(body);
+  log('rq',method,path,body);
+  try{
+    const r=await fetch(url,o);
+    const ct=r.headers.get('content-type')||'';
+    const d=ct.includes('json')?await r.json():await r.text();
+    log('rs',method,path,null,r.status,d);
+    return{ok:r.ok,status:r.status,data:d};
+  }catch(e){
+    log('rs',method,path,null,0,{error:e.message});
+    return{ok:false,status:0,data:{error:e.message}};
+  }
+}
+
+function upd(){
+  const d=$('dot'),t=$('stxt');
+  if(AT){d.classList.add('on');t.textContent=`${ROLE||'?'} (ID:${UID})`;}
+  else{d.classList.remove('on');t.textContent='Не авторизован';}
+  $('sesId').textContent=UID||'—';$('sesRole').textContent=ROLE||'—';
+  $('sesAt').textContent=AT?AT.substring(0,40)+'...':'—';
+  $('sesRt').textContent=RT?RT.substring(0,40)+'...':'—';
+}
+function showAl(id,type,msg){$(id).innerHTML=`<div class="al al-${type}">${esc(typeof msg==='object'?JSON.stringify(msg):msg)}</div>`;}
+function pickClient(id){$('actId').value=id;$('ccId').value=id;goSec('client-card');}
+function goSec(name){
+  document.querySelectorAll('.side button').forEach(x=>x.classList.remove('on'));
+  const btn=document.querySelector(`[data-s="${name}"]`);
+  if(btn) btn.classList.add('on');
+  document.querySelectorAll('.sec').forEach(s=>s.classList.remove('show'));
+  const el=$('s-'+name);
+  if(el) el.classList.add('show');
+}
+
+// ============ AUTH ============
+async function crmLogin(){
+  const u=$('crmUser').value.trim(),p=$('crmPass').value;
+  if(!u||!p)return alert('Заполните логин и пароль');
+  const r=await api('POST','/api/auth/crm/login/',{username:u,password:p},false);
+  if(r.ok){
+    AT=r.data.access;RT=r.data.refresh;UID=r.data.user_id;ROLE=r.data.role;upd();
+    $('loginRes').classList.remove('hidden');
+    $('cId').textContent=r.data.user_id;
+    $('cRole').textContent=r.data.role;
+    $('cName').textContent=`${r.data.first_name||''} ${r.data.last_name||''}`.trim()||'—';
+    $('cToken').textContent=AT.substring(0,60)+'...';
+  }else alert('❌ '+(r.data.error||JSON.stringify(r.data)));
+}
+async function doRefresh(){ if(!RT)return alert('Нет токена'); const r=await api('POST','/api/auth/jwt/refresh/',{refresh:RT},false); if(r.ok){AT=r.data.access;upd();alert('✅ Токен обновлён');}else alert('❌ '+JSON.stringify(r.data)); }
+async function doVerify(){ if(!AT)return alert('Нет токена'); const r=await api('POST','/api/auth/jwt/verify/',{token:AT},false); $('sesVer').innerHTML=r.ok?'<div class="al al-s">✅ Токен валиден</div>':'<div class="al al-e">❌ Истёк или невалиден</div>'; }
+function doLogout(){ AT=RT=UID=ROLE=null;upd();$('loginRes').classList.add('hidden');alert('🚪 Вышли'); }
+
+// ============ DASHBOARDS ============
+async function loadReceptionDash(){
+  const r=await api('GET','/api/analytics/reception/');
+  if(!r.ok){showAl('receptionDash','e',r.data);return;}
+  const d=r.data;
+  let upcoming='';
+  if(d.upcoming_bookings?.length){
+    upcoming=`<div class="hr"></div><div style="font-weight:600;font-size:13px;margin-bottom:8px">Ближайшие брони (3 ч)</div>`+
+    d.upcoming_bookings.map(b=>`<div class="sch-slot">
+      <div class="sch-time">${esc(b.start_time)}</div>
+      <div class="sch-info">
+        <div class="sch-client">${esc(b.court)} — ${esc(b.client)}</div>
+        <div class="sch-detail">${fmtMoney(b.price)} · ${b.is_paid?'✅ Оплачено':'⏳ Ожидает'} · ${b.status}</div>
+      </div>
+      ${!b.is_paid?`<button class="b bg" style="padding:4px 8px;font-size:10px" onclick="$('s-client-actions').scrollIntoView();$('actBkId').value=${b.id}">Оплата</button>`:''}
+    </div>`).join('');
+  }
+  $('receptionDash').innerHTML=`
+    <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr)">
+      <div class="kpi"><div class="kv">${d.bookings_today}</div><div class="kl">Брони сегодня</div></div>
+      <div class="kpi"><div class="kv cv-o">${d.pending_payments}</div><div class="kl">Ждут оплаты</div></div>
+      <div class="kpi"><div class="kv cv-g">${fmtMoney(d.today_revenue)}</div><div class="kl">Выручка сегодня</div></div>
+      <div class="kpi"><div class="kv">${d.today}</div><div class="kl">Дата</div></div>
+    </div>${upcoming}`;
+}
+
+async function loadDirectorDash(){
+  const r=await api('GET','/api/analytics/dashboard/');
+  if(!r.ok){showAl('directorDash','e',r.data);return;}
+  const d=r.data,k=d.kpi;
+  let struct='';
+  if(d.revenue_structure?.length){
+    struct=`<div class="hr"></div><div style="font-weight:600;font-size:13px;margin-bottom:8px">Структура выручки</div>`+
+    d.revenue_structure.map(s=>`<div class="card" style="display:flex;justify-content:space-between;align-items:center"><div><div style="font-weight:600;font-size:12px">${esc(s.label)}</div><div style="font-size:10px;color:var(--dm)">${s.count} транзакций</div></div><div style="font-size:16px;font-weight:700;color:var(--g)">${fmtMoney(s.amount)}</div></div>`).join('');
+  }
+  $('directorDash').innerHTML=`
+    <div class="kpi-grid">
+      <div class="kpi"><div class="kv cv-g">${fmtMoney(k.today_revenue)}</div><div class="kl">Сегодня</div></div>
+      <div class="kpi"><div class="kv cv-g">${fmtMoney(k.week_revenue)}</div><div class="kl">Неделя</div></div>
+      <div class="kpi"><div class="kv cv-g">${fmtMoney(k.month_revenue)}</div><div class="kl">Месяц</div></div>
+      <div class="kpi"><div class="kv cv-a">${fmtMoney(k.total_revenue)}</div><div class="kl">Всё время</div></div>
+    </div>
+    <div class="kpi-grid">
+      <div class="kpi"><div class="kv">${k.occupancy_rate_today}</div><div class="kl">Загрузка сегодня</div></div>
+      <div class="kpi"><div class="kv">${k.bookings_today}</div><div class="kl">Брони сегодня</div></div>
+      <div class="kpi"><div class="kv cv-o">${k.pending_payments}</div><div class="kl">Ждут оплаты</div></div>
+      <div class="kpi"><div class="kv">${k.total_clients}</div><div class="kl">Клиентов</div></div>
+    </div>
+    <div class="al al-i">Рабочее время: ${esc(d.work_hours||'—')} · Месяц: ${esc(d.period?.month||'')}</div>
+    ${struct}`;
+}
+
+// ============ SCHEDULE ============
+async function loadSchedule(){
+  const date=$('schedDate').value||today();
+  const r=await api('GET',`/api/bookings/manager/schedule/?date=${date}`);
+  if(!r.ok){showAl('scheduleResult','e',r.data);return;}
+  if(!r.data.schedule?.length){$('scheduleResult').innerHTML='<div class="al al-w">Нет данных</div>';return;}
+  $('scheduleResult').innerHTML=r.data.schedule.map(ct=>`
+    <div class="sch-court">
+      <div class="sch-name">🎾 ${esc(ct.court_name)} <span style="font-size:10px;font-weight:400;color:var(--dm)">(${esc(ct.court_type||'')})</span></div>
+      ${ct.bookings.length?ct.bookings.map(b=>`
+        <div class="sch-slot">
+          <div class="sch-time">${new Date(b.start_time).toLocaleTimeString('ru',{hour:'2-digit',minute:'2-digit'})}–${new Date(b.end_time).toLocaleTimeString('ru',{hour:'2-digit',minute:'2-digit'})}</div>
+          <div class="sch-info">
+            <div class="sch-client">${esc(b.client_name||'?')} <span style="font-family:monospace;font-size:9px">${esc(b.client_phone||'')}</span></div>
+            <div class="sch-detail">${fmtMoney(b.price)} · ${b.is_paid?'✅ Оплачено':'⏳ Не оплачено'}${b.coach_name?' · 👨‍🏫 '+esc(b.coach_name):''}</div>
+          </div>
+          <span class="bs ${b.status==='CONFIRMED'?'bs-c':b.status==='PENDING'?'bs-p':'bs-x'}">${b.status}</span>
+        </div>`).join(''):'<div class="al al-i" style="padding:6px 10px;font-size:10px">Броней нет</div>'}
+    </div>`).join('');
+}
+
+// ============ ALL BOOKINGS ============
+async function loadAllBookings(){
+  let url='/api/bookings/all/?';
+  const d=$('abDate').value,s=$('abStatus').value,c=$('abCourt').value;
+  if(d) url+=`date=${d}&`;
+  if(s) url+=`status=${s}&`;
+  if(c) url+=`court_id=${c}&`;
+  const r=await api('GET',url.slice(0,-1));
+  if(!r.ok){showAl('allBookingsList','e',r.data);return;}
+  const list=r.data.results||r.data;
+  $('allBookingsList').innerHTML=list.length?list.map(b=>`<div class="brow">
+    <div class="bh">
+      <div class="bn">#${b.id} 🎾 ${esc(b.court_name||'Корт')}</div>
+      <span class="bs ${b.status==='CONFIRMED'?'bs-c':b.status==='PENDING'?'bs-p':b.status==='COMPLETED'?'bs-done':'bs-x'}">${b.status}</span>
+    </div>
+    <div class="bi">
+      👤 ${esc(b.client_name||'?')} <span style="font-family:monospace">${esc(b.client_phone||'')}</span><br>
+      ⏰ ${new Date(b.start_time).toLocaleString('ru')} – ${new Date(b.end_time).toLocaleTimeString('ru',{hour:'2-digit',minute:'2-digit'})}<br>
+      💰 ${fmtMoney(b.price)} · ${b.is_paid?'<span style="color:var(--g)">✅ Оплачено</span>':'<span style="color:var(--o)">⏳ Не оплачено</span>'}
+      ${b.coach_name?`<br>👨‍🏫 ${esc(b.coach_name)}`:''}
+    </div>
+    ${!b.is_paid&&b.status!=='CANCELED'?`<button class="b bg" style="padding:4px 8px;font-size:10px;margin-top:5px" onclick="$('actBkId').value=${b.id};goSec('client-actions')">💵 Принять оплату</button>`:''}
+  </div>`).join(''):'<div class="al al-w">Броней не найдено</div>';
+}
+function clearAllBookings(){ $('abDate').value='';$('abStatus').value='';$('abCourt').value=''; $('allBookingsList').innerHTML=''; }
+
+// ============ NEW BOOKING (RECEPTION) ============
+async function createBookingReception(){
+  const clientId=$('nbClient').value;
+  if(!clientId)return alert('Найдите и выберите клиента');
+  const courtId=$('nbCourt').value;
+  if(!courtId)return alert('Выберите корт (нажмите «Загрузить»)');
+  const stVal=$('nbStart').value;
+  if(!stVal)return alert('Укажите дату и время');
+  const body={
+    client_id:parseInt(clientId),
+    court:parseInt(courtId),
+    start_time:new Date(stVal).toISOString(),
+    duration:parseInt($('nbDur').value),
+    payment_method:$('nbPayMethod').value,
+  };
+  const promo=$('nbPromo').value.trim();
+  if(promo) body.promo_code=promo;
+  const coachId=$('nbCoach').value;
+  if(coachId) body.coach=parseInt(coachId);
+  const svcChecked=[...document.querySelectorAll('#nbServicesBox input[type=checkbox]:checked')];
+  if(svcChecked.length){
+    body.services=svcChecked.map(cb=>({service_id:parseInt(cb.dataset.svcid),quantity:1}));
+  }
+  const r=await api('POST','/api/bookings/reception/create/',body);
+  $('nbRes').innerHTML=r.ok?`<div class="al al-s">✅ Бронь создана! ID: ${r.data.id} · Цена: ${fmtMoney(r.data.price)}</div>`:`<div class="al al-e">❌ ${esc(JSON.stringify(r.data))}</div>`;
+}
+
+// ============ CLIENTS ============
+async function loadClients(){
+  if(!AT)return alert('Войдите');
+  let url='/api/auth/clients/?';
+  const s=$('clSearch').value.trim(),rol=$('clRole').value;
+  if(s) url+=`search=${encodeURIComponent(s)}&`;
+  if(rol) url+=`role=${rol}&`;
+  const r=await api('GET',url.slice(0,-1));
+  if(!r.ok){showAl('clientsList','e',r.data);return;}
+  const list=r.data.results||r.data;
+  $('clientsList').innerHTML=list.length?list.map(u=>`
+    <div class="uc" onclick="pickClient(${u.id})">
+      <div class="av">${((u.first_name||u.username||'?')[0]||'?').toUpperCase()}</div>
+      <div class="ui">
+        <div class="un">${esc(uN(u))}</div>
+        <div class="up">${esc(u.phone_number||'—')}</div>
+        <div class="ub">
+          <span class="badge bd-a">${esc(u.role)}</span>
+          ${u.is_qr_blocked?'<span class="badge bd-bl">QR БЛОК</span>':'<span class="badge bd-ok">QR OK</span>'}
+          ${!u.is_profile_complete?'<span class="badge bd-o">БЕЗ ПРОФИЛЯ</span>':''}
+        </div>
+      </div>
+      <div class="uact">
+        <button class="b bg" style="padding:4px 8px;font-size:10px" onclick="event.stopPropagation();goSec('client-card');$('ccId').value=${u.id};loadClientCard()">Карточка</button>
+      </div>
+    </div>`).join(''):'<div class="al al-w">Клиенты не найдены</div>';
+}
+
+// ============ CLIENT CARD ============
+async function loadClientCard(){
+  if(!AT)return alert('Войдите');
+  const id=$('ccId').value;
+  if(!id)return alert('Укажите ID');
+  const r=await api('GET',`/api/auth/reception/user/${id}/`);
+  if(!r.ok){showAl('clientCardRes','e',r.data);return;}
+  const u=r.data;
+  $('clientCardRes').innerHTML=`
+    <div class="g2">
+      <div class="card"><div class="cl">ID</div><div class="cv cv-a">${u.id}</div></div>
+      <div class="card"><div class="cl">Роль</div><div class="cv">${esc(u.role)}</div></div>
+      <div class="card"><div class="cl">Телефон</div><div class="cv">${esc(u.phone_number||'—')}</div></div>
+      <div class="card"><div class="cl">Username</div><div class="cv">${esc(u.username)}</div></div>
+      <div class="card"><div class="cl">Имя</div><div class="cv">${esc(u.first_name||'(пусто)')}</div></div>
+      <div class="card"><div class="cl">Фамилия</div><div class="cv">${esc(u.last_name||'(пусто)')}</div></div>
+      <div class="card"><div class="cl">ELO рейтинг</div><div class="cv cv-a">${u.rating_elo}</div></div>
+      <div class="card"><div class="cl">QR</div><div class="cv ${u.is_qr_blocked?'cv-r':'cv-g'}">${u.is_qr_blocked?'⚠️ Заблокирован':'✅ Открыт'}</div></div>
+      <div class="card"><div class="cl">Профиль</div><div class="cv ${u.is_profile_complete?'cv-g':'cv-o'}">${u.is_profile_complete?'✅ Заполнен':'⚠️ Не заполнен'}</div></div>
+      <div class="card"><div class="cl">Зарегистрирован</div><div class="cv" style="font-size:10px">${u.created_at?new Date(u.created_at).toLocaleString('ru'):'—'}</div></div>
+    </div>
+    <div class="btns">
+      <button class="b b1" onclick="$('actId').value=${u.id};goSec('client-actions')">⚙️ Действия</button>
+      <button class="b b2" onclick="$('abDate').value='';$('abCourt').value='';$('abStatus').value='';loadAllBookingsByClient(${u.id})">📋 Брони</button>
+    </div>
+    <div id="clientBkRes${u.id}"></div>`;
+}
+async function loadAllBookingsByClient(uid){
+  const r=await api('GET',`/api/bookings/all/?client_id=${uid}`);
+  const el=document.getElementById(`clientBkRes${uid}`);
+  if(!el) return;
+  const list=r.data?.results||r.data||[];
+  el.innerHTML=list.length?`<div style="font-weight:600;font-size:12px;margin:8px 0">Брони клиента (${list.length}):</div>`+list.map(b=>`<div class="brow"><div class="bh"><div class="bn">#${b.id} ${esc(b.court_name||'')}</div><span class="bs ${b.status==='CONFIRMED'?'bs-c':b.status==='PENDING'?'bs-p':'bs-x'}">${b.status}</span></div><div class="bi">${new Date(b.start_time).toLocaleString('ru')} · ${fmtMoney(b.price)} · ${b.is_paid?'✅':'⏳'}</div></div>`).join(''):'<div class="al al-i">Броней нет</div>';
+}
+
+// ============ ACTIONS ============
+async function doAction(action){
+  if(!AT)return alert('Войдите');
+  const id=$('actId').value;
+  if(!id)return alert('Укажите ID клиента');
+  const body={action};
+  if(action==='update_info'){
+    const fn=$('actFn').value.trim(),ln=$('actLn').value.trim();
+    if(fn) body.first_name=fn;
+    if(ln) body.last_name=ln;
+  }
+  const r=await api('POST',`/api/auth/reception/user/${id}/action/`,body);
+  $('actRes').innerHTML=r.ok?`<div class="al al-s">✅ ${esc(r.data.message||'Готово')}</div>`:`<div class="al al-e">❌ ${esc(r.data.error||JSON.stringify(r.data))}</div>`;
+}
+async function confirmPayment(){
+  if(!AT)return alert('Войдите');
+  const bkId=$('actBkId').value;
+  if(!bkId)return alert('Укажите ID брони');
+  const method=$('actPayMethod').value;
+  const r=await api('POST',`/api/bookings/${bkId}/confirm-payment/`,{payment_method:method});
+  $('actRes').innerHTML=r.ok?`<div class="al al-s">✅ Оплата подтверждена! Способ: ${esc(r.data.payment_method)}</div>`:`<div class="al al-e">❌ ${esc(r.data.detail||JSON.stringify(r.data))}</div>`;
+}
+
+// ============ FINANCE ============
+async function loadTransactions(){
+  if(!AT)return alert('Войдите');
+  let url='/api/finance/transactions/?';
+  const d=$('finDate').value,t=$('finType').value,m=$('finMethod').value,u=$('finUser').value;
+  if(d) url+=`date=${d}&`;
+  if(t) url+=`type=${t}&`;
+  if(m) url+=`method=${m}&`;
+  if(u) url+=`user_id=${u}&`;
+  const r=await api('GET',url.slice(0,-1));
+  if(!r.ok){showAl('transList','e',r.data);return;}
+  const list=r.data.results||r.data;
+  $('transList').innerHTML=list.length?list.map(t=>`<div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+      <div style="font-weight:700;font-size:14px;${t.amount<0?'color:var(--r)':'color:var(--g)'}">${t.amount>0?'+':''}${fmtMoney(t.amount)}</div>
+      <div style="font-size:9px;color:var(--dm)">${esc(t.created_at_formatted||'')}</div>
+    </div>
+    <div style="font-size:10px;color:var(--dm)">${esc(t.transaction_type_label||t.transaction_type)} · ${esc(t.payment_method_label||t.payment_method)}</div>
+    ${t.description?`<div style="font-size:10px;margin-top:3px">${esc(t.description)}</div>`:''}
+    ${t.amount_court>0||t.amount_coach>0?`<div style="font-size:9px;color:var(--dm);margin-top:2px">Корт: ${fmtMoney(t.amount_court)} · Тренер: ${fmtMoney(t.amount_coach)} · Скидка: ${fmtMoney(t.amount_discount)}</div>`:''}
+  </div>`).join(''):'<div class="al al-w">Транзакций не найдено</div>';
+}
+async function loadSummary(period){
+  const r=await api('GET',`/api/finance/summary/?period=${period}`);
+  if(!r.ok){showAl('summaryRes','e',r.data);return;}
+  const d=r.data;
+  let byMethod='';
+  if(Object.keys(d.by_payment_method||{}).length){
+    byMethod=`<div class="hr"></div><div style="font-weight:600;font-size:12px;margin-bottom:6px">По способу оплаты</div>`+
+    Object.entries(d.by_payment_method).map(([k,v])=>`<div class="card" style="display:flex;justify-content:space-between"><div class="cv">${esc(k)}</div><div class="cv cv-g">${fmtMoney(v)}</div></div>`).join('');
+  }
+  let byType='';
+  if(Object.keys(d.by_type||{}).length){
+    byType=`<div class="hr"></div><div style="font-weight:600;font-size:12px;margin-bottom:6px">По типам</div>`+
+    Object.entries(d.by_type).map(([k,v])=>`<div class="card" style="display:flex;justify-content:space-between"><div class="cv">${esc(k)}</div><div class="cv ${v<0?'cv-r':'cv-g'}">${fmtMoney(v)}</div></div>`).join('');
+  }
+  $('summaryRes').innerHTML=`<div class="kpi" style="margin-bottom:12px"><div class="kv cv-g">${fmtMoney(d.total)}</div><div class="kl">Итого за: ${d.period}</div></div>${byMethod}${byType}`;
+}
+
+// ============ QR SCANNER ============
+async function scanQR(){
+  if(!AT)return alert('Войдите');
+  const content=$('qrContent').value.trim();
+  if(!content)return alert('Вставьте QR-контент из мобильного приложения');
+  const loc=$('qrLocation').value;
+  const r=await api('POST','/api/gym/qr/scan/',{qr_content:content,location:loc});
+  const d=r.data;
+  if(r.ok&&d.status==='SUCCESS'){
+    $('qrRes').innerHTML=`<div class="al al-s">✅ ДОСТУП РАЗРЕШЁН<br><b>${esc(d.user)}</b><br>${esc(d.phone||'')} · ${esc(d.details||'')}</div>`;
+  } else {
+    $('qrRes').innerHTML=`<div class="al al-e">⛔ ${esc(d.status||'DENIED')}: ${esc(d.error||JSON.stringify(d))}</div>`;
+  }
+}
+
+// ============ NEWS ============
+async function loadNewsAdmin(){
+  const r=await api('GET','/api/news/',null,false);
+  if(!r.ok){showAl('newsAdminList','e',r.data);return;}
+  $('newsAdminList').innerHTML=r.data.length?r.data.map(n=>`<div class="ni">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start">
+      <div class="nt">${esc(n.title)}</div>
+      <span style="font-size:8px;padding:2px 6px;border-radius:6px;background:rgba(91,108,247,.15);color:var(--acl)">${esc(n.category)}</span>
+    </div>
+    <div class="nd">${esc(n.content?.substring(0,100)||'')}...</div>
+    <div class="nb"><span style="font-size:9px;color:var(--dm)">${esc(n.created_at_formatted||'')}</span>${n.is_pinned?'<span style="font-size:8px;color:var(--o)">📌 Закреплено</span>':''}</div>
+  </div>`).join(''):'<div class="al al-w">Новостей нет</div>';
+}
+async function createNews(){
+  if(!AT)return alert('Войдите (нужна роль ADMIN)');
+  const title=$('ntTitle').value.trim(),content=$('ntContent').value.trim();
+  if(!title||!content)return alert('Заполните заголовок и текст');
+  const body={title,content,category:$('ntCat').value,is_published:true};
+  const img=$('ntImg').value.trim();
+  if(img) body.image_url=img;
+  const r=await api('POST','/api/news/manage/',body);
+  $('ntRes').innerHTML=r.ok?`<div class="al al-s">✅ Новость создана ID: ${r.data.id}</div>`:`<div class="al al-e">❌ ${esc(JSON.stringify(r.data))}</div>`;
+  if(r.ok){$('ntTitle').value='';$('ntContent').value='';loadNewsAdmin();}
+}
+
+// ============ SERVICES (CRUD) ============
+async function loadServicesManage(){
+  if(!AT)return alert('Войдите');
+  const r=await api('GET','/api/inventory/services/manage/');
+  if(!r.ok){showAl('servicesList','e',r.data);return;}
+  $('servicesList').innerHTML=r.data.length?r.data.map(s=>`<div class="card" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+    <div><div style="font-weight:600">${esc(s.name)}</div><div style="font-size:10px;color:var(--dm)">ID: ${s.id} ${s.is_active?'':'· Неактивен'}</div></div>
+    <div style="font-size:16px;font-weight:700;color:var(--g)">${fmtMoney(s.price)}</div>
+    <div style="display:flex;gap:4px"><button class="b b2" style="padding:4px 8px;font-size:10px" onclick="deleteService(${s.id})">Удалить</button></div>
+  </div>`).join(''):'<div class="al al-w">Услуг нет</div>';
+}
+async function createService(){
+  if(!AT)return alert('Войдите');
+  const name=$('svcName').value.trim(), price=$('svcPrice').value;
+  if(!name)return alert('Введите название'); if(!price)return alert('Введите цену');
+  const r=await api('POST','/api/inventory/services/manage/',{name,price:parseFloat(price),is_active:true});
+  if(r.ok){$('svcName').value='';$('svcPrice').value='';loadServicesManage();}
+  else showAl('servicesList','e',r.data);
+}
+async function deleteService(id){ if(!confirm('Удалить услугу?'))return; const r=await api('DELETE',`/api/inventory/services/manage/${id}/`); if(r.ok)loadServicesManage(); else alert(JSON.stringify(r.data)); }
+
+// ============ MEMBERSHIP TYPES (CRUD) ============
+async function loadMembershipTypesManage(){
+  if(!AT)return alert('Войдите');
+  const r=await api('GET','/api/memberships/types/manage/');
+  if(!r.ok){showAl('memTypesListManage','e',r.data);return;}
+  $('memTypesListManage').innerHTML=r.data.length?r.data.map(t=>`<div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+      <div style="font-weight:600">${esc(t.name)}</div>
+      <span style="font-size:9px;padding:2px 6px;background:var(--gd);color:var(--g);border-radius:6px">${esc(t.service_type)}</span>
+    </div>
+    <div style="font-size:11px;color:var(--dm)">${t.days_valid} дн · ${fmtMoney(t.price)} · ч: ${t.total_hours} · визитов: ${t.total_visits} · скидка: ${t.discount_on_court}%</div>
+    <div style="margin-top:6px"><button class="b br" style="padding:4px 8px;font-size:10px" onclick="deleteMembershipType(${t.id})">Удалить</button></div>
+  </div>`).join(''):'<div class="al al-w">Типов нет</div>';
+}
+async function createMembershipType(){
+  if(!AT)return alert('Войдите');
+  const body={
+    name:$('mtName').value.trim(),
+    service_type:$('mtServiceType').value,
+    price:parseFloat($('mtPrice').value)||0,
+    days_valid:parseInt($('mtDays').value)||30,
+    total_hours:parseFloat($('mtHours').value)||0,
+    total_visits:parseInt($('mtVisits').value)||0,
+    discount_on_court:parseInt($('mtDiscount').value)||0,
+    is_active:true,
+  };
+  if(!body.name)return alert('Введите название');
+  const r=await api('POST','/api/memberships/types/manage/',body);
+  if(r.ok){$('mtName').value='';$('mtPrice').value='';loadMembershipTypesManage();}
+  else showAl('memTypesListManage','e',r.data);
+}
+async function deleteMembershipType(id){ if(!confirm('Удалить тип абонемента?'))return; const r=await api('DELETE',`/api/memberships/types/manage/${id}/`); if(r.ok)loadMembershipTypesManage(); else alert(JSON.stringify(r.data)); }
+
+// ============ PROMOS (CRUD) ============
+async function loadPromosManage(){
+  if(!AT)return alert('Войдите');
+  const r=await api('GET','/api/marketing/manage/');
+  if(!r.ok){showAl('promosListManage','e',r.data);return;}
+  $('promosListManage').innerHTML=r.data.length?r.data.map(p=>`<div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+      <div style="font-weight:600">${esc(p.title)}</div>
+      <span style="font-size:9px;padding:2px 6px;background:var(--od);color:var(--o);border-radius:6px">${esc(p.promo_code||'—')}</span>
+    </div>
+    <div style="font-size:11px;color:var(--dm)">${esc(p.description||'')} · ${p.discount_type} ${p.discount_value} · ${p.is_active?'Активна':'Выкл'}</div>
+    <div style="margin-top:6px"><button class="b br" style="padding:4px 8px;font-size:10px" onclick="deletePromo(${p.id})">Удалить</button></div>
+  </div>`).join(''):'<div class="al al-w">Акций нет</div>';
+}
+async function createPromo(){
+  if(!AT)return alert('Войдите');
+  const start=$('prStart').value,end=$('prEnd').value;
+  const body={
+    title:$('prTitle').value.trim(),
+    description:$('prDesc').value.trim(),
+    promo_code:$('prCode').value.trim()||null,
+    discount_type:$('prType').value,
+    discount_value:parseFloat($('prValue').value)||0,
+    priority:parseInt($('prPriority').value)||0,
+    start_date:start?new Date(start).toISOString():new Date().toISOString(),
+    end_date:end?new Date(end).toISOString():new Date(Date.now()+30*24*60*60*1000).toISOString(),
+    is_active:true,
+  };
+  if(!body.title)return alert('Введите заголовок');
+  const r=await api('POST','/api/marketing/manage/',body);
+  if(r.ok){$('prTitle').value='';$('prDesc').value='';$('prCode').value='';loadPromosManage();}
+  else showAl('promosListManage','e',r.data);
+}
+async function deletePromo(id){ if(!confirm('Удалить акцию?'))return; const r=await api('DELETE',`/api/marketing/manage/${id}/`); if(r.ok)loadPromosManage(); else alert(JSON.stringify(r.data)); }
+
+// ============ COURTS (CRUD) ============
+async function loadCourtsManage(){
+  if(!AT)return alert('Войдите');
+  const r=await api('GET','/api/courts/manage/');
+  if(!r.ok){showAl('courtsAdminList','e',r.data);return;}
+  $('courtsAdminList').innerHTML=r.data.length?r.data.map(c=>`<div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+      <div style="font-weight:600;font-size:13px">${esc(c.name)}</div>
+      <div style="font-size:9px;padding:2px 7px;background:var(--gd);color:var(--g);border-radius:6px">${esc(c.court_type)}</div>
+    </div>
+    <div style="font-size:11px;color:var(--dm)">${esc(c.description||'—')}</div>
+    <div style="font-size:14px;font-weight:700;color:var(--acl);margin-top:5px">${fmtMoney(c.price_per_hour)}/ч</div>
+    <div style="margin-top:6px"><button class="b br" style="padding:4px 8px;font-size:10px" onclick="deleteCourt(${c.id})">Удалить</button></div>
+  </div>`).join(''):'<div class="al al-w">Кортов нет</div>';
+}
+async function loadCourtsAdmin(){ loadCourtsManage(); }
+async function createCourt(){
+  if(!AT)return alert('Войдите');
+  const body={
+    name:$('courtName').value.trim(),
+    court_type:$('courtType').value,
+    price_per_hour:parseFloat($('courtPrice').value)||0,
+    description:$('courtDesc').value.trim()||'',
+    is_active:true,
+  };
+  if(!body.name)return alert('Введите название');
+  const r=await api('POST','/api/courts/manage/',body);
+  if(r.ok){$('courtName').value='';$('courtPrice').value='';loadCourtsManage();}
+  else showAl('courtsAdminList','e',r.data);
+}
+async function deleteCourt(id){ if(!confirm('Удалить корт?'))return; const r=await api('DELETE',`/api/courts/manage/${id}/`); if(r.ok)loadCourtsManage(); else alert(JSON.stringify(r.data)); }
+
+// ============ NEW BOOKING - improved ============
+let _nbServices=[];
+async function initNBForm(){
+  const [rCourts, rCoaches, rServices] = await Promise.all([
+    api('GET','/api/courts/',null,false),
+    api('GET','/api/auth/coaches/',null,false),
+    api('GET','/api/inventory/services/',null,false),
+  ]);
+  // Courts
+  if(rCourts.ok){
+    const sel=$('nbCourt');
+    sel.innerHTML='<option value="">Выберите корт</option>';
+    rCourts.data.forEach(c=>{
+      const o=document.createElement('option');
+      o.value=c.id; o.dataset.price=c.price_per_hour||0;
+      o.textContent=`${c.name} — ${fmtMoney(c.price_per_hour)}/ч`;
+      sel.appendChild(o);
+    });
+  }
+  // Coaches
+  if(rCoaches.ok){
+    const coaches=rCoaches.data;
+    const sel=$('nbCoach');
+    sel.innerHTML='<option value="">Без тренера</option>';
+    coaches.forEach(c=>{
+      const o=document.createElement('option');
+      o.value=c.id; o.dataset.price=c.coach_price||c.price_per_hour||0;
+      o.textContent=(c.full_name||(c.first_name+' '+(c.last_name||'')).trim())||`Тренер #${c.id}`;
+      sel.appendChild(o);
+    });
+  }
+  // Services checkboxes
+  _nbServices=rServices.ok?rServices.data:[];
+  const box=$('nbServicesBox');
+  if(_nbServices.length){
+    box.innerHTML=_nbServices.map(s=>`
+      <label style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--bd);cursor:pointer;font-size:11px">
+        <input type="checkbox" data-svcid="${s.id}" data-svcprice="${s.price}" onchange="updateNBTotal()"
+          style="width:14px;height:14px;accent-color:var(--ac)">
+        <span style="flex:1">${esc(s.name)}</span>
+        <span style="font-weight:600;color:var(--g)">${fmtMoney(s.price)}</span>
+      </label>`).join('');
+  } else {
+    box.innerHTML='<span style="color:var(--dm);font-size:11px">Нет активных услуг</span>';
+  }
+  updateNBTotal();
+}
+function updateNBTotal(){
+  const courtSel=$('nbCourt');
+  const dur=parseInt($('nbDur').value)||60;
+  const hrs=dur/60;
+  let total=0, lines=[];
+  if(courtSel.value){
+    const p=parseFloat(courtSel.options[courtSel.selectedIndex].dataset?.price||0);
+    const cp=p*hrs; total+=cp;
+    if(cp>0) lines.push(`🎾 Корт ${dur} мин: ${fmtMoney(cp)}`);
+  }
+  const coachSel=$('nbCoach');
+  if(coachSel.value){
+    const p=parseFloat(coachSel.options[coachSel.selectedIndex].dataset?.price||0)*hrs;
+    total+=p;
+    if(p>0) lines.push(`👨‍🏫 Тренер: ${fmtMoney(p)}`);
+  }
+  document.querySelectorAll('#nbServicesBox input[type=checkbox]:checked').forEach(cb=>{
+    const p=parseFloat(cb.dataset.svcprice||0);
+    total+=p;
+    const svc=_nbServices.find(s=>s.id==cb.dataset.svcid);
+    if(p>0) lines.push(`📦 ${esc(svc?.name||'Услуга')}: ${fmtMoney(p)}`);
+  });
+  const preview=$('nbPricePreview');
+  preview.style.display=total>0?'block':'none';
+  $('nbPriceLines').innerHTML=lines.join('<br>');
+  $('nbPriceTotal').textContent=fmtMoney(total);
+}
+async function searchNBClient(){
+  const q=$('nbClientSearch').value.trim();
+  if(q.length<3){$('nbClientResults').innerHTML='';return;}
+  const r=await api('GET',`/api/auth/reception/search/?phone=${encodeURIComponent(q)}`);
+  const list=r.ok?r.data:[];
+  $('nbClientResults').innerHTML=list.slice(0,5).map(u=>`
+    <div class="uc" style="padding:6px 10px;margin-bottom:3px" onclick="selectNBClient(${u.id},'${esc(uN(u))}')">
+      <div class="av" style="width:26px;height:26px;font-size:11px">${((u.first_name||u.username||'?')[0]||'?').toUpperCase()}</div>
+      <div class="ui"><div class="un" style="font-size:11px">${esc(uN(u))}</div><div class="up">${esc(u.phone_number||'—')}</div></div>
+    </div>`).join('');
+}
+function selectNBClient(id,name){
+  $('nbClient').value=id;
+  $('nbClientSearch').value=name;
+  $('nbClientResults').innerHTML=`<div class="al al-s" style="padding:5px 10px;font-size:11px">✓ ${esc(name)} (ID: ${id})</div>`;
+}
+
+// ============ MEMBERSHIPS ============
+let _memTypes=[];
+async function loadMemTypes(){
+  const r=await api('GET','/api/memberships/types/',null,false);
+  if(!r.ok){$('memTypesList').innerHTML='<div class="al al-e">Ошибка загрузки</div>';return;}
+  _memTypes=r.data;
+  $('memTypesList').innerHTML=r.data.length?r.data.map(t=>`
+    <div class="uc" style="padding:8px 10px;margin-bottom:4px;cursor:pointer" onclick="selectMemType(${t.id},'${esc(t.name)}',${t.price},'${esc(t.days_valid+' дн'+(t.total_hours>0?' · '+t.total_hours+' ч':'')+(t.total_visits>0?' · '+t.total_visits+' посещ.':''))}')">
+      <div class="ui">
+        <div class="un">${esc(t.name)}</div>
+        <div class="up">${t.days_valid} дн${t.total_hours>0?' · '+t.total_hours+' ч':''}${t.total_visits>0?' · '+t.total_visits+' посещ.':''}</div>
+      </div>
+      <div style="font-size:16px;font-weight:700;color:var(--g)">${fmtMoney(t.price)}</div>
+    </div>`).join(''):'<div class="al al-w">Нет доступных типов</div>';
+}
+function selectMemType(id,name,price,desc){
+  $('memTypeId').value=id;
+  $('memTypeSelected').textContent=`✓ Выбран: ${name}`;
+  $('memPricePreview').style.display='block';
+  $('memPriceLine').textContent=fmtMoney(price);
+  $('memTypeDesc').textContent=desc;
+  // Deselect all, select this
+  document.querySelectorAll('#memTypesList .uc').forEach(el=>el.style.borderColor='var(--bd)');
+}
+async function searchMemClient(){
+  const q=$('memClientSearch').value.trim();
+  if(q.length<3){$('memClientResults').innerHTML='';return;}
+  const r=await api('GET',`/api/auth/reception/search/?phone=${encodeURIComponent(q)}`);
+  const list=r.ok?r.data:[];
+  $('memClientResults').innerHTML=list.slice(0,5).map(u=>`
+    <div class="uc" style="padding:6px 10px;margin-bottom:3px" onclick="selectMemClient(${u.id},'${esc(uN(u))}')">
+      <div class="av" style="width:26px;height:26px;font-size:11px">${((u.first_name||u.username||'?')[0]||'?').toUpperCase()}</div>
+      <div class="ui"><div class="un" style="font-size:11px">${esc(uN(u))}</div><div class="up">${esc(u.phone_number||'—')}</div></div>
+    </div>`).join('');
+}
+function selectMemClient(id,name){
+  $('memClientId').value=id;
+  $('memClientSearch').value=name;
+  $('memClientResults').innerHTML=`<div class="al al-s" style="padding:5px 10px;font-size:11px">✓ ${esc(name)} (ID: ${id})</div>`;
+}
+async function receptionBuyMembership(){
+  if(!AT)return alert('Войдите');
+  const clientId=$('memClientId').value;
+  const typeId=$('memTypeId').value;
+  if(!clientId)return alert('Выберите клиента');
+  if(!typeId)return alert('Выберите тип абонемента');
+  const r=await api('POST','/api/memberships/reception/buy/',{
+    client_id:parseInt(clientId),
+    membership_type_id:parseInt(typeId),
+    payment_method:$('memPayMethod').value,
+  });
+  if(r.ok){
+    $('memBuyRes').innerHTML=`<div class="al al-s">✅ Абонемент выдан!<br>Клиент: ${esc(r.data.client)}<br>Тип: ${esc(r.data.type)}<br>До: ${esc(r.data.end_date)}</div>`;
+    $('memTypeId').value=''; $('memClientId').value=''; $('memPricePreview').style.display='none';
+    $('memTypeSelected').textContent=''; $('memClientResults').innerHTML='';
+  } else {
+    $('memBuyRes').innerHTML=`<div class="al al-e">❌ ${esc(r.data.error||JSON.stringify(r.data))}</div>`;
+  }
+}
+async function loadAllMemberships(){
+  if(!AT)return alert('Войдите');
+  let url='/api/memberships/all/?';
+  const cId=$('mlClientId').value, act=$('mlActive').value;
+  if(cId) url+=`client_id=${cId}&`;
+  if(act) url+=`is_active=${act}&`;
+  const r=await api('GET',url.slice(0,-1));
+  if(!r.ok){showAl('mlList','e',r.data);return;}
+  const list=r.data.results||r.data;
+  $('mlList').innerHTML=list.length?list.map(m=>{
+    const typeName=m.membership_type_name||m.membership_type?.name||'Абонемент';
+    const userName=m.user_name||m.user?.username||`User #${m.user}`;
+    return `<div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:5px">
+        <div>
+          <div style="font-weight:600;font-size:13px">🎫 ${esc(typeName)}</div>
+          <div style="font-size:10px;color:var(--dm)">👤 ${esc(userName)}</div>
+        </div>
+        <span style="font-size:9px;padding:2px 7px;border-radius:6px;${m.is_active?'background:var(--gd);color:var(--g)':'background:var(--rd);color:var(--r)'}">${m.is_active?'Активен':'Неактивен'}</span>
+      </div>
+      <div style="font-size:10px;color:var(--dm);line-height:1.7">
+        До: ${m.end_date?new Date(m.end_date).toLocaleDateString('ru'):'-'}<br>
+        Часов: ${m.hours_remaining??'-'} · Посещений: ${m.visits_remaining??'-'}
+        ${m.is_frozen?'<br>❄️ <b>Заморожен</b>':''}
+      </div>
+    </div>`;
+  }).join(''):'<div class="al al-w">Абонементов не найдено</div>';
+}
+
+// ============ INIT ============
+upd();
+$('schedDate').value=today();
+</script>
+</body>
+</html>

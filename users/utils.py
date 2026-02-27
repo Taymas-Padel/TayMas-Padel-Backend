@@ -78,7 +78,20 @@ def verify_sms_code(phone_number, code):
     Сверяет код из кэша. Считает неудачные попытки.
     После MAX_CODE_ATTEMPTS неудачных попыток — блокирует на 10 минут.
     Возвращает: 'OK', 'INVALID', 'EXPIRED', 'BLOCKED'
+
+    В режиме разработки принимает SMS_MASTER_CODE из settings.py
+    как универсальный код для любого номера.
     """
+    # Мастер-код для разработки (если задан в settings)
+    try:
+        from django.conf import settings
+        master = getattr(settings, 'SMS_MASTER_CODE', '')
+        if master and code == master:
+            logger.info(f"[SMS] Мастер-код использован для {phone_number}")
+            return "OK"
+    except Exception:
+        pass
+
     # Проверяем блокировку
     block_key = f"sms_blocked_{phone_number}"
     if cache.get(block_key):

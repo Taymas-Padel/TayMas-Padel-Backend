@@ -64,6 +64,10 @@ INSTALLED_APPS = [
     'gym.apps.GymConfig',
     'analytics.apps.AnalyticsConfig',
     'friends.apps.FriendsConfig',
+    'news.apps.NewsConfig',
+    'lobby.apps.LobbyConfig',
+    'notifications.apps.NotificationsConfig',
+    'payments.apps.PaymentsConfig',
 ]
 
 # Настройки DRF
@@ -230,3 +234,25 @@ AUTH_USER_MODEL = 'users.User'
 # CORS SETTINGS
 CORS_ALLOW_ALL_ORIGINS = True  # Разрешить всем стучаться к нам
 CORS_ALLOW_CREDENTIALS = True
+
+# ============================================================
+# PAYMENT SETTINGS
+# ============================================================
+# Текущий провайдер: 'stub' (разработка) | 'kaspi' (продакшн)
+# Для переключения на Kaspi:
+#   1. Задай PAYMENT_PROVIDER=kaspi в .env
+#   2. Задай KASPI_MERCHANT_ID и KASPI_SECRET_KEY в .env
+#   3. Реализуй KaspiPaymentProvider в payments/providers/kaspi.py
+PAYMENT_PROVIDER = os.getenv('PAYMENT_PROVIDER', 'stub')
+
+# Kaspi QR / Kaspi Pay (заполнить при подключении)
+KASPI_MERCHANT_ID = os.getenv('KASPI_MERCHANT_ID', '')
+KASPI_SECRET_KEY  = os.getenv('KASPI_SECRET_KEY', '')
+
+# ============================================================
+# SMS SETTINGS
+# ============================================================
+# Мастер-код для разработки — принимается вместо реального SMS-кода.
+# В продакшне обязательно убрать (оставить пустым или удалить из .env).
+# Использование: введи этот код вместо реального в любой форме верификации.
+SMS_MASTER_CODE = os.getenv('SMS_MASTER_CODE', '000000')
