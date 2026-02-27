@@ -1,20 +1,37 @@
 from django.urls import path
 from .views import (
-    UserBookingsListView, 
-    CreateBookingView, 
-    CancelBookingView, 
+    UserBookingsListView,
+    UserBookingHistoryView,
+    CoachScheduleView,
+    BookingDetailView,
+    CreateBookingView,
+    ReceptionCreateBookingView,
+    CancelBookingView,
+    ConfirmPaymentView,
+    ClientConfirmBookingView,
     CheckAvailabilityView,
     ManagerScheduleView,
+    AllBookingsView,
+    AvailableCoachesView,
+    BookingPricePreviewView,
 )
 
 urlpatterns = [
-    # GET: получить список моих броней
+    # Клиент
     path('', UserBookingsListView.as_view(), name='my-bookings'),
-    # POST: создать бронь
+    path('history/', UserBookingHistoryView.as_view(), name='booking-history'),
+    path('coach/schedule/', CoachScheduleView.as_view(), name='coach-schedule'),
+    path('<int:pk>/', BookingDetailView.as_view(), name='booking-detail'),
     path('create/', CreateBookingView.as_view(), name='create-booking'),
-    # POST: отменить бронь по ID
     path('<int:pk>/cancel/', CancelBookingView.as_view(), name='cancel-booking'),
-    # GET: проверить свободное время (?court_id=1&date=2025-12-20)
+    path('<int:pk>/client-confirm/', ClientConfirmBookingView.as_view(), name='client-confirm-booking'),
     path('check-availability/', CheckAvailabilityView.as_view(), name='check-availability'),
+    path('available-coaches/', AvailableCoachesView.as_view(), name='available-coaches'),
+    path('price-preview/', BookingPricePreviewView.as_view(), name='price-preview'),
+
+    # Ресепшн / CRM
+    path('reception/create/', ReceptionCreateBookingView.as_view(), name='reception-create-booking'),
+    path('<int:pk>/confirm-payment/', ConfirmPaymentView.as_view(), name='confirm-payment'),
     path('manager/schedule/', ManagerScheduleView.as_view(), name='manager-schedule'),
+    path('all/', AllBookingsView.as_view(), name='all-bookings'),
 ]

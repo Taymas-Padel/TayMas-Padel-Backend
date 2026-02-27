@@ -9,13 +9,29 @@ from rest_framework import viewsets
 
 from .models import MembershipType, UserMembership
 from .serializers import MembershipTypeSerializer, UserMembershipSerializer
-from finance.models import Transaction # Импортируем нашу крутую модель
+from finance.models import Transaction
+from users.permissions import IsReceptionist
 
-# 1. Список пакетов для магазина
+# 1. Список пакетов для магазина (публичный)
 class MembershipTypeListView(generics.ListAPIView):
     queryset = MembershipType.objects.filter(is_active=True)
     serializer_class = MembershipTypeSerializer
     permission_classes = [permissions.AllowAny]
+
+
+# 1b. Управление типами абонементов (ADMIN) — как в админке
+class MembershipTypeManageView(generics.ListCreateAPIView):
+    """GET/POST /api/memberships/types/manage/ — все типы + создание (ADMIN)."""
+    queryset = MembershipType.objects.all().order_by('service_type', 'name')
+    serializer_class = MembershipTypeSerializer
+    permission_classes = [IsReceptionist]  # ресепшн и админ могут создавать типы
+
+
+class MembershipTypeManageDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """GET/PATCH/DELETE /api/memberships/types/manage/<id>/ (ADMIN)."""
+    queryset = MembershipType.objects.all()
+    serializer_class = MembershipTypeSerializer
+    permission_classes = [IsReceptionist]
 
 # 2. Покупка пакета
 class BuyMembershipView(APIView):
@@ -60,6 +76,82 @@ class BuyMembershipView(APIView):
 
         return Response({"status": "Абонемент успешно куплен!"}, status=status.HTTP_201_CREATED)
 
+
+class ReceptionBuyMembershipView(APIView):
+    """
+    POST /api/memberships/reception/buy/
+    Ресепшн/Админ выдаёт абонемент клиенту вручную.
+    Body: { client_id, membership_type_id, payment_method }
+    """
+    permission_classes = [IsReceptionist]
+
+    def post(self, request):
+        from users.models import User
+        client_id = request.data.get('client_id')
+        type_id = request.data.get('membership_type_id')
+        payment_method = request.data.get('payment_method', Transaction.PaymentMethod.CASH)
+
+        if not client_id or not type_id:
+            return Response({'error': 'Укажите client_id и membership_type_id'}, status=400)
+
+        user = get_object_or_404(User, pk=client_id)
+        mem_type = get_object_or_404(MembershipType, pk=type_id, is_active=True)
+
+        valid_methods = [c[0] for c in Transaction.PaymentMethod.choices]
+        if payment_method not in valid_methods:
+            payment_method = Transaction.PaymentMethod.CASH
+
+        end_date = timezone.now() + timedelta(days=mem_type.days_valid)
+
+        user_membership = UserMembership.objects.create(
+            user=user,
+            membership_type=mem_type,
+            end_date=end_date,
+            hours_remaining=mem_type.total_hours,
+            visits_remaining=mem_type.total_visits,
+            is_active=True,
+        )
+
+        Transaction.objects.create(
+            user=user,
+            amount=mem_type.price,
+            transaction_type=Transaction.TransactionType.MEMBERSHIP_PURCHASE,
+            payment_method=payment_method,
+            user_membership=user_membership,
+            description=f"Абонемент через ресепшн: {mem_type.name} для {user.get_full_name() or user.phone_number}",
+        )
+
+        return Response({
+            'status': 'Абонемент выдан',
+            'membership_id': user_membership.id,
+            'client': str(user),
+            'type': mem_type.name,
+            'end_date': end_date.strftime('%Y-%m-%d'),
+            'payment_method': payment_method,
+        }, status=status.HTTP_201_CREATED)
+
+
+class AllMembershipsView(generics.ListAPIView):
+    """
+    GET /api/memberships/all/?client_id=&is_active=
+    Все абонементы (ресепшн/админ) с фильтрацией.
+    """
+    serializer_class = UserMembershipSerializer
+    permission_classes = [IsReceptionist]
+
+    def get_queryset(self):
+        qs = UserMembership.objects.select_related('user', 'membership_type').all()
+        client_id = self.request.query_params.get('client_id')
+        is_active = self.request.query_params.get('is_active')
+        if client_id:
+            qs = qs.filter(user_id=client_id)
+        if is_active == 'true':
+            qs = qs.filter(is_active=True)
+        elif is_active == 'false':
+            qs = qs.filter(is_active=False)
+        return qs.order_by('-start_date')
+
+
 # ViewSet для управления абонементами
 class UserMembershipViewSet(viewsets.ReadOnlyModelViewSet):
     """
@@ -75,7 +167,13 @@ class UserMembershipViewSet(viewsets.ReadOnlyModelViewSet):
         # 2. Fix for Anonymous
         if not self.request.user.is_authenticated:
             return UserMembership.objects.none()
-        # 3. Real Logic
+        # 3. Real Logic — деактивируем просроченные перед выдачей
+        now = timezone.now()
+        UserMembership.objects.filter(
+            user=self.request.user,
+            is_active=True,
+            end_date__lt=now,
+        ).update(is_active=False)
         return UserMembership.objects.filter(user=self.request.user)
 
     # 1. ЗАМОРОЗКА ❄️

@@ -1,6 +1,8 @@
 import logging
 from django.contrib.auth import get_user_model, authenticate
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
+from django.db.models import Q, Sum, Count
 
 from rest_framework import status, permissions, generics, filters, serializers
 from rest_framework.views import APIView
@@ -21,11 +23,12 @@ from .serializers import (
     CRMLoginSerializer,
     UserPublicSearchSerializer,
     ReceptionistUserSerializer,
+    CoachListSerializer,
+    PublicUserProfileSerializer,
+    _get_league,
 )
 from .permissions import IsReceptionist
-from django.db.models import Q
-# Убедись, что импортирован сериализатор (или используй UserShortSerializer)
-from .serializers import UserPublicSearchSerializer
+
 logger = logging.getLogger(__name__)
 
 User = get_user_model()
@@ -428,22 +431,420 @@ class UserSearchView(APIView):
 
     def get(self, request):
         query = request.query_params.get('search')
-        
-        # Если поиска нет — возвращаем пустой список
         if not query:
             return Response([])
 
-        # 1. Сначала фильтруем (Имя ИЛИ Фамилия ИЛИ Телефон ИЛИ Никнейм)
         users = User.objects.filter(
             Q(username__icontains=query) |
             Q(first_name__icontains=query) |
             Q(last_name__icontains=query) |
             Q(phone_number__icontains=query)
-        ).distinct()
+        ).exclude(id=request.user.id).distinct()[:20]
 
-        # 2. И только ПОТОМ обрезаем (например, топ-20 результатов)
-        users = users[:20]
-
-        # 3. Отдаем результат
         serializer = UserPublicSearchSerializer(users, many=True)
         return Response(serializer.data)
+
+
+# =============================================
+# 8. СПИСОК ВСЕХ КЛИЕНТОВ (CRM — ресепшн/админ)
+# =============================================
+
+class ClientListView(generics.ListAPIView):
+    """
+    GET /api/auth/clients/?search=&role=
+    Список клиентов для CRM. Поддерживает поиск по имени/телефону и фильтр по роли.
+    """
+    serializer_class = ReceptionistUserSerializer
+    permission_classes = [IsReceptionist]
+
+    def get_queryset(self):
+        qs = User.objects.all().order_by('-created_at')
+
+        search = self.request.query_params.get('search', '').strip()
+        if search:
+            qs = qs.filter(
+                Q(phone_number__icontains=search) |
+                Q(first_name__icontains=search) |
+                Q(last_name__icontains=search) |
+                Q(username__icontains=search)
+            )
+
+        role = self.request.query_params.get('role', '').upper()
+        if role:
+            qs = qs.filter(role=role)
+        else:
+            # По умолчанию показываем клиентов и тренеров
+            qs = qs.filter(role__in=['CLIENT', 'COACH_PADEL', 'COACH_FITNESS'])
+
+        return qs.distinct()
+
+
+# =============================================
+# 8b. СПИСОК ТРЕНЕРОВ (для брони и приложения)
+# =============================================
+
+class CoachesListView(generics.ListAPIView):
+    """
+    GET /api/auth/coaches/
+    Список тренеров (падел + фитнес) для выбора в брони. Доступно всем.
+    """
+    serializer_class = CoachListSerializer
+    permission_classes = [permissions.AllowAny]
+
+    def get_queryset(self):
+        return User.objects.filter(
+            role__in=['COACH_PADEL', 'COACH_FITNESS']
+        ).order_by('role', 'first_name', 'last_name')
+
+
+# =============================================
+# 8c. ОБНОВЛЕНИЕ FCM ТОКЕНА (для пуш-уведомлений)
+# =============================================
+
+class UpdateFCMTokenView(APIView):
+    """
+    POST /api/auth/me/fcm/
+    Сохранить FCM token для пуш-уведомлений (вызвать после логина в мобилке).
+    Body: { "fcm_token": "..." } или { "fcm_token": null } чтобы сбросить.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        token = request.data.get('fcm_token')
+        if token is not None and not isinstance(token, str):
+            token = str(token).strip() or None
+        request.user.fcm_token = token
+        request.user.save(update_fields=['fcm_token'])
+        return Response({"status": "ok", "fcm_token_saved": token is not None})
+
+
+# =============================================
+# 9. ПРОФИЛЬ: ПЕРСОНАЛЬНАЯ СТАТИСТИКА (мобилка)
+# =============================================
+
+class MyStatsView(APIView):
+    """
+    GET /api/auth/me/stats/
+    Персональная статистика клиента: брони, матчи, абонемент, часы на корте.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        from bookings.models import Booking
+        from gamification.models import Match
+        from memberships.models import UserMembership
+        from gym.models import GymVisit
+        from django.db.models import F, ExpressionWrapper, DurationField
+
+        user = request.user
+        now = timezone.now()
+
+        # Брони
+        all_bookings = Booking.objects.filter(
+            Q(user=user) | Q(participants=user)
+        ).distinct()
+        upcoming_bookings = all_bookings.filter(
+            end_time__gte=now
+        ).exclude(status='CANCELED').order_by('start_time')[:5]
+
+        total_bookings = all_bookings.exclude(status='CANCELED').count()
+        completed_bookings = all_bookings.filter(status='COMPLETED').count()
+
+        # Часы на корте
+        confirmed = all_bookings.filter(status__in=['CONFIRMED', 'COMPLETED'])
+        total_hours = 0.0
+        for b in confirmed:
+            total_hours += (b.end_time - b.start_time).total_seconds() / 3600
+
+        # Матчи
+        matches_count = Match.objects.filter(
+            Q(team_a=user) | Q(team_b=user)
+        ).distinct().count()
+        wins_count = Match.objects.filter(
+            Q(team_a=user, winner_team='A') | Q(team_b=user, winner_team='B')
+        ).distinct().count()
+
+        # Активный абонемент
+        membership_data = None
+        active_mem = UserMembership.objects.filter(
+            user=user,
+            is_active=True,
+            is_frozen=False,
+            end_date__gte=now,
+        ).select_related('membership_type').first()
+        if active_mem:
+            membership_data = {
+                "id": active_mem.id,
+                "name": active_mem.membership_type.name,
+                "type": active_mem.membership_type.service_type,
+                "end_date": active_mem.end_date.strftime('%d.%m.%Y'),
+                "hours_remaining": float(active_mem.hours_remaining),
+                "visits_remaining": active_mem.visits_remaining,
+                "is_frozen": active_mem.is_frozen,
+            }
+
+        # Посещения зала
+        gym_visits = GymVisit.objects.filter(user=user).count()
+
+        # Ближайшие брони (сериализуем вручную)
+        upcoming_list = []
+        for b in upcoming_bookings:
+            upcoming_list.append({
+                "id": b.id,
+                "court": b.court.name,
+                "start_time": timezone.localtime(b.start_time).strftime('%d.%m.%Y %H:%M'),
+                "end_time": timezone.localtime(b.end_time).strftime('%H:%M'),
+                "status": b.status,
+                "coach": b.coach.first_name if b.coach else None,
+            })
+
+        return Response({
+            "user": {
+                "id": user.id,
+                "full_name": f"{user.first_name} {user.last_name}".strip() or user.username,
+                "phone": user.phone_number,
+                "role": user.role,
+                "rating_elo": user.rating_elo,
+                "avatar": request.build_absolute_uri(user.avatar.url) if user.avatar else None,
+                "is_profile_complete": user.is_profile_complete,
+            },
+            "stats": {
+                "total_bookings": total_bookings,
+                "completed_bookings": completed_bookings,
+                "total_hours_on_court": round(total_hours, 1),
+                "matches_played": matches_count,
+                "matches_won": wins_count,
+                "gym_visits": gym_visits,
+            },
+            "active_membership": membership_data,
+            "upcoming_bookings": upcoming_list,
+        })
+
+
+# =============================================
+# 10. HOME DASHBOARD (главный экран мобилки)
+# =============================================
+
+class HomeDashboardView(APIView):
+    """
+    GET /api/auth/home/
+    Главный экран мобильного приложения: приветствие, брони, абонемент, акции.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        from bookings.models import Booking
+        from memberships.models import UserMembership
+        from marketing.models import Promotion
+        from news.models import NewsItem
+        from django.db.models import Q
+
+        user = request.user
+        now = timezone.now()
+
+        # Ближайшая бронь
+        next_booking = Booking.objects.filter(
+            Q(user=user) | Q(participants=user),
+            end_time__gte=now,
+            status__in=['CONFIRMED', 'PENDING'],
+        ).distinct().order_by('start_time').first()
+
+        next_booking_data = None
+        if next_booking:
+            local_start = timezone.localtime(next_booking.start_time)
+            local_end = timezone.localtime(next_booking.end_time)
+            next_booking_data = {
+                "id": next_booking.id,
+                "court": next_booking.court.name,
+                "date": local_start.strftime('%d.%m.%Y'),
+                "start_time": local_start.strftime('%H:%M'),
+                "end_time": local_end.strftime('%H:%M'),
+                "status": next_booking.status,
+            }
+
+        # Активный абонемент
+        membership_data = None
+        active_mem = UserMembership.objects.filter(
+            user=user,
+            is_active=True,
+            is_frozen=False,
+            end_date__gte=now,
+        ).select_related('membership_type').first()
+        if active_mem:
+            days_left = (active_mem.end_date - now).days
+            membership_data = {
+                "name": active_mem.membership_type.name,
+                "type": active_mem.membership_type.service_type,
+                "end_date": timezone.localtime(active_mem.end_date).strftime('%d.%m.%Y'),
+                "days_left": max(0, days_left),
+                "hours_remaining": float(active_mem.hours_remaining),
+                "visits_remaining": active_mem.visits_remaining,
+                "is_frozen": active_mem.is_frozen,
+            }
+
+        # Активные акции (топ-3)
+        promos = Promotion.objects.filter(
+            is_active=True,
+            start_date__lte=now,
+            end_date__gte=now,
+        ).order_by('-priority')[:3]
+        promos_data = [
+            {
+                "id": p.id,
+                "title": p.title,
+                "description": p.description,
+                "image_url": p.image_url,
+                "promo_code": p.promo_code,
+            }
+            for p in promos
+        ]
+
+        # Новости клуба (топ-5 свежих)
+        news = NewsItem.objects.filter(
+            is_published=True
+        ).order_by('-created_at')[:5]
+        news_data = [
+            {
+                "id": n.id,
+                "title": n.title,
+                "preview": n.content[:120] + '...' if len(n.content) > 120 else n.content,
+                "category": n.category,
+                "image_url": n.image_url,
+                "created_at": n.created_at.strftime('%d.%m.%Y'),
+            }
+            for n in news
+        ]
+
+        full_name = f"{user.first_name} {user.last_name}".strip()
+
+        from users.serializers import _get_league
+        league = _get_league(user.rating_elo)
+
+        return Response({
+            "greeting": f"Привет, {user.first_name or 'друг'}!",
+            "user": {
+                "id": user.id,
+                "full_name": full_name or user.username,
+                "phone": user.phone_number,
+                "rating_elo": user.rating_elo,
+                "league": league,
+                "avatar": request.build_absolute_uri(user.avatar.url) if user.avatar else None,
+                "is_profile_complete": user.is_profile_complete,
+            },
+            "next_booking": next_booking_data,
+            "active_membership": membership_data,
+            "promotions": promos_data,
+            "news": news_data,
+        })
+
+
+# =============================================
+# 11. ПУБЛИЧНЫЙ ПРОФИЛЬ ПОЛЬЗОВАТЕЛЯ
+# =============================================
+
+class PublicUserProfileView(APIView):
+    """
+    GET /api/auth/users/<id>/profile/
+    Публичный профиль пользователя: имя, ELO, лига, статистика, совместные матчи с текущим юзером.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, pk):
+        from gamification.models import Match
+        from bookings.models import Booking
+        from users.serializers import PublicUserProfileSerializer, _get_league
+
+        target = get_object_or_404(User, pk=pk)
+        me = request.user
+
+        data = PublicUserProfileSerializer(target, context={'request': request}).data
+
+        # Совместные матчи
+        joint_matches = Match.objects.filter(
+            Q(team_a=me) | Q(team_b=me)
+        ).filter(
+            Q(team_a=target) | Q(team_b=target)
+        ).distinct().order_by('-date')[:10]
+        joint_list = []
+        for m in joint_matches:
+            in_a_me = me in m.team_a.all()
+            in_a_target = target in m.team_a.all()
+            same_team = in_a_me == in_a_target
+            joint_list.append({
+                "id": m.id,
+                "date": m.date.strftime('%d.%m.%Y'),
+                "score": m.score,
+                "winner_team": m.winner_team,
+                "same_team": same_team,
+            })
+        data['joint_matches'] = joint_list
+
+        return Response(data)
+
+
+# =============================================
+# 12. УДАЛЕНИЕ АККАУНТА
+# =============================================
+
+class AccountDeleteView(APIView):
+    """
+    DELETE /api/auth/me/delete/
+    Удаление собственного аккаунта. Требует подтверждения: body { "confirm": true }.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def delete(self, request):
+        confirm = request.data.get('confirm')
+        if not confirm:
+            return Response(
+                {"detail": "Передайте { \"confirm\": true } для подтверждения удаления аккаунта."},
+                status=400,
+            )
+        user = request.user
+        user.delete()
+        return Response({"status": "Аккаунт удалён."}, status=204)
+
+
+# =============================================
+# 13. ЛИГА / РАНГ ТЕКУЩЕГО ПОЛЬЗОВАТЕЛЯ
+# =============================================
+
+class MyLeagueView(APIView):
+    """
+    GET /api/auth/me/league/
+    Текущая лига, ELO, прогресс до следующей лиги.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        from users.serializers import _get_league
+        user = request.user
+        elo = user.rating_elo
+        current = _get_league(elo)
+
+        LEAGUES = [
+            {"name": "Новичок",  "min_elo": 0,    "max_elo": 999},
+            {"name": "Бронза",   "min_elo": 1000,  "max_elo": 1199},
+            {"name": "Серебро",  "min_elo": 1200,  "max_elo": 1399},
+            {"name": "Золото",   "min_elo": 1400,  "max_elo": 1599},
+            {"name": "Платина",  "min_elo": 1600,  "max_elo": 1799},
+            {"name": "Элита",    "min_elo": 1800,  "max_elo": 9999},
+        ]
+        # Найти следующую лигу
+        next_league = None
+        progress_pct = 100
+        for i, lg in enumerate(LEAGUES):
+            if lg['name'] == current['name'] and i + 1 < len(LEAGUES):
+                next_league = LEAGUES[i + 1]
+                span = next_league['min_elo'] - lg['min_elo']
+                gained = elo - lg['min_elo']
+                progress_pct = round(min(100, gained / span * 100)) if span else 100
+                break
+
+        return Response({
+            "rating_elo": elo,
+            "current_league": current,
+            "next_league": next_league,
+            "progress_to_next": progress_pct,
+            "elo_needed": (next_league['min_elo'] - elo) if next_league else 0,
+        })

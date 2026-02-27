@@ -1,0 +1,2221 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🏓 Padel App</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0f1117;--s:#161821;--s2:#1e2030;--bd:#282a3a;--ba:#3e4158;--tx:#e2e4f0;--dm:#757899;
+--ac:#22d3ee;--ac2:#67e8f9;--g:#4ade80;--gd:rgba(74,222,128,.12);--r:#fb7185;--rd:rgba(251,113,133,.12);
+--o:#fbbf24;--od:rgba(251,191,36,.12);--v:#a78bfa;--vd:rgba(167,139,250,.12);--rad:12px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Outfit',sans-serif;background:#0a0c12;color:var(--tx);min-height:100vh;display:flex;justify-content:center;padding:20px 0}
+.phone{width:390px;min-height:100vh;background:var(--bg);display:flex;flex-direction:column;border-radius:18px;overflow:hidden;box-shadow:0 0 60px rgba(34,211,238,.08)}
+.topbar{background:rgba(15,17,23,.95);backdrop-filter:blur(20px);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--bd)}
+.topbar h1{font-size:15px;font-weight:700;color:var(--ac)}
+.st{display:flex;align-items:center;gap:6px}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--r);transition:.3s}.dot.on{background:var(--g)}
+.stxt{font-size:10px;color:var(--dm)}
+.sbar{padding:5px 14px;background:var(--s);border-bottom:1px solid var(--bd)}
+.sbar input{width:100%;padding:4px 8px;background:var(--s2);border:1px solid var(--bd);border-radius:6px;color:var(--tx);font-family:'JetBrains Mono',monospace;font-size:10px}
+.sbar input:focus{outline:none;border-color:var(--ac)}
+
+/* Bottom nav */
+.bnav{display:flex;background:var(--s);border-top:1px solid var(--bd);padding:4px 0}
+.bnav button{flex:1;padding:6px 2px;background:none;border:none;color:var(--dm);font-size:9px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;transition:.15s;font-family:'Outfit',sans-serif}
+.bnav button .ic{font-size:18px;line-height:1}
+.bnav button.on{color:var(--ac)}.bnav button:hover{color:var(--tx)}
+
+.cnt{flex:1;overflow-y:auto}
+.pg{display:none;padding:16px}.pg.show{display:block}
+.sec-title{font-size:16px;font-weight:700;margin-bottom:2px}
+.sec-sub{font-size:11px;color:var(--dm);margin-bottom:14px}
+
+/* forms */
+.fg{margin-bottom:11px}
+.fg label{display:block;font-size:9px;font-weight:600;color:var(--dm);margin-bottom:3px;text-transform:uppercase;letter-spacing:.5px}
+.fg input,.fg select,.fg textarea{width:100%;padding:10px 12px;background:var(--s2);border:1px solid var(--bd);border-radius:10px;color:var(--tx);font-family:'Outfit',sans-serif;font-size:13px;transition:.2s}
+.fg input:focus,.fg select:focus,.fg textarea:focus{outline:none;border-color:var(--ac)}
+.fg input::placeholder,.fg textarea::placeholder{color:var(--dm);opacity:.4}
+.fg select option{background:var(--s2)}
+.fg textarea{resize:vertical;min-height:60px}
+.hint{font-size:9px;color:var(--dm);margin-top:2px;opacity:.6}
+
+/* buttons */
+.b{width:100%;padding:11px;border:none;border-radius:10px;font-family:'Outfit',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:.15s;margin-bottom:5px;display:flex;align-items:center;justify-content:center;gap:6px}
+.b1{background:var(--ac);color:#0f1117}.b1:hover{background:var(--ac2)}
+.b2{background:var(--s2);color:var(--tx);border:1px solid var(--bd)}.b2:hover{border-color:var(--ba)}
+.br{background:var(--rd);color:var(--r)}.bg{background:var(--gd);color:var(--g)}.bv{background:var(--vd);color:var(--v)}.bo{background:var(--od);color:var(--o)}
+.bsm{width:auto;padding:6px 12px;font-size:11px;display:inline-flex;margin-bottom:0}
+
+/* cards */
+.card{background:var(--s);border:1px solid var(--bd);border-radius:11px;padding:11px 13px;margin-bottom:8px}
+.card .cl{font-size:8px;font-weight:600;text-transform:uppercase;letter-spacing:.7px;color:var(--dm);margin-bottom:3px}
+.card .cv{font-size:13px;word-break:break-all}
+.cv-g{color:var(--g)}.cv-r{color:var(--r)}.cv-o{color:var(--o)}.cv-v{color:var(--v)}.cv-a{color:var(--ac)}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:8px}
+.hr{border:none;border-top:1px solid var(--bd);margin:12px 0}
+
+/* alerts */
+.al{padding:9px 12px;border-radius:10px;margin-bottom:10px;font-size:11px;line-height:1.5}
+.al-s{background:var(--gd);border:1px solid rgba(74,222,128,.2);color:var(--g)}
+.al-e{background:var(--rd);border:1px solid rgba(251,113,133,.2);color:var(--r)}
+.al-w{background:var(--od);border:1px solid rgba(251,191,36,.2);color:var(--o)}
+.al-i{background:rgba(34,211,238,.08);border:1px solid rgba(34,211,238,.15);color:var(--ac)}
+
+/* user row */
+.ur{display:flex;align-items:center;gap:10px;background:var(--s2);border:1px solid var(--bd);border-radius:11px;padding:10px 12px;margin-bottom:6px}
+.ur .av{width:34px;height:34px;border-radius:50%;background:var(--ac);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;color:#0f1117;flex-shrink:0}
+.ur .av.vt{background:var(--v);color:#fff}
+.ur .inf{flex:1;min-width:0}
+.ur .nm{font-weight:600;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ur .sub{font-size:9px;color:var(--dm)}
+.ur .acts{display:flex;gap:4px;flex-shrink:0}
+
+/* step bar */
+.stp{display:flex;gap:5px;margin-bottom:14px}
+.stp div{flex:1;height:3px;border-radius:2px;background:var(--s2)}
+.stp .done{background:var(--ac)}.stp .act{background:var(--o)}
+
+/* sub tabs */
+.stb{display:flex;gap:4px;margin-bottom:14px;flex-wrap:wrap}
+.stb button{padding:6px 10px;background:var(--s2);border:1px solid var(--bd);border-radius:8px;color:var(--dm);font-family:'Outfit',sans-serif;font-size:10px;font-weight:600;cursor:pointer;transition:.12s}
+.stb button.on{background:rgba(34,211,238,.08);border-color:rgba(34,211,238,.25);color:var(--ac)}
+
+/* booking card */
+.bk{background:var(--s);border:1px solid var(--bd);border-radius:11px;padding:12px;margin-bottom:8px}
+.bk .bh{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px}
+.bk .bn{font-weight:700;font-size:14px}
+.bk .bs{font-size:10px;padding:2px 8px;border-radius:8px;font-weight:600}
+.bs-c{background:var(--gd);color:var(--g)}
+.bs-p{background:var(--od);color:var(--o)}
+.bs-x{background:var(--rd);color:var(--r)}
+.bk .bi{font-size:11px;color:var(--dm);line-height:1.7}
+
+/* home hero */
+.hero{background:linear-gradient(135deg,rgba(34,211,238,.12),rgba(167,139,250,.08));border:1px solid rgba(34,211,238,.2);border-radius:14px;padding:16px;margin-bottom:14px}
+.hero .grt{font-size:16px;font-weight:700;margin-bottom:2px}
+.hero .usr{font-size:11px;color:var(--dm)}
+
+/* stat chip */
+.stats-row{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:12px}
+.stat{background:var(--s2);border:1px solid var(--bd);border-radius:10px;padding:10px 8px;text-align:center}
+.stat .sv{font-size:20px;font-weight:700;color:var(--ac)}
+.stat .sl{font-size:9px;color:var(--dm);margin-top:2px}
+
+/* membership card */
+.mem{background:linear-gradient(135deg,rgba(74,222,128,.1),rgba(34,211,238,.06));border:1px solid rgba(74,222,128,.2);border-radius:12px;padding:14px;margin-bottom:8px}
+.mem .mn{font-weight:700;font-size:14px;margin-bottom:4px}
+.mem .md{font-size:11px;color:var(--dm);line-height:1.6}
+
+/* news */
+.nw{background:var(--s);border:1px solid var(--bd);border-radius:11px;padding:12px;margin-bottom:8px;cursor:pointer}
+.nw:hover{border-color:var(--ba)}
+.nw .nt{font-weight:600;font-size:13px;margin-bottom:3px}
+.nw .nd{font-size:10px;color:var(--dm);line-height:1.5}
+.nw .nb{display:flex;align-items:center;justify-content:space-between;margin-top:6px}
+.cat{font-size:8px;padding:2px 7px;border-radius:6px;font-weight:600;text-transform:uppercase;background:var(--vd);color:var(--v)}
+.cat.ev{background:var(--od);color:var(--o)}.cat.pr{background:var(--gd);color:var(--g)}.cat.an{background:rgba(34,211,238,.1);color:var(--ac)}
+
+/* leaderboard */
+.lb{display:flex;align-items:center;gap:10px;background:var(--s2);border:1px solid var(--bd);border-radius:10px;padding:10px 12px;margin-bottom:5px}
+.lb .rk{width:22px;font-size:14px;font-weight:700;text-align:center;flex-shrink:0}
+.lb .lav{width:32px;height:32px;border-radius:50%;background:var(--s);border:2px solid var(--bd);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0}
+.lb .li{flex:1}
+.lb .ln{font-size:12px;font-weight:600}
+.lb .ls{font-size:9px;color:var(--dm)}
+.lb .le{font-size:14px;font-weight:700;color:var(--ac)}
+
+/* Log drawer */
+.lt{position:fixed;bottom:84px;right:calc(50% - 200px);z-index:200;width:36px;height:36px;border-radius:50%;background:var(--s2);border:1px solid var(--bd);color:var(--tx);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.ld{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:390px;height:45vh;background:var(--s);border-top:1px solid var(--bd);border-radius:16px 16px 0 0;z-index:199;display:none;flex-direction:column}
+.ld.open{display:flex}
+.ld .lhd{padding:8px 14px;border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between}
+.ld .lhd h3{font-size:11px;font-weight:600}.ld .lhd button{background:none;border:none;color:var(--dm);font-size:9px;cursor:pointer;font-family:'Outfit',sans-serif}
+.ld .lbd{flex:1;overflow-y:auto;padding:6px;font-family:'JetBrains Mono',monospace;font-size:9px;line-height:1.6}
+.le{padding:4px 6px;border-radius:3px;margin-bottom:3px}
+.le.rq{background:rgba(34,211,238,.04);border-left:2px solid var(--ac)}
+.le.ok{background:var(--gd);border-left:2px solid var(--g)}
+.le.er{background:var(--rd);border-left:2px solid var(--r)}
+.le .bd{margin-top:1px;color:var(--dm);font-size:8px;white-space:pre-wrap;word-break:break-all;max-height:60px;overflow-y:auto}
+
+.hidden{display:none!important}
+::-webkit-scrollbar{width:3px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--bd);border-radius:2px}
+</style>
+</head>
+<body>
+<div class="phone">
+  <div class="topbar">
+    <h1>🏓 Padel App</h1>
+    <div class="st"><div class="dot" id="dot"></div><span class="stxt" id="stxt">Не авторизован</span></div>
+  </div>
+  <div class="sbar"><input type="text" id="baseUrl" value="http://127.0.0.1:8000" placeholder="http://..."></div>
+
+  <div class="cnt">
+
+    <!-- HOME -->
+    <div id="p-home" class="pg show">
+      <div id="homeContent">
+        <div class="al al-i">Войдите через вкладку «Вход» чтобы увидеть главный экран</div>
+        <button class="b b1" onclick="nav('login')">📲 Войти</button>
+        <div class="hr"></div>
+        <div class="sec-title">📰 Новости клуба</div>
+        <button class="b b2" style="margin-bottom:8px" onclick="loadNewsHome()">Загрузить</button>
+        <div id="homeNews"></div>
+        <div class="hr"></div>
+        <div class="sec-title">🏆 Топ рейтинг</div>
+        <button class="b b2" onclick="loadLeaderMini()">Загрузить топ-5</button>
+        <div id="homeLeader" style="margin-top:8px"></div>
+      </div>
+    </div>
+
+    <!-- LOGIN -->
+    <div id="p-login" class="pg">
+      <div class="stp"><div class="act" id="st1"></div><div id="st2"></div><div id="st3"></div></div>
+      <div class="sec-title">📲 Вход по номеру</div>
+      <div class="sec-sub">Код придёт в терминал сервера (SMS-сервис в DEBUG)</div>
+      <div class="fg"><label>Телефон</label><input type="tel" id="phone" placeholder="+7 700 123 4567"></div>
+      <button class="b b1" onclick="sendCode()">Получить код →</button>
+      <div class="hr"></div>
+      <div class="sec-title" style="font-size:14px">🔢 Код подтверждения</div>
+      <div class="sec-sub">Отправлен на <strong id="codePhone">—</strong></div>
+      <div class="fg"><label>Код (6 цифр)</label><input type="text" id="code" placeholder="123456" maxlength="6" inputmode="numeric" style="font-size:22px;text-align:center;letter-spacing:10px"></div>
+      <div class="fg"><label>Device ID <span class="hint">(другой = тест QR-блока)</span></label><input type="text" id="devId" style="font-size:10px"></div>
+      <button class="b b1" onclick="verifyCode()">Войти →</button>
+      <button class="b b2" onclick="doLogout()" id="btnLogout" style="display:none">🚪 Выйти</button>
+      <div id="loginRes" class="hidden" style="margin-top:10px">
+        <div class="g2">
+          <div class="card"><div class="cl">Статус</div><div class="cv" id="rNew">—</div></div>
+          <div class="card"><div class="cl">Профиль</div><div class="cv" id="rProf">—</div></div>
+          <div class="card"><div class="cl">Роль</div><div class="cv" id="rRole">—</div></div>
+          <div class="card"><div class="cl">QR</div><div class="cv" id="rQr">—</div></div>
+        </div>
+      </div>
+      <div id="nameForm" class="hidden" style="margin-top:12px">
+        <div class="hr"></div>
+        <div class="sec-title" style="font-size:14px">👤 Как вас зовут?</div>
+        <div class="fg"><label>Имя</label><input type="text" id="fn" placeholder="Иван"></div>
+        <div class="fg"><label>Фамилия</label><input type="text" id="ln" placeholder="Иванов"></div>
+        <button class="b b1" onclick="saveProfile()">Сохранить →</button>
+        <div id="regRes"></div>
+      </div>
+    </div>
+
+    <!-- BOOKINGS -->
+    <div id="p-bookings" class="pg">
+      <div class="stb">
+        <button class="on" data-bt="bup" onclick="switchBTab(this,'bup')">Предстоящие</button>
+        <button data-bt="bhist" onclick="switchBTab(this,'bhist')">История</button>
+        <button data-bt="bcreate" onclick="switchBTab(this,'bcreate')">+ Создать</button>
+        <button data-bt="bavail" onclick="switchBTab(this,'bavail')">Слоты</button>
+      </div>
+
+      <!-- Upcoming bookings -->
+      <div id="bup">
+        <button class="b b2" onclick="loadUpcoming()" style="margin-bottom:8px">🔄 Обновить</button>
+        <div id="upcomingList"></div>
+      </div>
+
+      <!-- History -->
+      <div id="bhist" style="display:none">
+        <button class="b b2" onclick="loadHistory()" style="margin-bottom:8px">🔄 История</button>
+        <div id="histList"></div>
+      </div>
+
+      <!-- Create booking -->
+      <div id="bcreate" style="display:none">
+        <button class="b b2" onclick="initBookingForm()" style="margin-bottom:10px">🔄 Загрузить корты и тренеров</button>
+
+        <div class="fg"><label>Корт</label>
+          <select id="bCourt" onchange="updateBookingTotal()">
+            <option value="">— Сначала загрузите —</option>
+          </select>
+        </div>
+        <div class="fg"><label>Дата и время начала</label>
+          <input type="datetime-local" id="bStart" onchange="updateBookingTotal();refillCoachesByTime();">
+        </div>
+        <div class="fg"><label>Длительность</label>
+          <select id="bDur" onchange="updateBookingTotal();refillCoachesByTime();">
+            <option value="60">60 мин</option>
+            <option value="90">90 мин</option>
+            <option value="120">120 мин</option>
+          </select>
+        </div>
+
+        <div class="fg"><label>Тренер (необязательно)</label>
+          <select id="bCoach" onchange="updateBookingTotal()">
+            <option value="">Без тренера</option>
+          </select>
+        </div>
+
+        <div class="fg"><label>Услуги и инвентарь (необязательно)</label>
+          <div id="servicesCheckboxes" style="background:var(--s2);border:1px solid var(--bd);border-radius:10px;padding:8px;min-height:36px">
+            <span style="color:var(--dm);font-size:11px">Нажмите «Загрузить» выше</span>
+          </div>
+        </div>
+
+        <div class="fg"><label>Друзья (участники)</label>
+          <div id="friendsCheckboxes" style="background:var(--s2);border:1px solid var(--bd);border-radius:10px;padding:8px;min-height:36px">
+            <span style="color:var(--dm);font-size:11px">Нажмите «Загрузить» выше</span>
+          </div>
+        </div>
+
+        <div class="fg"><label>Способ оплаты</label>
+          <select id="bPayMethod">
+            <option value="KASPI">Kaspi QR</option>
+            <option value="CASH">Наличные</option>
+            <option value="CARD">Банковская карта</option>
+          </select>
+        </div>
+        <div class="fg"><label>Промокод (необязательно)</label>
+          <input type="text" id="bPromo" placeholder="PROMO2025">
+        </div>
+
+        <!-- Price preview -->
+        <div id="bPricePreview" style="background:linear-gradient(135deg,rgba(34,211,238,.08),rgba(167,139,250,.06));border:1px solid rgba(34,211,238,.2);border-radius:10px;padding:12px;margin-bottom:10px;display:none">
+          <div style="font-size:10px;color:var(--dm);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">Предварительный расчёт</div>
+          <div id="bPriceLines" style="font-size:11px;color:var(--dm);line-height:1.9"></div>
+          <div style="border-top:1px solid rgba(34,211,238,.2);margin-top:6px;padding-top:6px;display:flex;justify-content:space-between;align-items:center">
+            <span style="font-size:12px;font-weight:600">Итого:</span>
+            <span id="bPriceTotal" style="font-size:18px;font-weight:700;color:var(--ac)">0₸</span>
+          </div>
+        </div>
+
+        <button class="b b1" onclick="createBooking()">🎾 Забронировать</button>
+        <div id="createRes" style="margin-top:8px"></div>
+      </div>
+
+      <!-- Availability check -->
+      <div id="bavail" style="display:none">
+        <div class="fg"><label>Корт</label>
+          <select id="avCourt">
+            <option value="">— Загрузить корты —</option>
+          </select>
+          <button class="b b2 bsm" style="margin-top:4px" onclick="loadCourtsForAvail()">Загрузить корты</button>
+        </div>
+        <div class="fg"><label>Дата</label><input type="date" id="avDate"></div>
+        <button class="b b1" onclick="checkAvail()">🔍 Проверить доступность</button>
+        <div id="availRes" style="margin-top:8px"></div>
+      </div>
+    </div>
+
+    <!-- FRIENDS -->
+    <div id="p-friends" class="pg">
+      <div class="stb">
+        <button class="on" data-ft="fl" onclick="switchFTab(this,'fl')">Друзья</button>
+        <button data-ft="fs" onclick="switchFTab(this,'fs')">Поиск</button>
+        <button data-ft="fi" onclick="switchFTab(this,'fi')">Вход.<span class="bcnt hidden" id="inCnt" style="background:var(--r);color:#fff;padding:0 4px;border-radius:8px;margin-left:2px;font-size:8px;font-weight:700">0</span></button>
+        <button data-ft="fo" onclick="switchFTab(this,'fo')">Исход.</button>
+        <button data-ft="ff" onclick="switchFTab(this,'ff')">Лента</button>
+      </div>
+      <div id="fl"><button class="b b2" onclick="loadFriends()" style="margin-bottom:8px">🔄 Обновить</button><div id="friendsList"></div></div>
+      <div id="fs" style="display:none">
+        <div class="fg"><label>Имя или телефон</label><input type="text" id="fSrch" placeholder="Иван или +77..."></div>
+        <button class="b b1" onclick="searchUsers()">🔍 Найти</button>
+        <div id="searchRes" style="margin-top:8px"></div>
+      </div>
+      <div id="fi" style="display:none"><button class="b b2" onclick="loadIncoming()" style="margin-bottom:8px">🔄 Обновить</button><div id="inList"></div></div>
+      <div id="fo" style="display:none"><button class="b b2" onclick="loadOutgoing()" style="margin-bottom:8px">🔄 Обновить</button><div id="outList"></div></div>
+      <div id="ff" style="display:none">
+        <div class="sec-sub">Активность ваших друзей (матчи, ELO за последние 30 дней)</div>
+        <button class="b b2" onclick="loadFriendFeed()" style="margin-bottom:8px">🔄 Обновить</button>
+        <div id="feedList"></div>
+      </div>
+    </div>
+
+    <!-- LOBBY (поиск партнёров) -->
+    <div id="p-lobby" class="pg">
+      <div class="stb">
+        <button class="on" data-lb="llist" onclick="switchLobbyTab(this,'llist')">Лобби</button>
+        <button data-lb="lmy" onclick="switchLobbyTab(this,'lmy')">Мои</button>
+        <button data-lb="lcreate" onclick="switchLobbyTab(this,'lcreate')">+ Создать</button>
+        <button data-lb="ldetail" onclick="switchLobbyTab(this,'ldetail')" id="lbDetailBtn" style="display:none">📋 Детали</button>
+      </div>
+
+      <!-- Список активных лобби -->
+      <div id="llist">
+        <div style="background:rgba(34,211,238,.06);border:1px solid rgba(34,211,238,.15);border-radius:9px;padding:8px 10px;margin-bottom:8px;font-size:10px;color:var(--ac)">
+          🎯 Показываются лобби, подходящие по вашему ELO. Нажмите «Все» чтобы увидеть все.
+        </div>
+        <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap">
+          <select id="lbStatusF" style="flex:1;min-width:80px;padding:6px;background:var(--s2);border:1px solid var(--bd);border-radius:8px;color:var(--tx);font-size:10px">
+            <option value="">Все статусы</option>
+            <option value="OPEN">Ищем</option>
+            <option value="WAITING">Частично</option>
+            <option value="NEGOTIATING">Согласование</option>
+            <option value="READY">Готово</option>
+          </select>
+          <select id="lbFormatF" style="flex:1;min-width:80px;padding:6px;background:var(--s2);border:1px solid var(--bd);border-radius:8px;color:var(--tx);font-size:10px">
+            <option value="">Формат</option>
+            <option value="DOUBLE">2×2</option>
+            <option value="SINGLE">1×1</option>
+          </select>
+          <button class="b b2 bsm" onclick="loadLobbies()" title="Обновить">🔄</button>
+          <button class="bsm b1" onclick="loadLobbies(true)" title="Все лобби">Все</button>
+        </div>
+        <div id="lobbyList"></div>
+      </div>
+
+      <!-- Мои лобби -->
+      <div id="lmy" style="display:none">
+        <button class="b b2" onclick="loadMyLobbies()" style="margin-bottom:8px">🔄 Обновить</button>
+        <div id="myLobbyList"></div>
+      </div>
+
+      <!-- Создать лобби -->
+      <div id="lcreate" style="display:none">
+        <div class="sec-title" style="font-size:13px;margin-bottom:4px">Создать лобби</div>
+        <div class="al al-i" style="font-size:10px;margin-bottom:10px">
+          🎯 Корт и время НЕ выбираются сразу — сначала соберите команду, потом вместе согласуйте удобный слот.
+        </div>
+
+        <div class="fg"><label>Название</label>
+          <input type="text" id="lbTitle" placeholder="Ищу партнёра, нужен 4-й игрок…">
+        </div>
+        <div class="fg"><label>Формат игры</label>
+          <select id="lbFormat">
+            <option value="DOUBLE">Парная (2×2) — 4 игрока</option>
+            <option value="SINGLE">Одиночная (1×1) — 2 игрока</option>
+          </select>
+        </div>
+        <div class="fg"><label>ELO диапазон (кто может вступить)</label>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input type="number" id="lbEloMin" placeholder="от" style="flex:1;padding:8px;background:var(--s2);border:1px solid var(--bd);border-radius:8px;color:var(--tx)">
+            <span style="color:var(--dm)">–</span>
+            <input type="number" id="lbEloMax" placeholder="до" style="flex:1;padding:8px;background:var(--s2);border:1px solid var(--bd);border-radius:8px;color:var(--tx)">
+          </div>
+          <div id="lbEloHint" style="font-size:10px;color:var(--dm);margin-top:3px">Заполнится автоматически: ваш ELO ±200</div>
+        </div>
+        <div class="fg"><label>Комментарий (необязательно)</label>
+          <input type="text" id="lbComment" placeholder="Играю по вечерам, предпочтительно 2-3 корт…">
+        </div>
+        <button class="b b1" onclick="createLobby()">Создать лобби →</button>
+        <div id="createLobbyRes" style="margin-top:8px"></div>
+      </div>
+
+      <!-- Детали лобби (управление: команды, бронь, оплата) -->
+      <div id="ldetail" style="display:none">
+        <div id="lobbyDetailContent"></div>
+      </div>
+    </div>
+
+    <!-- NOTIFICATIONS -->
+    <div id="p-notifications" class="pg">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div><div class="sec-title">🔔 Уведомления</div><div class="sec-sub" id="ntfUnreadBadge"></div></div>
+        <div style="display:flex;gap:6px">
+          <button class="b b2 bsm" onclick="loadNotifications()">🔄</button>
+          <button class="b bg bsm" onclick="markAllRead()">✓ Все</button>
+        </div>
+      </div>
+      <div class="stb">
+        <button class="on" data-nf="nfall" onclick="switchNtfTab(this,'nfall','')">Все</button>
+        <button data-nf="nfunread" onclick="switchNtfTab(this,'nfunread','unread')">Новые</button>
+        <button data-nf="nfbooking" onclick="switchNtfTab(this,'nfbooking','BOOKING')">Брони</button>
+        <button data-nf="nffriend" onclick="switchNtfTab(this,'nffriend','FRIEND')">Друзья</button>
+      </div>
+      <div id="ntfList"></div>
+    </div>
+
+    <!-- MEMBERSHIP -->
+    <div id="p-membership" class="pg">
+      <div class="stb">
+        <button class="on" data-mt="mmy" onclick="switchMTab(this,'mmy')">Мои</button>
+        <button data-mt="mshop" onclick="switchMTab(this,'mshop')">Магазин</button>
+      </div>
+      <div id="mmy">
+        <button class="b b2" onclick="loadMyMemberships()" style="margin-bottom:8px">🔄 Загрузить</button>
+        <div id="myMemList"></div>
+      </div>
+      <div id="mshop" style="display:none">
+        <button class="b b2" onclick="loadMembershipTypes()" style="margin-bottom:8px">🔄 Загрузить типы</button>
+        <div id="shopList"></div>
+      </div>
+    </div>
+
+    <!-- GYM/QR -->
+    <div id="p-gym" class="pg">
+      <div class="stb">
+        <button class="on" data-gt="gqr" onclick="switchGTab(this,'gqr')">QR</button>
+        <button data-gt="gcheckin" onclick="switchGTab(this,'gcheckin')">Чекин</button>
+        <button data-gt="gtraining" onclick="switchGTab(this,'gtraining')">Тренировки</button>
+      </div>
+
+      <div id="gqr">
+        <div class="sec-sub">QR-код для входа в зал/на падел. Действует 60 секунд.</div>
+        <button class="b b1" onclick="genQR()">📱 Сгенерировать QR</button>
+        <div id="qrRes" style="margin-top:10px"></div>
+      </div>
+
+      <div id="gcheckin" style="display:none">
+        <div class="sec-sub">Проверяет ваш абонемент и фиксирует вход в зал.</div>
+        <button class="b b1" onclick="gymCheckIn()">🏋️ Войти в зал</button>
+        <div id="checkinRes" style="margin-top:8px"></div>
+      </div>
+
+      <div id="gtraining" style="display:none">
+        <button class="b b2" onclick="loadMyTrainings()" style="margin-bottom:8px">🔄 Мои тренировки</button>
+        <div id="myTrainings"></div>
+        <div class="hr"></div>
+        <div class="sec-title" style="font-size:13px">Записаться к тренеру</div>
+        <div class="fg"><label>Тренер</label>
+          <div id="trCoachList" style="background:var(--s2);border:1px solid var(--bd);border-radius:10px;padding:8px">
+            <button class="b b2 bsm" onclick="loadFitnessCoaches()" style="margin-bottom:6px;width:100%">🔄 Загрузить тренеров</button>
+            <div id="trCoachesList"></div>
+          </div>
+          <input type="hidden" id="trCoach" value="">
+          <div id="trCoachSelected" style="font-size:10px;color:var(--ac);margin-top:4px"></div>
+        </div>
+        <div class="fg"><label>Дата и время</label><input type="datetime-local" id="trTime"></div>
+        <button class="b b1" onclick="createTraining()">Записаться</button>
+        <div id="trRes" style="margin-top:8px"></div>
+      </div>
+    </div>
+
+    <!-- LEADERBOARD -->
+    <div id="p-leaderboard" class="pg">
+      <div class="stb">
+        <button class="on" data-ldr="ldrtop" onclick="switchLdrTab(this,'ldrtop')">Топ</button>
+        <button data-ldr="ldrmatch" onclick="switchLdrTab(this,'ldrmatch')">Мои матчи</button>
+      </div>
+      <div id="ldrtop">
+        <div class="sec-sub">Топ игроков клуба по ELO</div>
+        <button class="b b1" onclick="loadLeaderboard()" style="margin-bottom:10px">Загрузить рейтинг</button>
+        <div id="lbList"></div>
+      </div>
+      <div id="ldrmatch" style="display:none">
+        <div class="sec-sub">История ваших матчей с ELO-изменениями</div>
+        <button class="b b2" onclick="loadMyMatches()" style="margin-bottom:10px">🔄 Загрузить</button>
+        <div id="myMatchList"></div>
+      </div>
+    </div>
+
+    <!-- FINANCE -->
+    <div id="p-finance" class="pg">
+      <div class="sec-title">💰 История платежей</div>
+      <div class="sec-sub">GET /api/finance/history/</div>
+      <button class="b b2" onclick="loadFinHistory()" style="margin-bottom:8px">🔄 Загрузить</button>
+      <div id="finList"></div>
+    </div>
+
+    <!-- NEWS -->
+    <div id="p-news" class="pg">
+      <div class="stb">
+        <button class="on" data-nw="nall" onclick="switchNTab(this,'nall','')">Все</button>
+        <button data-nw="nnews" onclick="switchNTab(this,'nnews','NEWS')">Новости</button>
+        <button data-nw="nev" onclick="switchNTab(this,'nev','EVENT')">Турниры</button>
+        <button data-nw="npromo" onclick="switchNTab(this,'npromo','PROMO')">Акции</button>
+      </div>
+      <div id="newsList"></div>
+      <div id="newsDetail" style="display:none">
+        <button class="b b2" onclick="backNews()" style="margin-bottom:10px">← Назад</button>
+        <div id="newsDetailContent"></div>
+      </div>
+    </div>
+
+    <!-- PROFILE -->
+    <div id="p-profile" class="pg">
+      <div class="stb">
+        <button class="on" data-pr="prstats" onclick="switchPrTab(this,'prstats')">Профиль</button>
+        <button data-pr="prleague" onclick="switchPrTab(this,'prleague')">Лига</button>
+        <button data-pr="prdel" onclick="switchPrTab(this,'prdel')">Аккаунт</button>
+      </div>
+      <div id="prstats">
+        <button class="b b1" onclick="loadStats()">🔄 Загрузить профиль</button>
+        <div id="profileContent" style="margin-top:8px"></div>
+      </div>
+      <div id="prleague" style="display:none">
+        <div class="sec-sub">Текущая лига, ELO и прогресс до следующей</div>
+        <button class="b b1" onclick="loadLeague()">🔄 Загрузить</button>
+        <div id="leagueContent" style="margin-top:10px"></div>
+      </div>
+      <div id="prdel" style="display:none">
+        <div class="al al-w">Это действие необратимо. Все ваши данные будут удалены.</div>
+        <button class="b br" onclick="deleteAccount()">🗑 Удалить мой аккаунт</button>
+        <div id="deleteRes" style="margin-top:8px"></div>
+      </div>
+    </div>
+
+    <!-- COACH (для тренеров: расписание + матчи/счёт → ELO) -->
+    <div id="p-coach" class="pg">
+      <div class="sec-title">👨‍🏫 Кабинет тренера</div>
+      <div class="sec-sub">Расписание броней и ввод результатов матчей (ELO)</div>
+      <div id="coachNotRole" class="al al-w hidden">Войдите под учётной записью тренера (COACH_PADEL / COACH_FITNESS).</div>
+      <div id="coachContent" style="display:none">
+        <div class="stb">
+          <button class="on" data-ct="schedule" onclick="switchCoachTab(this,'schedule')">Мои брони</button>
+          <button data-ct="matches" onclick="switchCoachTab(this,'matches')">Матчи / Счёт</button>
+        </div>
+        <div id="coachSchedule">
+          <button class="b b2" onclick="loadCoachSchedule()" style="margin-bottom:8px">🔄 Расписание</button>
+          <div id="coachScheduleList"></div>
+        </div>
+        <div id="coachMatches" style="display:none">
+          <div class="sec-title" style="font-size:13px;margin-bottom:6px">Ввести результат матча по брони</div>
+          <div class="sec-sub">Выберите бронь, где вы были тренером → распределите игроков по командам → укажите счёт и победителя.</div>
+          <div class="fg"><label>Выберите бронь</label>
+            <select id="matchBooking" onchange="onMatchBookingSelect()">
+              <option value="">— Загрузите брони ниже —</option>
+            </select>
+          </div>
+          <button class="b b2" onclick="loadCoachBookingsForMatch()" style="margin-bottom:10px">🔄 Загрузить мои брони</button>
+          <div id="matchBookingInfo" class="card hidden" style="margin-bottom:10px"><div class="cl">Корт и дата</div><div class="cv" id="matchBookingInfoText"></div></div>
+          <div id="matchPlayersBox" class="hidden">
+            <div class="fg"><label>Распределите игроков по командам (выберите A или B для каждого)</label>
+              <div id="matchPlayersList" style="margin-bottom:10px"></div>
+            </div>
+          </div>
+          <div class="fg"><label>Счёт (напр. 6:4, 6:3)</label><input type="text" id="matchScore" placeholder="6:4, 6:3"></div>
+          <div class="fg"><label>Победитель</label>
+            <select id="matchWinner">
+              <option value="A">Команда A</option>
+              <option value="B">Команда B</option>
+              <option value="DRAW">Ничья</option>
+            </select>
+          </div>
+          <button class="b b1" onclick="createMatchFromBooking()">✅ Сохранить матч (начислить ELO)</button>
+          <div id="createMatchRes" style="margin-top:8px"></div>
+          <div class="hr"></div>
+          <div class="sec-title" style="font-size:13px;margin-bottom:6px">История матчей</div>
+          <button class="b b2" onclick="loadCoachMatches()" style="margin-bottom:8px">🔄 Обновить</button>
+          <div id="coachMatchesList"></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Bottom nav -->
+  <div class="bnav">
+    <button class="on" onclick="nav('home')"><span class="ic">🏠</span>Главная</button>
+    <button onclick="nav('bookings')"><span class="ic">🎾</span>Брони</button>
+    <button id="btnCoachNav" style="display:none" onclick="nav('coach')"><span class="ic">👨‍🏫</span>Тренер</button>
+    <button onclick="nav('lobby')"><span class="ic">🤝</span>Лобби</button>
+    <button onclick="nav('membership')"><span class="ic">🎫</span>Абонемент</button>
+    <button onclick="nav('gym')"><span class="ic">🏋️</span>Зал</button>
+    <button onclick="nav('friends')"><span class="ic">👥</span>Друзья</button>
+    <button onclick="nav('profile')"><span class="ic">👤</span>Профиль</button>
+    <button onclick="nav('notifications')" id="ntfNavBtn"><span class="ic">🔔</span>Оповещ.</button>
+  </div>
+</div>
+
+<button class="lt" onclick="toggleLog()">📋</button>
+<div class="ld" id="logD">
+  <div class="lhd"><h3>📋 Логи запросов</h3><button onclick="$('logB').innerHTML=''">Очистить</button></div>
+  <div class="lbd" id="logB"></div>
+</div>
+
+<script>
+let AT=null,RT=null,UID=null,ROLE=null;
+const B=()=>document.getElementById('baseUrl').value.replace(/\/+$/,'');
+const $=id=>document.getElementById(id);
+const esc=t=>{const d=document.createElement('div');d.textContent=t;return d.innerHTML};
+const uN=u=>(u.first_name&&u.last_name)?`${u.first_name} ${u.last_name}`:(u.username||'User#'+u.id);
+const uI=u=>((u.first_name||u.username||'?')[0]||'?').toUpperCase();
+const fmtMoney=n=>Number(n).toLocaleString('ru-RU')+'₸';
+const genDev=()=>'ios-'+Math.random().toString(36).substr(2,8)+'-'+Date.now();
+
+// ---- NAV ----
+function nav(p){
+  document.querySelectorAll('.bnav button').forEach(b=>{
+    b.classList.toggle('on', b.getAttribute('onclick')===`nav('${p}')`);
+  });
+  document.querySelectorAll('.pg').forEach(x=>x.classList.remove('show'));
+  const el=$('p-'+p);
+  if(el) el.classList.add('show');
+  if(p==='coach'){
+    const isC=isCoach();
+    if($('coachNotRole'))$('coachNotRole').classList.toggle('hidden',isC);
+    if($('coachContent'))$('coachContent').style.display=isC?'block':'none';
+    if(isC){ loadCoachSchedule(); loadCoachMatches(); }
+  }
+  if(p==='notifications'){ loadNotifications(); loadUnreadCount(); }
+  if(p==='lobby'){
+    const detBtn = $('lbDetailBtn');
+    if(detBtn) detBtn.style.display='none';
+    loadLobbies();
+  }
+}
+function switchCoachTab(btn,id){
+  document.querySelectorAll('[data-ct]').forEach(b=>b.classList.toggle('on',b.dataset.ct===id));
+  $('coachSchedule').style.display=id==='schedule'?'block':'none';
+  $('coachMatches').style.display=id==='matches'?'block':'none';
+  if(id==='matches'){ loadCoachMatches(); loadCoachBookingsForMatch(); }
+}
+
+function switchBTab(btn,id){
+  document.querySelectorAll('[data-bt]').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  ['bup','bhist','bcreate','bavail'].forEach(x=>{ const e=$(x); if(e) e.style.display=x===id?'block':'none'; });
+}
+function switchFTab(btn,id){
+  document.querySelectorAll('[data-ft]').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  ['fl','fs','fi','fo','ff'].forEach(x=>{ const e=$(x); if(e) e.style.display=x===id?'block':'none'; });
+  if(id==='ff') loadFriendFeed();
+}
+function switchMTab(btn,id){
+  document.querySelectorAll('[data-mt]').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  ['mmy','mshop'].forEach(x=>{ const e=$(x); if(e) e.style.display=x===id?'block':'none'; });
+}
+function switchGTab(btn,id){
+  document.querySelectorAll('[data-gt]').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  ['gqr','gcheckin','gtraining'].forEach(x=>{ const e=$(x); if(e) e.style.display=x===id?'block':'none'; });
+}
+function switchNTab(btn,id,cat){
+  document.querySelectorAll('[data-nw]').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  $('newsDetail').style.display='none';
+  $('newsList').style.display='block';
+  loadNews(cat);
+}
+function switchLobbyTab(btn,id){
+  document.querySelectorAll('[data-lb]').forEach(b=>b.classList.remove('on'));
+  if(btn && btn.classList) btn.classList.add('on');
+  else { const f=document.querySelector(`[data-lb="${id}"]`); if(f) f.classList.add('on'); }
+  ['llist','lmy','lcreate','ldetail'].forEach(x=>{ const e=$(x); if(e) e.style.display=x===id?'block':'none'; });
+  if(id==='llist') loadLobbies();
+  if(id==='lmy') loadMyLobbies();
+  if(id==='lcreate') initLobbyForm();
+}
+function switchNtfTab(btn,id,filter){
+  document.querySelectorAll('[data-nf]').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  loadNotifications(filter);
+}
+function switchLdrTab(btn,id){
+  document.querySelectorAll('[data-ldr]').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  ['ldrtop','ldrmatch'].forEach(x=>{ const e=$(x); if(e) e.style.display=x===id?'block':'none'; });
+  if(id==='ldrmatch') loadMyMatches();
+}
+function switchPrTab(btn,id){
+  document.querySelectorAll('[data-pr]').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  ['prstats','prleague','prdel'].forEach(x=>{ const e=$(x); if(e) e.style.display=x===id?'block':'none'; });
+}
+
+// ---- LOG ----
+let logO=false;
+function toggleLog(){logO=!logO;$('logD').classList.toggle('open',logO)}
+function log(tp,m,url,body,st,res){
+  const t=new Date().toLocaleTimeString(),c=tp==='rq'?'rq':(st<400?'ok':'er');
+  let h=`<div class="le ${c}"><b>${t}</b> <b>${m}</b> ${url}`;
+  if(st!==undefined) h+=` → <b>${st}</b>`;
+  if(body) h+=`<div class="bd">${esc(JSON.stringify(body,null,1))}</div>`;
+  if(res) h+=`<div class="bd">${esc(typeof res==='object'?JSON.stringify(res,null,1):res)}</div>`;
+  h+='</div>';$('logB').insertAdjacentHTML('afterbegin',h);
+}
+
+// ---- API ----
+async function api(m,p,body=null,auth=true){
+  const url=B()+p,h={'Content-Type':'application/json'};
+  if(auth&&AT) h['Authorization']=`Bearer ${AT}`;
+  const o={method:m,headers:h};
+  if(body&&m!=='GET') o.body=JSON.stringify(body);
+  log('rq',m,p,body);
+  try{
+    const r=await fetch(url,o);
+    const ct=r.headers.get('content-type')||'';
+    const d=ct.includes('json')?await r.json():await r.text();
+    log('rs',m,p,null,r.status,d);
+    return{ok:r.ok,status:r.status,data:d};
+  }catch(e){log('rs',m,p,null,0,{error:e.message});return{ok:false,status:0,data:{error:e.message}};}
+}
+
+function isCoach(){
+  return ROLE==='COACH_PADEL'||ROLE==='COACH_FITNESS'||ROLE==='ADMIN';
+}
+function upd(){
+  if(AT){$('dot').classList.add('on');$('stxt').textContent=ROLE||'Авторизован';loadUnreadCount();}
+  else{$('dot').classList.remove('on');$('stxt').textContent='Не авторизован';}
+  $('btnLogout').style.display=AT?'flex':'none';
+  const btn=$('btnCoachNav');if(btn){btn.style.display=isCoach()?'flex':'none';}
+}
+function showErr(id,msg){$(id).innerHTML=`<div class="al al-e">❌ ${esc(typeof msg==='object'?JSON.stringify(msg):msg)}</div>`;}
+function showOk(id,msg){$(id).innerHTML=`<div class="al al-s">✅ ${esc(msg)}</div>`;}
+
+// ============ AUTH ============
+async function sendCode(){
+  const ph=$('phone').value.trim();
+  if(!ph)return alert('Введите номер');
+  const r=await api('POST','/api/auth/mobile/send-code/',{phone_number:ph},false);
+  if(r.ok){
+    $('codePhone').textContent=r.data.phone||ph;
+    $('devId').value=genDev();
+    $('st1').className='stp done';$('st2').className='stp act';
+  } else alert(r.data.error||JSON.stringify(r.data));
+}
+async function verifyCode(){
+  const ph=$('codePhone').textContent,cd=$('code').value.trim(),dv=$('devId').value.trim();
+  if(!cd||cd.length!==6)return alert('Нужно 6 цифр');
+  if(!dv)return alert('Нужен Device ID');
+  const r=await api('POST','/api/auth/mobile/login/',{phone_number:ph,code:cd,device_id:dv},false);
+  if(!r.ok)return alert(r.data.error||JSON.stringify(r.data));
+  AT=r.data.access;RT=r.data.refresh;UID=r.data.user_id;ROLE=r.data.role;upd();
+  $('loginRes').classList.remove('hidden');
+  $('rNew').textContent=r.data.is_new_user?'🆕 Новый':'Уже был';
+  $('rProf').textContent=r.data.is_profile_complete?'✅ Заполнен':'⚠️ Нет';
+  $('rRole').textContent=r.data.role;
+  $('rQr').textContent=r.data.is_qr_blocked?'⚠️ Блок':'✅ OK';
+  $('st2').className='stp done';$('st3').className='stp act';
+  if(!r.data.is_profile_complete){$('nameForm').classList.remove('hidden');}
+  else setTimeout(()=>{ nav('home'); loadHome(); },500);
+}
+async function saveProfile(){
+  if(!AT)return alert('Войдите');
+  const fn=$('fn').value.trim(),ln=$('ln').value.trim();
+  if(!fn||!ln)return alert('Введите имя и фамилию');
+  const r=await api('PATCH','/api/auth/users/me/',{first_name:fn,last_name:ln});
+  $('regRes').innerHTML=r.ok?'<div class="al al-s">✅ Сохранено!</div>':`<div class="al al-e">❌ ${JSON.stringify(r.data)}</div>`;
+  if(r.ok){ $('st3').className='stp done'; setTimeout(()=>{ nav('home'); loadHome(); },600); }
+}
+function doLogout(){
+  AT=RT=UID=ROLE=null;upd();
+  $('loginRes').classList.add('hidden');$('nameForm').classList.add('hidden');
+  $('code').value='';$('fn').value='';$('ln').value='';
+  nav('login');
+}
+
+// ============ HOME ============
+async function loadHome(){
+  if(!AT){ $('homeContent').innerHTML='<div class="al al-i">Войдите чтобы увидеть главный экран</div><button class="b b1" onclick="nav(\'login\')">📲 Войти</button>'; return; }
+  const r=await api('GET','/api/auth/home/');
+  if(!r.ok){ showErr('homeContent',r.data); return; }
+  const d=r.data;
+  let nb='<div class="al al-w">Нет предстоящих броней</div>';
+  if(d.next_booking){
+    const bk=d.next_booking;
+    nb=`<div class="bk"><div class="bh"><div class="bn">${esc(bk.court)}</div><span class="bs ${bk.status==='CONFIRMED'?'bs-c':'bs-p'}">${bk.status}</span></div><div class="bi">📅 ${esc(bk.date)} &nbsp; ⏰ ${esc(bk.start_time)}–${esc(bk.end_time)}</div></div>`;
+  }
+  let mem='<div class="card"><div class="cl">Абонемент</div><div class="cv cv-r">Нет активного абонемента</div></div>';
+  if(d.active_membership){
+    const m=d.active_membership;
+    mem=`<div class="mem"><div class="mn">🎫 ${esc(m.name)}</div><div class="md">До: ${esc(m.end_date)} (${m.days_left} дн.)<br>${m.hours_remaining>0?`Остаток часов: ${m.hours_remaining}`:m.visits_remaining>0?`Остаток входов: ${m.visits_remaining}`:''}</div></div>`;
+  }
+  let promos='';
+  if(d.promotions?.length) promos=d.promotions.map(p=>`<div class="card"><div class="cl">🎁 Акция</div><div class="cv">${esc(p.title)}</div><div style="font-size:10px;color:var(--dm);margin-top:2px">${esc(p.description?.substring(0,80)||'')}${p.promo_code?`<br>Промокод: <b style="color:var(--ac)">${esc(p.promo_code)}</b>`:''}</div></div>`).join('');
+  let news='';
+  if(d.news?.length) news=d.news.map(n=>`<div class="nw"><div class="nt">${esc(n.title)}</div><div class="nd">${esc(n.preview||'')}</div><div class="nb"><span class="cat ${n.category==='EVENT'?'ev':n.category==='PROMO'?'pr':n.category==='ANNOUNCEMENT'?'an':''}">${esc(n.category)}</span><span style="font-size:9px;color:var(--dm)">${esc(n.created_at||'')}</span></div></div>`).join('');
+
+  // Сохраняем ELO для ELO-фильтрации лобби
+  window._myElo = d.user.rating_elo || 800;
+
+  const league = d.user.league;
+  const lgBadge = league ? `<span style="font-size:9px;padding:2px 8px;border-radius:10px;background:${league.color}22;color:${league.color};border:1px solid ${league.color}44;margin-left:4px">${esc(league.name)}</span>` : '';
+  $('homeContent').innerHTML=`
+    <div class="hero"><div class="grt">${esc(d.greeting)}</div><div class="usr">${esc(d.user.full_name)} · ELO ${d.user.rating_elo}${lgBadge}</div></div>
+    <div class="sec-title" style="font-size:13px;margin-bottom:6px">📅 Ближайшая бронь</div>${nb}
+    <div class="hr"></div>
+    <div class="sec-title" style="font-size:13px;margin-bottom:6px">🎫 Абонемент</div>${mem}
+    ${promos?`<div class="hr"></div><div class="sec-title" style="font-size:13px;margin-bottom:6px">🎁 Акции</div>${promos}`:''}
+    ${news?`<div class="hr"></div><div class="sec-title" style="font-size:13px;margin-bottom:6px">📰 Новости</div>${news}`:''}
+  `;
+}
+async function loadNewsHome(){
+  const r=await api('GET','/api/news/?limit=3',null,false);
+  if(!r.ok||!r.data.length){$('homeNews').innerHTML='<div class="al al-w">Новостей пока нет</div>';return;}
+  $('homeNews').innerHTML=r.data.slice(0,3).map(n=>`<div class="nw"><div class="nt">${esc(n.title)}</div><div class="nd">${esc(n.content?.substring(0,100)||'')}...</div></div>`).join('');
+}
+async function loadLeaderMini(){
+  const r=await api('GET','/api/gamification/leaderboard/?limit=5',null,false);
+  if(!r.ok){$('homeLeader').innerHTML='<div class="al al-e">Ошибка</div>';return;}
+  $('homeLeader').innerHTML=r.data.slice(0,5).map((u,i)=>`<div class="lb"><div class="rk">${['🥇','🥈','🥉','4','5'][i]}</div><div class="lav">${uI(u)}</div><div class="li"><div class="ln">${esc(u.full_name||u.username)}</div><div class="ls">${u.matches_played} матчей</div></div><div class="le">${u.rating_elo}</div></div>`).join('');
+}
+
+// ============ BOOKINGS ============
+// Store loaded data globally for price calculation
+let _courts=[], _coaches=[], _services=[], _friends=[];
+
+function bkCard(b){
+  const st=b.status==='CONFIRMED'?'bs-c':b.status==='PENDING'?'bs-p':'bs-x';
+  const loc=new Date(b.start_time).toLocaleString('ru',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+  const locE=new Date(b.end_time).toLocaleTimeString('ru',{hour:'2-digit',minute:'2-digit'});
+  return `<div class="bk">
+    <div class="bh"><div class="bn">🎾 ${esc(b.court_name||'Корт')}</div><span class="bs ${st}">${b.status}</span></div>
+    <div class="bi">⏰ ${loc}–${locE} &nbsp; ⏱ ${b.duration_hours||'?'}ч<br>
+    ${b.coach_name?`👨‍🏫 ${esc(b.coach_name)}<br>`:''}
+    ${b.participants_names?.length?`👥 ${b.participants_names.join(', ')}<br>`:''}
+    💰 ${fmtMoney(b.price)} ${b.is_paid?'<span class="cv-g">Оплачено</span>':'<span class="cv-o">Не оплачено</span>'}</div>
+    <div style="display:flex;gap:4px;margin-top:6px;flex-wrap:wrap">
+      ${b.status==='PENDING'&&new Date(b.start_time)>new Date()?`<button class="bsm bg" onclick="confirmBooking(${b.id})">✅ Подтвердить</button>`:''}
+      ${b.status!=='CANCELED'&&new Date(b.start_time)>new Date()?`<button class="bsm br" onclick="cancelBooking(${b.id})">Отменить</button>`:''}
+    </div>
+  </div>`;
+}
+async function loadUpcoming(){
+  if(!AT)return alert('Войдите');
+  const r=await api('GET','/api/bookings/');
+  if(!r.ok){showErr('upcomingList',r.data);return;}
+  $('upcomingList').innerHTML=r.data.length?r.data.map(bkCard).join(''):'<div class="al al-w">Нет предстоящих броней</div>';
+}
+async function loadHistory(){
+  if(!AT)return alert('Войдите');
+  const r=await api('GET','/api/bookings/history/');
+  if(!r.ok){showErr('histList',r.data);return;}
+  $('histList').innerHTML=r.data.length?r.data.map(bkCard).join(''):'<div class="al al-w">История пуста</div>';
+}
+
+async function initBookingForm(){
+  const [rCourts, rCoaches, rServices, rFriends] = await Promise.all([
+    api('GET','/api/courts/',null,false),
+    api('GET','/api/auth/coaches/',null,false),
+    api('GET','/api/inventory/services/',null,false),
+    AT ? api('GET','/api/friends/') : Promise.resolve({ok:false,data:[]}),
+  ]);
+
+  if(rCourts.ok){
+    _courts=rCourts.data;
+    const sel=$('bCourt');
+    sel.innerHTML='<option value="">Выберите корт</option>';
+    _courts.forEach(c=>{
+      const o=document.createElement('option');
+      o.value=c.id;
+      o.dataset.price=c.price_per_hour||0;
+      o.textContent=`${c.name} — ${fmtMoney(c.price_per_hour)}/ч`;
+      sel.appendChild(o);
+    });
+  }
+
+  const coaches=rCoaches.ok?rCoaches.data:[];
+  _coaches=coaches;
+  const cSel=$('bCoach');
+  cSel.innerHTML='<option value="">Без тренера</option>';
+  coaches.forEach(c=>{
+    const o=document.createElement('option');
+    o.value=c.id;
+    o.dataset.price=c.coach_price||c.price_per_hour||0;
+    o.textContent=(c.full_name||(c.first_name+' '+(c.last_name||'')).trim())||`Тренер #${c.id}`;
+    cSel.appendChild(o);
+  });
+
+  // Render services checkboxes
+  const services=rServices.ok?rServices.data:[];
+  _services=services;
+  const sBox=$('servicesCheckboxes');
+  if(services.length){
+    sBox.innerHTML=services.map(s=>`
+      <label style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--bd);cursor:pointer;font-size:12px">
+        <input type="checkbox" data-svcid="${s.id}" data-svcprice="${s.price}" value="${s.id}"
+          onchange="updateBookingTotal()"
+          style="width:16px;height:16px;accent-color:var(--ac)">
+        <span style="flex:1">${esc(s.name)}</span>
+        <span style="font-weight:600;color:var(--ac)">${fmtMoney(s.price)}</span>
+      </label>`).join('');
+  } else {
+    sBox.innerHTML='<span style="color:var(--dm);font-size:11px">Услуги не найдены</span>';
+  }
+
+  // Render friends checkboxes
+  const friends=rFriends.ok?(rFriends.data||[]):[];
+  _friends=friends;
+  const fBox=$('friendsCheckboxes');
+  if(friends.length){
+    fBox.innerHTML=friends.map(f=>`
+      <label style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--bd);cursor:pointer;font-size:12px">
+        <input type="checkbox" data-frid="${f.id}" value="${f.id}"
+          onchange="limitFriends(this)"
+          style="width:16px;height:16px;accent-color:var(--ac)">
+        <div style="width:24px;height:24px;border-radius:50%;background:var(--v);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;flex-shrink:0">${uI(f)}</div>
+        <span>${esc(uN(f))}</span>
+      </label>`).join('');
+  } else {
+    fBox.innerHTML=AT?'<span style="color:var(--dm);font-size:11px">Нет друзей (добавьте в разделе «Друзья»)</span>':'<span style="color:var(--dm);font-size:11px">Войдите для выбора друзей</span>';
+  }
+
+  updateBookingTotal();
+  refillCoachesByTime();
+}
+
+function limitFriends(el){
+  const checked=document.querySelectorAll('#friendsCheckboxes input[type=checkbox]:checked');
+  if(checked.length>3){ el.checked=false; alert('Максимум 3 участника'); }
+  updateBookingTotal();
+}
+
+async function refillCoachesByTime(){
+  const stVal=$('bStart').value;
+  const dur=parseInt($('bDur').value)||60;
+  if(!stVal||!_coaches.length){ return; }
+  const dt=new Date(stVal);
+  const iso=dt.toISOString();
+  const r=await api('GET',`/api/bookings/available-coaches/?datetime=${encodeURIComponent(iso)}&duration=${dur}`,true);
+  const cSel=$('bCoach');
+  const currentVal=cSel.value;
+  cSel.innerHTML='<option value="">Без тренера</option>';
+  const list=r.ok?r.data:_coaches;
+  list.forEach(c=>{
+    const o=document.createElement('option');
+    o.value=c.id;
+    o.dataset.price=c.coach_price||c.price_per_hour||0;
+    o.textContent=(c.full_name||(c.first_name+' '+(c.last_name||'')).trim())||`Тренер #${c.id}`;
+    cSel.appendChild(o);
+  });
+  if(currentVal&&list.some(c=>String(c.id)===String(currentVal))) cSel.value=currentVal;
+}
+
+function updateBookingTotal(){
+  const courtSel=$('bCourt');
+  const dur=parseInt($('bDur').value)||60;
+  const stVal=$('bStart').value;
+  const hrs=dur/60;
+
+  let courtPrice=0,coachPrice=0,servicesPrice=0;
+  let lines=[];
+
+  if(courtSel.value){
+    const opt=courtSel.options[courtSel.selectedIndex];
+    courtPrice=parseFloat(opt?.dataset?.price||0)*hrs;
+    if(courtPrice>0) lines.push(`🎾 Корт ${dur} мин: ${fmtMoney(courtPrice)}`);
+  }
+  const coachSel=$('bCoach');
+  if(coachSel.value){
+    coachPrice=parseFloat(coachSel.options[coachSel.selectedIndex]?.dataset?.price||0)*hrs;
+    if(coachPrice>0) lines.push(`👨‍🏫 Тренер ${dur} мин: ${fmtMoney(coachPrice)}`);
+  }
+  document.querySelectorAll('#servicesCheckboxes input[type=checkbox]:checked').forEach(cb=>{
+    const p=parseFloat(cb.dataset.svcprice||0);
+    servicesPrice+=p;
+    const svc=_services.find(s=>s.id==cb.dataset.svcid);
+    if(p>0) lines.push(`📦 ${esc(svc?.name||'Услуга')}: ${fmtMoney(p)}`);
+  });
+
+  const preview=$('bPricePreview');
+  if(AT&&courtSel.value&&stVal){
+    const serviceIds=[...document.querySelectorAll('#servicesCheckboxes input[type=checkbox]:checked')].map(cb=>parseInt(cb.dataset.svcid));
+    fetch(B()+'/api/bookings/price-preview/',{
+      method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+AT},
+      body:JSON.stringify({
+        court_id:parseInt(courtSel.value),
+        start_time:new Date(stVal).toISOString(),
+        duration:dur,
+        coach_id:coachSel.value?parseInt(coachSel.value):null,
+        service_ids:serviceIds,
+      }),
+    }).then(r=>r.json()).then(d=>{
+      const total=d.total!=null?d.total:(courtPrice+coachPrice+servicesPrice);
+      preview.style.display='block';
+      $('bPriceLines').innerHTML=lines.join('<br>')+
+        (d.membership_applied?`<br><span class="cv-g">🎫 По абонементу «${esc(d.membership_name||'')}»</span>`:'')+
+        (d.hours_remaining_after!=null?`<br><span class="cv-g">Часов останется: ${d.hours_remaining_after}</span>`:'');
+      $('bPriceTotal').textContent=fmtMoney(total);
+      if(d.membership_applied&&total===0) $('bPriceTotal').innerHTML='<span class="cv-g">0₸ (абонемент)</span>';
+    }).catch(()=>{
+      const total=courtPrice+coachPrice+servicesPrice;
+      preview.style.display=total>0?'block':'none';
+      $('bPriceLines').innerHTML=lines.join('<br>');
+      $('bPriceTotal').textContent=fmtMoney(total);
+    });
+  } else {
+    const total=courtPrice+coachPrice+servicesPrice;
+    preview.style.display=total>0?'block':'none';
+    $('bPriceLines').innerHTML=lines.join('<br>');
+    $('bPriceTotal').textContent=fmtMoney(total);
+  }
+}
+
+async function loadCourts(){
+  const r=await api('GET','/api/courts/',null,false);
+  if(!r.ok)return;
+  const sel=$('bCourt');
+  sel.innerHTML='<option value="">Выберите корт</option>';
+  r.data.forEach(c=>{const o=document.createElement('option');o.value=c.id;o.dataset.price=c.price_per_hour||0;o.textContent=`${c.name} — ${fmtMoney(c.price_per_hour)}/ч`;sel.appendChild(o);});
+}
+async function loadCourtsForAvail(){
+  const r=await api('GET','/api/courts/',null,false);
+  if(!r.ok)return alert('Ошибка загрузки кортов');
+  const sel=$('avCourt');
+  sel.innerHTML='<option value="">Выберите корт</option>';
+  r.data.forEach(c=>{const o=document.createElement('option');o.value=c.id;o.textContent=`${c.name}`;sel.appendChild(o);});
+}
+async function createBooking(){
+  if(!AT)return alert('Войдите');
+  const cId=$('bCourt').value;
+  if(!cId)return alert('Выберите корт');
+  const stVal=$('bStart').value;
+  if(!stVal)return alert('Укажите дату и время');
+  const startISO=new Date(stVal).toISOString();
+  const body={
+    court:parseInt(cId),
+    start_time:startISO,
+    duration:parseInt($('bDur').value),
+    payment_method:$('bPayMethod').value,
+  };
+  const promoVal=$('bPromo').value.trim();
+  if(promoVal) body.promo_code=promoVal;
+  const coachVal=$('bCoach').value;
+  if(coachVal) body.coach=parseInt(coachVal);
+
+  const svcChecked=[...document.querySelectorAll('#servicesCheckboxes input[type=checkbox]:checked')];
+  if(svcChecked.length){
+    body.services=svcChecked.map(cb=>({service_id:parseInt(cb.dataset.svcid),quantity:1}));
+  }
+
+  // Selected friends
+  const frChecked=[...document.querySelectorAll('#friendsCheckboxes input[type=checkbox]:checked')];
+  if(frChecked.length){
+    body.friends_ids=frChecked.map(cb=>parseInt(cb.dataset.frid));
+  }
+
+  const r=await api('POST','/api/bookings/create/',body);
+  if(r.ok){
+    $('createRes').innerHTML=`<div class="al al-s">✅ Бронь создана! ID: ${r.data.id}<br>Итого: ${fmtMoney(r.data.price)}</div>`;
+  } else showErr('createRes',r.data);
+}
+async function cancelBooking(id){
+  if(!confirm('Отменить бронь?'))return;
+  const r=await api('POST',`/api/bookings/${id}/cancel/`);
+  alert(r.ok?'✅ Отменено':'❌ '+JSON.stringify(r.data));
+  if(r.ok){ loadUpcoming(); if(typeof loadCoachSchedule==='function') loadCoachSchedule(); }
+}
+
+async function confirmBooking(id){
+  const r=await api('POST',`/api/bookings/${id}/client-confirm/`);
+  alert(r.ok?'✅ Бронь подтверждена':'❌ '+JSON.stringify(r.data));
+  if(r.ok) loadUpcoming();
+}
+
+// ============ COACH ============
+function coachBkCard(b){
+  const st=b.status==='CONFIRMED'?'bs-c':b.status==='PENDING'?'bs-p':'bs-x';
+  const loc=new Date(b.start_time).toLocaleString('ru',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+  const locE=new Date(b.end_time).toLocaleTimeString('ru',{hour:'2-digit',minute:'2-digit'});
+  return `<div class="bk">
+    <div class="bh"><div class="bn">🎾 ${esc(b.court_name||'Корт')}</div><span class="bs ${st}">${b.status}</span></div>
+    <div class="bi">👤 Клиент: ${esc(b.client_name||'#'+b.user)}<br>⏰ ${loc}–${locE}<br>💰 ${fmtMoney(b.price)}</div>
+    ${b.status!=='CANCELED'&&new Date(b.start_time)>new Date()?`<button class="bsm br" style="margin-top:6px" onclick="cancelBooking(${b.id});loadCoachSchedule();">Отменить</button>`:''}
+  </div>`;
+}
+async function loadCoachSchedule(){
+  if(!AT||!isCoach())return;
+  const r=await api('GET','/api/bookings/coach/schedule/');
+  const el=$('coachScheduleList');
+  if(!el)return;
+  if(!r.ok){ showErr('coachScheduleList',r.data); return; }
+  el.innerHTML=r.data.length?r.data.map(coachBkCard).join(''):'<div class="al al-w">Нет броней в выбранном периоде</div>';
+}
+let _coachBookingsForMatch = [];
+
+async function loadCoachBookingsForMatch(){
+  if(!AT||!isCoach())return;
+  const toDay=new Date();
+  const fromDay=new Date(toDay);
+  fromDay.setDate(fromDay.getDate()-30);
+  const fromStr=fromDay.toISOString().slice(0,10);
+  const toStr=new Date(toDay.getTime()+7*24*60*60*1000).toISOString().slice(0,10);
+  const r=await api('GET',`/api/bookings/coach/schedule/?from=${fromStr}&to=${toStr}`);
+  const sel=$('matchBooking');
+  if(!sel)return;
+  if(!r.ok){ sel.innerHTML='<option value="">Ошибка загрузки</option>'; return; }
+  _coachBookingsForMatch=r.data||[];
+  sel.innerHTML='<option value="">— Выберите бронь —</option>';
+  _coachBookingsForMatch.forEach(b=>{
+    const dt=new Date(b.start_time).toLocaleString('ru',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+    const opt=document.createElement('option');
+    opt.value=b.id;
+    opt.textContent=`${b.court_name||'Корт'} · ${dt} · ${esc(b.client_name||'Клиент')}`;
+    sel.appendChild(opt);
+  });
+  onMatchBookingSelect();
+}
+
+function onMatchBookingSelect(){
+  const sel=$('matchBooking');
+  const info=$('matchBookingInfo');
+  const infoText=$('matchBookingInfoText');
+  const playersBox=$('matchPlayersBox');
+  if(!sel||!sel.value){ info.classList.add('hidden'); if(playersBox) playersBox.classList.add('hidden'); return; }
+  const b=_coachBookingsForMatch.find(x=>String(x.id)===String(sel.value));
+  if(!b){ info.classList.add('hidden'); if(playersBox) playersBox.classList.add('hidden'); return; }
+  const dt=new Date(b.start_time).toLocaleString('ru',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+  info.classList.remove('hidden');
+  infoText.textContent=`${b.court_name||'Корт'} · ${dt}`;
+  const players=b.players_for_match||[];
+  if(players.length<2){ playersBox.classList.add('hidden'); return; }
+  playersBox.classList.remove('hidden');
+  const listEl=$('matchPlayersList');
+  listEl.innerHTML='';
+  players.forEach(p=>{
+    const id=p.id, name=esc(p.name||'Игрок');
+    const row=document.createElement('div');
+    row.style.cssText='display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--bd);font-size:12px';
+    row.innerHTML=`<span style="min-width:80px">${name}</span>
+      <label style="display:flex;align-items:center;gap:4px;cursor:pointer"><input type="radio" name="team_${id}" value="A" data-pid="${id}"> A</label>
+      <label style="display:flex;align-items:center;gap:4px;cursor:pointer"><input type="radio" name="team_${id}" value="B" data-pid="${id}"> B</label>`;
+    listEl.appendChild(row);
+  });
+}
+
+async function loadCoachMatches(){
+  if(!AT)return;
+  const r=await api('GET','/api/gamification/matches/?all=1');
+  const el=$('coachMatchesList');
+  if(!el)return;
+  if(!r.ok){ showErr('coachMatchesList',r.data); return; }
+  const list=r.data.results||r.data||[];
+  el.innerHTML=list.length?list.map(m=>{
+    const teamA=(m.team_a_names||[]).map(x=>x.name).join(', ')||'—';
+    const teamB=(m.team_b_names||[]).map(x=>x.name).join(', ')||'—';
+    return `<div class="card"><div class="cl">Матч #${m.id}</div><div class="cv">${esc(teamA)} vs ${esc(teamB)} · ${esc(m.score||'')} · Победитель: ${m.winner_team==='A'?'A':m.winner_team==='B'?'B':'Ничья'} ${m.is_rated?'✓ ELO':'⏳'}</div><div style="font-size:10px;color:var(--dm)">${esc(m.date_formatted||'')} · Судья: ${esc(m.judge_name||'')}</div></div>`;
+  }).join(''):'<div class="al al-w">Матчей пока нет</div>';
+}
+
+async function createMatchFromBooking(){
+  if(!AT||!isCoach())return alert('Доступно только тренерам');
+  const sel=$('matchBooking');
+  if(!sel||!sel.value)return alert('Выберите бронь');
+  const b=_coachBookingsForMatch.find(x=>String(x.id)===String(sel.value));
+  if(!b)return alert('Бронь не найдена');
+  const players=b.players_for_match||[];
+  if(players.length<2)return alert('В брони должно быть минимум 2 игрока');
+  const teamA=[], teamB=[];
+  players.forEach(p=>{
+    const rA=document.querySelector(`input[name="team_${p.id}"][value="A"]`);
+    const rB=document.querySelector(`input[name="team_${p.id}"][value="B"]`);
+    if(rA&&rA.checked) teamA.push(p.id);
+    else if(rB&&rB.checked) teamB.push(p.id);
+  });
+  if(!teamA.length||!teamB.length)return alert('Выберите команду A и B для всех игроков');
+  if(teamA.length+teamB.length!==players.length)return alert('Каждый игрок должен быть в команде A или B');
+  const score=($('matchScore').value||'').trim();
+  if(!score)return alert('Укажите счёт');
+  const winner=$('matchWinner').value;
+  const body={ team_a: teamA, team_b: teamB, score: score, winner_team: winner };
+  if(b.court) body.court=b.court;
+  const r=await api('POST','/api/gamification/matches/create/',body);
+  const resEl=$('createMatchRes');
+  if(r.ok){
+    resEl.innerHTML=`<div class="al al-s">✅ Матч сохранён. ELO обновлён у игроков.</div>`;
+    loadCoachMatches();
+    $('matchScore').value='';
+    sel.value='';
+    onMatchBookingSelect();
+  } else resEl.innerHTML=`<div class="al al-e">❌ ${esc(JSON.stringify(r.data))}</div>`;
+}
+
+async function checkAvail(){
+  const cId=$('avCourt').value,dt=$('avDate').value;
+  if(!cId||!dt)return alert('Выберите корт и укажите дату');
+  const r=await api('GET',`/api/bookings/check-availability/?court_id=${cId}&date=${dt}`,null,false);
+  if(!r.ok){showErr('availRes',r.data);return;}
+  const d=r.data;
+  if(d.is_holiday){$('availRes').innerHTML=`<div class="al al-e">🚫 Выходной: ${esc(d.reason)}</div>`;return;}
+  $('availRes').innerHTML=`<div class="al al-i">📅 Режим работы: ${esc(d.work_hours)}</div>
+    ${d.busy_slots?.length?`<div class="sec-title" style="font-size:12px;margin-bottom:6px">Занятые слоты:</div>`+d.busy_slots.map(s=>`<div class="card" style="margin-bottom:5px"><div class="cv cv-r">⛔ ${esc(s.start)} – ${esc(s.end)}</div></div>`).join(''):'<div class="al al-s">✅ Все слоты свободны!</div>'}`;
+}
+
+// ============ FRIENDS ============
+async function loadFriends(){
+  if(!AT)return alert('Войдите');
+  const r=await api('GET','/api/friends/');
+  const c=$('friendsList');
+  if(!r.ok){showErr('friendsList',r.data);return;}
+  c.innerHTML=r.data.length?r.data.map(u=>`<div class="ur"><div class="av">${uI(u)}</div><div class="inf"><div class="nm">${esc(uN(u))}</div><div class="sub">@${esc(u.username)}</div></div><div class="acts"><button class="bsm br" onclick="removeFriend(${u.id})">Удалить</button></div></div>`).join(''):'<div class="al al-w">Нет друзей. Найдите в поиске!</div>';
+}
+async function searchUsers(){
+  if(!AT)return alert('Войдите');
+  const q=$('fSrch').value.trim();if(!q)return alert('Введите запрос');
+  const r=await api('GET',`/api/auth/search/?search=${encodeURIComponent(q)}`);
+  const c=$('searchRes');
+  if(!r.ok){showErr('searchRes',r.data);return;}
+  const list=r.data.results||r.data;
+  c.innerHTML=list.length?list.map(u=>`<div class="ur"><div class="av vt">${uI(u)}</div><div class="inf"><div class="nm">${esc(uN(u))}</div><div class="sub">ID:${u.id}</div></div><div class="acts"><button class="bsm bv" onclick="sendReq(${u.id})">+ Добавить</button></div></div>`).join(''):'<div class="al al-w">Никого не найдено</div>';
+}
+async function sendReq(uid){ const r=await api('POST','/api/friends/send/',{to_user_id:uid}); alert(r.ok?'✅ Заявка отправлена':'❌ '+(r.data.non_field_errors||r.data.to_user_id||JSON.stringify(r.data))); }
+async function loadIncoming(){
+  if(!AT)return alert('Войдите');
+  const r=await api('GET','/api/friends/requests/');
+  const c=$('inList');
+  const cnt=$('inCnt');
+  if(!r.ok){showErr('inList',r.data);return;}
+  if(r.data.length>0){cnt.textContent=r.data.length;cnt.classList.remove('hidden');}else cnt.classList.add('hidden');
+  c.innerHTML=r.data.length?r.data.map(fr=>`<div class="ur"><div class="av">${uI(fr.from_user)}</div><div class="inf"><div class="nm">${esc(uN(fr.from_user))}</div><div class="sub">Заявка #${fr.id}</div></div><div class="acts"><button class="bsm bg" onclick="respondReq(${fr.id},'accept')">✓</button><button class="bsm br" onclick="respondReq(${fr.id},'reject')">✕</button></div></div>`).join(''):'<div class="al al-w">Нет входящих заявок</div>';
+}
+async function loadOutgoing(){
+  if(!AT)return alert('Войдите');
+  const r=await api('GET','/api/friends/requests/outgoing/');
+  const c=$('outList');
+  c.innerHTML=r.ok&&r.data.length?r.data.map(fr=>`<div class="ur"><div class="av vt">${uI(fr.to_user)}</div><div class="inf"><div class="nm">${esc(uN(fr.to_user))}</div><div class="sub">Ожидает #${fr.id}</div></div><div class="acts"><button class="bsm br" onclick="cancelReq(${fr.id})">Отмена</button></div></div>`).join(''):'<div class="al al-w">Нет исходящих заявок</div>';
+}
+async function respondReq(id,action){ const r=await api('POST','/api/friends/respond/',{request_id:id,action}); alert(r.ok?'✅ '+r.data.message:'❌ '+(r.data.error||JSON.stringify(r.data))); if(r.ok){loadIncoming();loadFriends();} }
+async function cancelReq(id){ const r=await api('POST','/api/friends/cancel/',{request_id:id}); alert(r.ok?'✅ Отменено':'❌ '+(r.data.error||JSON.stringify(r.data))); if(r.ok) loadOutgoing(); }
+async function removeFriend(uid){ if(!confirm('Удалить?'))return; const r=await api('POST','/api/friends/remove/',{user_id:uid}); alert(r.ok?'✅ Удалён':'❌ '+(r.data.error||JSON.stringify(r.data))); if(r.ok) loadFriends(); }
+
+// ============ MEMBERSHIPS ============
+async function loadMyMemberships(){
+  if(!AT)return alert('Войдите');
+  const r=await api('GET','/api/memberships/my/');
+  if(!r.ok){showErr('myMemList',r.data);return;}
+  const list=r.data.results||r.data;
+  if(!list.length){$('myMemList').innerHTML='<div class="al al-w">Нет активных абонементов</div>';return;}
+  $('myMemList').innerHTML=list.map(m=>`<div class="mem">
+    <div class="mn">🎫 ${esc(m.membership_type_name||'Абонемент #'+m.id)}</div>
+    <div class="md">До: ${m.end_date?new Date(m.end_date).toLocaleDateString('ru'):'-'}<br>
+    Часов: ${m.hours_remaining} / Входов: ${m.visits_remaining}<br>
+    ${m.is_frozen?'❄️ Заморожен':'✅ Активен'}</div>
+    <div style="display:flex;gap:6px;margin-top:8px">
+      ${m.is_frozen?`<button class="bsm bg" onclick="unfreezeMem(${m.id})">🔥 Разморозить</button>`:`<button class="bsm bo" onclick="freezeMem(${m.id})">❄️ Заморозить</button>`}
+      <button class="bsm b2" onclick="memHistory(${m.id})">История</button>
+    </div>
+    <div id="memH${m.id}" style="display:none;margin-top:8px"></div>
+  </div>`).join('');
+}
+async function loadMembershipTypes(){
+  const r=await api('GET','/api/memberships/types/',null,false);
+  if(!r.ok){showErr('shopList',r.data);return;}
+  $('shopList').innerHTML=r.data.length?r.data.map(t=>`<div class="card">
+    <div class="cl">${esc(t.service_type||'')}</div>
+    <div class="cv" style="font-size:14px;font-weight:700;margin-bottom:4px">${esc(t.name)}</div>
+    <div style="font-size:11px;color:var(--dm);margin-bottom:8px">
+      Цена: ${fmtMoney(t.price)} · ${t.days_valid} дн.<br>
+      ${t.total_hours>0?`Часов: ${t.total_hours}`:''}${t.total_visits>0?`Посещений: ${t.total_visits}`:''}
+    </div>
+    <button class="bsm b1" onclick="buyMembership(${t.id})">Купить за ${fmtMoney(t.price)}</button>
+  </div>`).join(''):'<div class="al al-w">Нет доступных абонементов</div>';
+}
+async function buyMembership(id){ if(!AT)return alert('Войдите'); const r=await api('POST',`/api/memberships/buy/${id}/`); alert(r.ok?'✅ '+r.data.status:'❌ '+JSON.stringify(r.data)); if(r.ok)loadMyMemberships(); }
+async function freezeMem(id){ const r=await api('POST',`/api/memberships/my/${id}/freeze/`); alert(r.ok?'✅ Заморожен':'❌ '+JSON.stringify(r.data)); if(r.ok)loadMyMemberships(); }
+async function unfreezeMem(id){ const r=await api('POST',`/api/memberships/my/${id}/unfreeze/`); alert(r.ok?'✅ Разморожен: до '+r.data.new_end_date:'❌ '+JSON.stringify(r.data)); if(r.ok)loadMyMemberships(); }
+async function memHistory(id){
+  const el=$('memH'+id);
+  if(el.style.display==='block'){el.style.display='none';return;}
+  const r=await api('GET',`/api/memberships/my/${id}/history/`);
+  el.style.display='block';
+  el.innerHTML=r.ok&&r.data.length?r.data.map(t=>`<div class="card" style="margin-bottom:5px"><div class="cl">${esc(t.transaction_type)}</div><div class="cv cv-g">${fmtMoney(t.amount)}</div><div style="font-size:10px;color:var(--dm)">${esc(t.created_at_formatted)}</div></div>`).join(''):'<div class="al al-w">История пуста</div>';
+}
+
+// ============ GYM / QR ============
+async function genQR(){
+  if(!AT)return alert('Войдите');
+  const r=await api('GET','/api/gym/qr/generate/');
+  if(!r.ok){showErr('qrRes',r.data);return;}
+  $('qrRes').innerHTML=`<div class="al al-s">✅ QR сгенерирован<br><span style="font-size:9px;word-break:break-all;font-family:monospace">${esc(r.data.qr_content)}</span><br><span style="color:var(--dm)">Действует ${r.data.valid_seconds} сек</span></div>
+  <div class="card"><div class="cl">QR Content</div><div class="cv" style="font-size:9px;font-family:monospace;word-break:break-all">${esc(r.data.qr_content)}</div></div>`;
+}
+async function gymCheckIn(){
+  if(!AT)return alert('Войдите');
+  const r=await api('POST','/api/gym/checkin/');
+  const d=r.data;
+  if(r.ok){
+    $('checkinRes').innerHTML=`<div class="al al-s">✅ ${esc(d.message)}<br>${d.valid_until?`До: ${d.valid_until}`:''}${d.visits_remaining!==undefined?`Осталось входов: ${d.visits_remaining}`:''}${d.price?`Цена: ${fmtMoney(d.price)}`:''}`;
+  } else showErr('checkinRes',d);
+}
+async function loadMyTrainings(){
+  if(!AT)return alert('Войдите');
+  const r=await api('GET','/api/gym/personal-training/');
+  if(!r.ok){showErr('myTrainings',r.data);return;}
+  const list=r.data.results||r.data;
+  $('myTrainings').innerHTML=list.length?list.map(t=>`<div class="card"><div class="cl">Тренировка</div><div class="cv">👨‍🏫 ${esc(t.coach_name||'Тренер')}</div><div style="font-size:11px;color:var(--dm)">${new Date(t.start_time).toLocaleString('ru')} · ${fmtMoney(t.price)} · ${t.is_paid?'✅ Оплачено':'⏳ Не оплачено'}</div></div>`).join(''):'<div class="al al-w">Нет тренировок</div>';
+}
+async function loadFitnessCoaches(){
+  // Публичный список тренеров (без авторизации)
+  const r=await api('GET','/api/auth/coaches/',null,false);
+  const coaches=r.ok?(r.data||[]):[];
+  const el=$('trCoachesList');
+  if(!coaches.length){el.innerHTML='<div class="al al-w" style="font-size:10px">Тренеры не найдены</div>';return;}
+  el.innerHTML=coaches.map(c=>{
+    const nm=c.full_name||(`${c.first_name||''} ${c.last_name||''}`.trim())||c.username||`Тренер #${c.id}`;
+    const role=c.role==='COACH_FITNESS'?'🏋️ Фитнес':'🎾 Падел';
+    return `<div class="ur" style="cursor:pointer;margin-bottom:4px" onclick="selectTrainer(${c.id},'${esc(nm)}')">
+      <div class="av" style="width:28px;height:28px;font-size:11px">${(nm[0]||'?').toUpperCase()}</div>
+      <div class="inf"><div class="nm" style="font-size:11px">${esc(nm)}</div><div class="sub">${role}</div></div>
+      <div id="trSel${c.id}" style="color:var(--ac);font-size:12px;display:none">✓</div>
+    </div>`;
+  }).join('');
+}
+function selectTrainer(id,name){
+  $('trCoach').value=id;
+  $('trCoachSelected').textContent=`✓ Выбран: ${name}`;
+  // Uncheck all, check selected
+  document.querySelectorAll('[id^=trSel]').forEach(el=>el.style.display='none');
+  const sel=document.getElementById(`trSel${id}`);
+  if(sel) sel.style.display='block';
+}
+async function createTraining(){
+  if(!AT)return alert('Войдите');
+  const coachId=$('trCoach').value,tm=$('trTime').value;
+  if(!coachId)return alert('Выберите тренера из списка');
+  if(!tm)return alert('Укажите дату и время');
+  const body={coach:parseInt(coachId),start_time:new Date(tm).toISOString(),price:0};
+  const r=await api('POST','/api/gym/personal-training/',body);
+  $('trRes').innerHTML=r.ok?`<div class="al al-s">✅ Записан! Тренер: ${esc(r.data.coach_name||'#'+r.data.coach)}</div>`:`<div class="al al-e">❌ ${JSON.stringify(r.data)}</div>`;
+  if(r.ok){loadMyTrainings();$('trCoach').value='';$('trCoachSelected').textContent='';}
+}
+
+// ============ LEADERBOARD ============
+async function loadLeaderboard(){
+  const r=await api('GET','/api/gamification/leaderboard/?limit=20',null,false);
+  if(!r.ok){showErr('lbList',r.data);return;}
+  const medals=['🥇','🥈','🥉'];
+  $('lbList').innerHTML=r.data.length?r.data.map((u,i)=>`<div class="lb">
+    <div class="rk">${medals[i]||i+1}</div>
+    <div class="lav">${uI(u)}</div>
+    <div class="li"><div class="ln">${esc(u.full_name||u.username)}</div><div class="ls">${u.matches_played} матчей · ${u.matches_won} побед</div></div>
+    <div class="le">${u.rating_elo}</div>
+  </div>`).join(''):'<div class="al al-w">Рейтинг пока пуст</div>';
+}
+
+async function loadMyMatches(){
+  if(!AT)return alert('Войдите');
+  const r=await api('GET','/api/gamification/matches/');
+  if(!r.ok){showErr('myMatchList',r.data);return;}
+  const list=r.data.results||r.data||[];
+  if(!list.length){$('myMatchList').innerHTML='<div class="al al-w">Матчей нет</div>';return;}
+  $('myMatchList').innerHTML=list.map(m=>{
+    const teamA=(m.team_a_names||[]).map(x=>x.name||x).join(', ')||'—';
+    const teamB=(m.team_b_names||[]).map(x=>x.name||x).join(', ')||'—';
+    const elo=m.my_elo_change;
+    const eloStr=elo!=null?(elo>0?`<span class="cv-g">+${elo} ELO</span>`:`<span class="cv-r">${elo} ELO</span>`):'';
+    const winnerLabel=m.winner_team==='DRAW'?'Ничья':m.winner_team==='A'?`🏆 Команда A`:m.winner_team==='B'?`🏆 Команда B`:'—';
+    return `<div class="bk">
+      <div class="bh">
+        <div style="font-size:12px;font-weight:600">${esc(teamA)} <span style="color:var(--dm)">vs</span> ${esc(teamB)}</div>
+        ${eloStr}
+      </div>
+      <div class="bi">🎾 ${esc(m.score||'—')} · ${winnerLabel}<br>📅 ${esc(m.date_formatted||'')} · Судья: ${esc(m.judge_name||'')}</div>
+    </div>`;
+  }).join('');
+}
+
+// ============ FINANCE ============
+async function loadFinHistory(){
+  if(!AT)return alert('Войдите');
+  const r=await api('GET','/api/finance/history/');
+  if(!r.ok){showErr('finList',r.data);return;}
+  const list=r.data.results||r.data;
+  $('finList').innerHTML=list.length?list.map(t=>`<div class="card">
+    <div class="bh" style="display:flex;justify-content:space-between;margin-bottom:4px">
+      <div class="cv" style="font-size:13px;font-weight:600;${t.amount<0?'color:var(--r)':'color:var(--g)'}">${t.amount>0?'+':''}${fmtMoney(t.amount)}</div>
+      <div style="font-size:9px;color:var(--dm)">${esc(t.created_at_formatted)}</div>
+    </div>
+    <div style="font-size:10px;color:var(--dm)">${esc(t.transaction_type_label||t.transaction_type)} · ${esc(t.payment_method_label||t.payment_method)}</div>
+    ${t.description?`<div style="font-size:10px;margin-top:3px">${esc(t.description)}</div>`:''}
+  </div>`).join(''):'<div class="al al-w">История платежей пуста</div>';
+}
+
+// ============ NEWS ============
+async function loadNews(cat=''){
+  const url='/api/news/'+(cat?`?category=${cat}`:'');
+  const r=await api('GET',url,null,false);
+  if(!r.ok){$('newsList').innerHTML='<div class="al al-e">Ошибка загрузки</div>';return;}
+  $('newsList').innerHTML=r.data.length?r.data.map(n=>`<div class="nw" onclick="openNews(${n.id},'${esc(n.title)}','${esc(n.content||'')}','${n.category}','${esc(n.created_at_formatted||'')}')">
+    <div class="nt">${esc(n.title)}</div>
+    <div class="nd">${esc(n.content?.substring(0,100)||'')}${(n.content?.length||0)>100?'...':''}</div>
+    <div class="nb"><span class="cat ${n.category==='EVENT'?'ev':n.category==='PROMO'?'pr':n.category==='ANNOUNCEMENT'?'an':''}">${esc(n.category_label||n.category)}</span><span style="font-size:9px;color:var(--dm)">${esc(n.created_at_formatted||'')}</span></div>
+  </div>`).join(''):'<div class="al al-w">Новостей нет</div>';
+}
+function openNews(id,title,content,cat,date){
+  $('newsList').style.display='none';
+  $('newsDetail').style.display='block';
+  $('newsDetailContent').innerHTML=`<div class="cat ${cat==='EVENT'?'ev':cat==='PROMO'?'pr':cat==='ANNOUNCEMENT'?'an':''}" style="margin-bottom:8px">${esc(cat)}</div><div class="sec-title">${esc(title)}</div><div class="sec-sub" style="margin-top:4px">${esc(date)}</div><div class="hr"></div><div style="font-size:13px;line-height:1.7">${esc(content)}</div>`;
+}
+function backNews(){$('newsDetail').style.display='none';$('newsList').style.display='block';}
+
+// ============ PROFILE / STATS ============
+async function loadStats(){
+  if(!AT)return alert('Войдите');
+  const r=await api('GET','/api/auth/me/stats/');
+  if(!r.ok){showErr('profileContent',r.data);return;}
+  const d=r.data;
+  const u=d.user,s=d.stats,m=d.active_membership;
+  $('profileContent').innerHTML=`
+    <div class="hero">
+      <div class="grt">${esc(u.full_name||u.phone)}</div>
+      <div class="usr">${esc(u.phone||'')} · ${esc(u.role)}</div>
+    </div>
+    <div class="stats-row">
+      <div class="stat"><div class="sv">${s.total_bookings}</div><div class="sl">Брони</div></div>
+      <div class="stat"><div class="sv">${s.total_hours_on_court}</div><div class="sl">Часов</div></div>
+      <div class="stat"><div class="sv">${s.matches_played}</div><div class="sl">Матчи</div></div>
+    </div>
+    <div class="stats-row">
+      <div class="stat"><div class="sv">${s.matches_won}</div><div class="sl">Победы</div></div>
+      <div class="stat"><div class="sv">${s.gym_visits}</div><div class="sl">Зал</div></div>
+      <div class="stat"><div class="sv cv-a">${u.rating_elo}</div><div class="sl">ELO</div></div>
+    </div>
+    ${m?`<div class="mem"><div class="mn">🎫 ${esc(m.name)}</div><div class="md">До: ${esc(m.end_date)}<br>${m.hours_remaining>0?`Часов: ${m.hours_remaining}<br>`:''}${m.visits_remaining>0?`Посещений: ${m.visits_remaining}<br>`:''}${m.is_frozen?'❄️ Заморожен':''}</div></div>`:'<div class="card"><div class="cl">Абонемент</div><div class="cv cv-r">Нет активного</div></div>'}
+    ${d.upcoming_bookings.length?`<div class="hr"></div><div class="sec-title" style="font-size:13px;margin-bottom:8px">Ближайшие брони</div>`+d.upcoming_bookings.map(b=>`<div class="bk"><div class="bh"><div class="bn">🎾 ${esc(b.court)}</div><span class="bs ${b.status==='CONFIRMED'?'bs-c':'bs-p'}">${b.status}</span></div><div class="bi">⏰ ${esc(b.start_time)}–${esc(b.end_time)}</div></div>`).join(''):''}
+    <div class="hr"></div>
+    <button class="b br" onclick="doLogout()">🚪 Выйти</button>
+  `;
+}
+
+// ============ LOBBY ============
+const LOBBY_LEVEL_LABELS = {BEGINNER:'Новичок', INTERMEDIATE:'Средний', ADVANCED:'Продвинутый', PRO:'Профи'};
+const LOBBY_FORMAT_LABELS = {SINGLE:'1×1 (2 игрока)', DOUBLE:'2×2 (4 игрока)'};
+
+let _activeLobbyId = null;
+
+// Что делать дальше — подсказка по роли и статусу
+function lobbyNextStep(lb, isCreator, meParticipant){
+  const me = meParticipant;
+  switch(lb.status){
+    case 'OPEN':
+      return isCreator ? `⏳ Ждём игроков (${lb.players_count||1}/${lb.max_players}). Как только все соберутся — начнётся согласование времени.` : '🙋 Вступите, чтобы сыграть';
+    case 'WAITING':
+      return isCreator ? `⏳ Ещё нужны игроки (${lb.players_count||'?'}/${lb.max_players}). Ждём остальных.` : '⏳ Почти готово — ждём ещё игроков';
+    case 'NEGOTIATING':
+      return isCreator
+        ? '📅 Все собрались! Предложите время и корт (или проголосуйте за чужое предложение) → примите одно'
+        : '📅 Все собрались! Предложите удобное время и корт или проголосуйте за существующие предложения';
+    case 'READY':
+      return isCreator
+        ? '👉 Время согласовано! Назначьте команды A/B → создайте бронь'
+        : '⏳ Ждите: создатель назначает команды и создаёт бронь';
+    case 'BOOKED':
+      if(!me) return '📋 Бронь создана';
+      if(me.is_paid) return '✅ Вы оплатили свою долю';
+      return '👉 Добавьте личный инвентарь (ниже) → оплатите свою долю';
+    case 'PAID':
+      return '🎉 Все оплатили! Бронь подтверждена. Приходите играть!';
+    case 'CLOSED':
+      return '🔴 Лобби закрыто';
+    default:
+      return '';
+  }
+}
+
+function lobbyStepIndicator(lb, isCreator){
+  // 5 шагов: Сбор → Согласование → Команды → Бронь → Оплата
+  const steps = [
+    {label:'Сбор', desc:lb.players_count+'/'+lb.max_players},
+    {label:'Время', desc:lb.scheduled_time?new Date(lb.scheduled_time).toLocaleDateString('ru',{day:'2-digit',month:'2-digit'}):'согласовать'},
+    {label:'Команды', desc:isCreator?'назначить':'ждём'},
+    {label:'Бронь', desc:lb.booking_id?'#'+lb.booking_id:'создать'},
+    {label:'Оплата', desc:lb.paid_count!=null?(lb.paid_count+'/'+lb.players_count):'—'},
+  ];
+  let active = 0;
+  if(lb.status === 'WAITING') active = 0;
+  if(lb.status === 'NEGOTIATING') active = 1;
+  if(lb.status === 'READY') active = 2;
+  if(lb.status === 'BOOKED') active = 3;
+  if(lb.status === 'PAID') active = 4;
+
+  return `<div style="display:flex;gap:2px;margin:8px 0 10px">
+    ${steps.map((s,i)=>`
+      <div style="flex:1;text-align:center">
+        <div style="height:3px;border-radius:2px;background:${i<active?'var(--g)':i===active?'var(--ac)':'var(--s2)'};margin-bottom:3px;transition:.4s"></div>
+        <div style="font-size:8px;font-weight:${i===active?700:400};color:${i<active?'var(--g)':i===active?'var(--ac)':'var(--dm)'}">${s.label}</div>
+        <div style="font-size:8px;color:var(--dm)">${s.desc}</div>
+      </div>`).join('')}
+  </div>`;
+}
+
+function lobbyCard(lb){
+  const dt = lb.scheduled_time ? new Date(lb.scheduled_time).toLocaleString('ru',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '—';
+  const isMine = lb.participants?.some(p => p.user === UID);
+  const isCreator = lb.creator === UID;
+  const me = lb.participants?.find(p => p.user === UID);
+  const full = lb.players_count >= lb.max_players;
+
+  const statusColors = {
+    OPEN:'var(--bd)', WAITING:'rgba(251,191,36,.3)',
+    READY:'rgba(34,211,238,.35)', BOOKED:'rgba(74,222,128,.3)',
+    PAID:'rgba(74,222,128,.5)', CLOSED:'var(--bd)'
+  };
+  const statusBadges = {
+    OPEN:`<span class="bs bs-p">${lb.players_count}/${lb.max_players} 🟢</span>`,
+    WAITING:`<span class="bs bs-p">${lb.players_count}/${lb.max_players} 🟡</span>`,
+    NEGOTIATING:`<span class="bs bs-p">${lb.players_count}/${lb.max_players} 📅</span>`,
+    READY:`<span class="bs bs-p">Готово 🔵</span>`,
+    BOOKED:`<span class="bs bs-p">${lb.paid_count||0}/${lb.players_count} 💳</span>`,
+    PAID:`<span class="bs bs-c">✅ Подтверждено</span>`,
+    CLOSED:`<span class="bs bs-x">Закрыто</span>`,
+  };
+
+  const hint = lobbyNextStep(lb, isCreator, me);
+  const paid = lb.paid_count||0;
+  const payBar = lb.status === 'BOOKED'
+    ? `<div style="background:var(--s2);border-radius:4px;height:4px;margin:4px 0;overflow:hidden"><div style="height:100%;background:var(--g);border-radius:4px;width:${lb.players_count?Math.round(paid/lb.players_count*100):0}%"></div></div>` : '';
+
+  return `<div class="bk" style="border-color:${statusColors[lb.status]||'var(--bd)'}">
+    <div class="bh">
+      <div class="bn">${esc(lb.title)}</div>
+      ${statusBadges[lb.status]||''}
+    </div>
+    <div class="bi">
+      🎮 ${LOBBY_FORMAT_LABELS[lb.game_format]||lb.game_format} · 🎯 ${esc(lb.elo_label||'Любой ELO')}<br>
+      ${lb.court_name ? `🎾 ${esc(lb.court_name)} · 📅 ${dt} · ⏱ ${lb.duration_minutes} мин<br>` : `📅 <span style="color:var(--o)">Время не согласовано</span><br>`}
+      👥 ${(lb.participants||[]).map(p=>`<span style="color:${p.team==='A'?'var(--ac)':p.team==='B'?'var(--v)':'var(--dm)'}">${esc(p.user_name)}${p.team?'('+p.team+')':''}</span>`).join(' · ')}
+      ${lb.estimated_share?`<br>💰 ~${fmtMoney(lb.estimated_share)}/чел. (корт)`:''}
+      ${lb.comment?`<br>💬 ${esc(lb.comment)}`:''}
+    </div>
+    ${payBar}
+    <div style="background:rgba(34,211,238,.06);border-radius:7px;padding:6px 8px;margin:6px 0;font-size:10px;color:var(--ac);line-height:1.5">${esc(hint)}</div>
+    ${lobbyStepIndicator(lb, isCreator)}
+    <div style="display:flex;gap:4px;margin-top:6px;flex-wrap:wrap">
+      ${isMine||isCreator ? `<button class="b b1 bsm" onclick="openLobbyDetail(${lb.id})" style="flex:1">⚙️ Управление</button>` : ''}
+      ${!isMine && !full && !['BOOKED','PAID','CLOSED'].includes(lb.status) ? `<button class="bsm bg" onclick="joinLobby(${lb.id})" style="flex:1">+ Вступить</button>` : ''}
+      ${isMine && !['BOOKED','PAID','CLOSED'].includes(lb.status) && !isCreator ? `<button class="bsm br" onclick="leaveLobby(${lb.id})">Выйти</button>` : ''}
+    </div>
+  </div>`;
+}
+
+async function loadLobbies(all=false){
+  const statusF = $('lbStatusF')?.value || '';
+  const formatF = $('lbFormatF')?.value || '';
+  let q = '?';
+  if(statusF) q += `status=${statusF}&`;
+  if(formatF) q += `format=${formatF}&`;
+  // ELO фильтрация: если авторизован и не «Все», передаём elo
+  if(!all && AT && UID){
+    const myElo = window._myElo || 800;
+    q += `elo=${myElo}&`;
+  }
+  const r = await api('GET', `/api/lobby/${q}`, null, !!AT);
+  if(!r.ok){ $('lobbyList').innerHTML=`<div class="al al-e">${esc(JSON.stringify(r.data))}</div>`; return; }
+  $('lobbyList').innerHTML = r.data.length
+    ? r.data.map(lobbyCard).join('')
+    : '<div class="al al-w">Нет лобби по вашему ELO. Нажмите «Все» для просмотра всех.</div>';
+}
+
+async function loadMyLobbies(){
+  if(!AT){ $('myLobbyList').innerHTML='<div class="al al-w">Войдите для просмотра своих лобби</div>'; return; }
+  const r = await api('GET', '/api/lobby/my/');
+  if(!r.ok){ $('myLobbyList').innerHTML=`<div class="al al-e">${esc(JSON.stringify(r.data))}</div>`; return; }
+  $('myLobbyList').innerHTML = r.data.length ? r.data.map(lobbyCard).join('') : '<div class="al al-w">Вы не состоите ни в одном лобби</div>';
+}
+
+async function initLobbyForm(){
+  // Заполняем ELO диапазон по умолчанию (elo ±200)
+  const myElo = window._myElo || 800;
+  const eloMin = $('lbEloMin');
+  const eloMax = $('lbEloMax');
+  const hint = $('lbEloHint');
+  if(eloMin && !eloMin.value) eloMin.value = Math.max(0, myElo - 200);
+  if(eloMax && !eloMax.value) eloMax.value = myElo + 200;
+  if(hint) hint.textContent = `Ваш ELO: ${myElo}. Диапазон ±200 подставлен автоматически.`;
+}
+
+async function createLobby(){
+  if(!AT) return alert('Войдите');
+  const title = $('lbTitle').value.trim();
+  if(!title) return alert('Введите название лобби');
+
+  const eloMin = parseInt($('lbEloMin').value) || Math.max(0, (window._myElo||800) - 200);
+  const eloMax = parseInt($('lbEloMax').value) || (window._myElo||800) + 200;
+
+  const body = {
+    title,
+    game_format: $('lbFormat').value,
+    elo_min: eloMin,
+    elo_max: eloMax,
+    comment: $('lbComment').value.trim(),
+  };
+  const r = await api('POST', '/api/lobby/', body);
+  const el = $('createLobbyRes');
+  if(r.ok){
+    el.innerHTML = `<div class="al al-s">✅ Лобби создано! ID #${r.data.id}<br>Когда все соберутся — любой участник предложит время и корт.</div>`;
+    $('lbTitle').value = ''; $('lbComment').value = '';
+    _activeLobbyId = r.data.id;
+    setTimeout(()=>openLobbyDetail(r.data.id), 1200);
+  } else {
+    el.innerHTML = `<div class="al al-e">❌ ${esc(JSON.stringify(r.data))}</div>`;
+  }
+}
+
+async function joinLobby(id){
+  if(!AT) return alert('Войдите');
+  const r = await api('POST', `/api/lobby/${id}/join/`);
+  if(r.ok){
+    const s = r.data.lobby_status;
+    const msg = s === 'NEGOTIATING'
+      ? '✅ Лобби заполнено! Теперь любой участник может предложить время и корт.'
+      : '✅ Вы вступили в лобби!';
+    alert(msg);
+    loadLobbies();
+  } else alert('❌ ' + (r.data.detail || JSON.stringify(r.data)));
+}
+
+async function leaveLobby(id){
+  if(!AT) return;
+  if(!confirm('Выйти из лобби?')) return;
+  const r = await api('POST', `/api/lobby/${id}/leave/`);
+  if(r.ok){ alert(r.data.status); loadMyLobbies(); loadLobbies(); }
+  else alert('❌ ' + (r.data.detail || JSON.stringify(r.data)));
+}
+
+// === Детали лобби — управление ===
+async function openLobbyDetail(id){
+  _activeLobbyId = id;
+  const btn = $('lbDetailBtn');
+  if(btn){ btn.style.display='flex'; }
+  switchLobbyTab(btn||{classList:{add:()=>{},remove:()=>{}},dataset:{lb:'ldetail'}}, 'ldetail');
+  btn && btn.classList.add('on');
+  await renderLobbyDetail(id);
+}
+
+async function renderLobbyDetail(id){
+  const r = await api('GET', `/api/lobby/${id}/`);
+  const el = $('lobbyDetailContent');
+  if(!r.ok){ el.innerHTML=`<div class="al al-e">${esc(JSON.stringify(r.data))}</div>`; return; }
+  const lb = r.data;
+  const isCreator = lb.creator === UID;
+  const me = lb.participants?.find(p => p.user === UID);
+  const dt = lb.scheduled_time ? new Date(lb.scheduled_time).toLocaleString('ru',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '—';
+  const allTeamsAssigned = lb.participants?.length > 0 && lb.participants.every(p=>p.team);
+
+  // ── Участники с полным расчётом ──
+  const partRows = (lb.participants||[]).map(p => {
+    const teamBadge = p.team
+      ? `<span style="padding:1px 7px;border-radius:6px;font-size:9px;font-weight:700;background:${p.team==='A'?'rgba(34,211,238,.15)':'rgba(167,139,250,.15)'};color:${p.team==='A'?'var(--ac)':'var(--v)'}">${p.team}</span>`
+      : `<span style="font-size:9px;color:var(--dm)">без команды</span>`;
+    const courtBit = p.membership_used
+      ? `<span style="color:var(--g);font-size:9px">🎫 абонемент</span>`
+      : (p.court_share ? `<span style="color:var(--dm);font-size:9px">корт ${fmtMoney(p.court_share)}</span>` : '');
+    const extrasBit = p.extras_total && p.extras_total !== '0.00'
+      ? `<span style="color:var(--v);font-size:9px">+${fmtMoney(p.extras_total)} услуги</span>` : '';
+    const paidBadge = p.is_paid
+      ? `<span style="color:var(--g);font-size:9px;font-weight:700">✓ ${fmtMoney(p.total_to_pay)}</span>`
+      : `<span style="color:var(--o);font-size:9px">💳 ${fmtMoney(p.total_to_pay||p.court_share||'0')}</span>`;
+    return `<div class="ur">
+      <div class="av" style="background:${p.team==='A'?'var(--ac)':p.team==='B'?'var(--v)':'var(--s2)'};color:#0f1117;font-size:11px">${(p.user_name||'?')[0]}</div>
+      <div class="inf">
+        <div class="nm">${esc(p.user_name)}</div>
+        <div class="sub" style="display:flex;gap:4px;flex-wrap:wrap">${courtBit}${extrasBit}</div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px">${teamBadge}${paidBadge}</div>
+    </div>`;
+  }).join('');
+
+  // ── Предложения времени / корта (только когда все собрались) ──
+  let proposalsHtml = '';
+  if(lb.status === 'NEGOTIATING'){
+    const props = lb.proposals || [];
+    const canAccept = isCreator;
+    const propRows = props.map(p=>{
+      const dt2 = new Date(p.scheduled_time).toLocaleString('ru',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+      const iVoted = p.i_voted;
+      const isAccepted = p.is_accepted;
+      return `<div class="bk" style="border-color:${isAccepted?'rgba(74,222,128,.4)':'var(--bd)'};padding:8px;margin-bottom:6px">
+        <div style="font-size:11px;font-weight:600">${esc(p.court_name)} · ${dt2} · ${p.duration_minutes} мин</div>
+        <div style="font-size:10px;color:var(--dm)">от ${esc(p.proposed_by_name)} · ~${p.estimated_share?fmtMoney(p.estimated_share)+'/чел.':''} ${p.court_price?'('+fmtMoney(p.court_price)+'/ч)':''}</div>
+        <div style="display:flex;align-items:center;gap:6px;margin-top:6px;flex-wrap:wrap">
+          ${isAccepted
+            ? `<span class="cv-g" style="font-size:11px">✅ Принято</span>`
+            : `<button class="bsm ${iVoted?'bg':'b1'}" onclick="voteLobbyProposal(${lb.id},${p.id})">
+                ${iVoted?`✓ убрать голос`:`👍 ${p.votes_count}/${lb.max_players} за`}
+               </button>
+               ${canAccept?`<button class="bsm bg" onclick="acceptLobbyProposal(${lb.id},${p.id})">✅ Принять это время</button>`:''}
+              `}
+        </div>
+      </div>`;
+    }).join('');
+
+    proposalsHtml = `
+      <div class="hr"></div>
+      <div class="sec-title" style="font-size:12px;margin-bottom:4px">📅 Предложения времени и корта</div>
+      ${props.length ? propRows : '<div style="color:var(--dm);font-size:11px;margin-bottom:8px">Нет предложений. Предложите первым!</div>'}
+      <div style="background:var(--s2);border-radius:9px;padding:10px;margin-top:4px">
+        <div style="font-size:11px;font-weight:600;margin-bottom:8px">+ Предложить время</div>
+        <div class="fg" style="margin-bottom:4px"><label style="font-size:10px">Корт</label>
+          <select id="propCourt" style="width:100%;padding:7px;background:var(--bg);border:1px solid var(--bd);border-radius:8px;color:var(--tx);font-size:11px">
+            <option value="">— загрузка... —</option>
+          </select>
+        </div>
+        <div class="fg" style="margin-bottom:4px"><label style="font-size:10px">Дата и время</label>
+          <input type="datetime-local" id="propTime" style="width:100%;padding:7px;background:var(--bg);border:1px solid var(--bd);border-radius:8px;color:var(--tx);font-size:11px;box-sizing:border-box">
+        </div>
+        <div class="fg" style="margin-bottom:8px"><label style="font-size:10px">Длительность</label>
+          <select id="propDuration" style="width:100%;padding:7px;background:var(--bg);border:1px solid var(--bd);border-radius:8px;color:var(--tx);font-size:11px">
+            <option value="60">60 мин</option>
+            <option value="90" selected>90 мин</option>
+            <option value="120">120 мин</option>
+          </select>
+        </div>
+        <button class="b b1" onclick="proposeLobbyTime(${lb.id})">📅 Предложить</button>
+        <div id="propRes" style="margin-top:6px"></div>
+      </div>
+    `;
+    setTimeout(()=>loadCourtsIntoSelect('propCourt'), 0);
+  }
+
+  // ── Назначить команды (создатель) ──
+  let teamAssignHtml = '';
+  if(isCreator && ['READY','WAITING','OPEN'].includes(lb.status)){
+    const maxPerTeam = lb.game_format === 'SINGLE' ? 1 : 2;
+    teamAssignHtml = `
+      <div class="hr"></div>
+      <div class="sec-title" style="font-size:12px;margin-bottom:4px">Назначить команды</div>
+      <div class="sec-sub">По ${maxPerTeam} в команде A и B</div>
+      ${(lb.participants||[]).map(p=>`
+        <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--bd);font-size:12px">
+          <span style="flex:1">${esc(p.user_name)}</span>
+          <label style="cursor:pointer;display:flex;align-items:center;gap:3px"><input type="radio" name="tm_${p.user}" value="A" ${p.team==='A'?'checked':''}><span style="color:var(--ac)">A</span></label>
+          <label style="cursor:pointer;display:flex;align-items:center;gap:3px"><input type="radio" name="tm_${p.user}" value="B" ${p.team==='B'?'checked':''}><span style="color:var(--v)">B</span></label>
+        </div>`).join('')}
+      <button class="b bg" style="margin-top:8px" onclick="assignTeams(${lb.id})">Сохранить команды</button>
+      <div id="teamAssignRes" style="margin-top:6px"></div>
+    `;
+  }
+
+  // ── Создать бронь (создатель, статус READY) ──
+  let bookBtn = '';
+  if(isCreator && ['READY','WAITING'].includes(lb.status)){
+    const est = lb.estimated_share;
+    if(!allTeamsAssigned){
+      bookBtn = `
+        <div class="hr"></div>
+        <div class="sec-title" style="font-size:12px;margin-bottom:6px">🎾 Создать бронь</div>
+        <div class="al al-w" style="font-size:11px">
+          ⚠️ Сначала назначьте команды A и B всем участникам выше, затем здесь появится кнопка создания брони.
+        </div>
+      `;
+    } else {
+      bookBtn = `
+        <div class="hr"></div>
+        <div class="sec-title" style="font-size:12px;margin-bottom:6px">🎾 Создать бронь</div>
+        <div class="al al-i" style="font-size:10px">
+          Корт: <b>${lb.court_name||'—'}</b> · ${lb.court_price?fmtMoney(lb.court_price)+'/ч':'—'}<br>
+          Предв. доля <b>корта</b> на игрока: <b style="color:var(--ac)">${est?fmtMoney(est):'...'}</b><br>
+          🎫 Если у игрока есть PADEL-абонемент — его доля корта = <b>0₸</b>, часы спишутся автоматически.<br>
+          После создания каждый добавит личные услуги и оплатит свою итоговую сумму.
+        </div>
+        <button class="b b1" onclick="bookLobby(${lb.id})">✅ Создать бронь →</button>
+        <div id="bookLobbyRes" style="margin-top:6px"></div>
+      `;
+    }
+  }
+
+  // ── Личные услуги (участник, бронь создана, не оплатил) ──
+  let extrasHtml = '';
+  if(lb.status === 'BOOKED' && me && me.is_paid){
+    extrasHtml = `
+      <div class="hr"></div>
+      <div class="al al-s">
+        ✅ Вы оплатили свою долю: <b>${fmtMoney(me.total_to_pay||'0')}</b>
+        ${me.membership_used ? '<br>🎫 Корт покрыт абонементом' : ''}
+        ${me.extras_total && me.extras_total !== '0.00' ? `<br>🛍 Услуги: ${fmtMoney(me.extras_total)}` : ''}
+      </div>
+    `;
+  } else if(lb.status === 'BOOKED' && me && !me.is_paid){
+    const extrasRows = (me.extras||[]).map(e=>`
+      <div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--bd);font-size:11px">
+        <span style="flex:1">${esc(e.service_name)}</span>
+        <span style="color:var(--dm)">x${e.quantity}</span>
+        <span style="color:var(--v)">${fmtMoney(e.subtotal)}</span>
+        <button class="bsm br" style="padding:2px 6px;font-size:9px" onclick="removeLobbyExtra(${lb.id},${e.id})">✕</button>
+      </div>`).join('');
+
+    extrasHtml = `
+      <div class="hr"></div>
+      <div class="sec-title" style="font-size:12px;margin-bottom:6px">🛍 Ваши услуги и инвентарь</div>
+      <div class="al al-i" style="font-size:10px">
+        Корт: ${me.membership_used ? '<span style="color:var(--g)">🎫 покрыт абонементом (0₸)</span>' : `<b>${fmtMoney(me.court_share)}</b>`}<br>
+        Услуги: <b style="color:var(--v)">${fmtMoney(me.extras_total||'0')}</b><br>
+        Итого к оплате: <b style="color:var(--ac)">${fmtMoney(me.total_to_pay||me.court_share||'0')}</b>
+      </div>
+      ${extrasRows || '<div style="color:var(--dm);font-size:11px;margin-bottom:8px">Дополнительных услуг нет</div>'}
+      <div class="fg" style="margin-top:8px"><label>Добавить услугу</label>
+        <select id="lobbyExtraSvc">
+          <option value="">— Загрузка... —</option>
+        </select>
+      </div>
+      <div style="display:flex;gap:6px;margin-bottom:8px">
+        <div class="fg" style="flex:1;margin:0"><label>Кол-во</label><input type="number" id="lobbyExtraQty" value="1" min="1" max="10" style="width:100%;padding:8px;background:var(--s2);border:1px solid var(--bd);border-radius:8px;color:var(--tx)"></div>
+        <div style="padding-top:18px"><button class="b bg bsm" onclick="addLobbyExtra(${lb.id})">+ Добавить</button></div>
+      </div>
+      <div id="extrasRes" style="margin-bottom:6px"></div>
+    `;
+    // Загружаем услуги
+    setTimeout(()=>loadLobbyServices(), 0);
+  }
+
+  // ── Оплата (участник, бронь создана, не оплатил) ──
+  let payBtn = '';
+  if(lb.status === 'BOOKED' && me && !me.is_paid){
+    const totalPay = parseFloat(me.total_to_pay||me.court_share||'0');
+    payBtn = `
+      <div class="hr"></div>
+      <div class="sec-title" style="font-size:12px;margin-bottom:6px">💳 Оплата вашей доли</div>
+      <div class="g2">
+        <div class="stat"><div class="sv cv-o">${fmtMoney(me.court_share||'0')}</div><div class="sl">${me.membership_used?'🎫 Абонемент':'Корт'}</div></div>
+        <div class="stat"><div class="sv cv-v">${fmtMoney(me.extras_total||'0')}</div><div class="sl">Услуги</div></div>
+      </div>
+      <div class="mem" style="text-align:center;padding:10px">
+        <div style="font-size:11px;color:var(--dm)">К оплате</div>
+        <div style="font-size:24px;font-weight:700;color:var(--ac)">${fmtMoney(me.total_to_pay||me.court_share||'0')}</div>
+        ${me.membership_used ? '<div style="font-size:10px;color:var(--g)">🎫 Корт покрыт абонементом</div>' : ''}
+      </div>
+      <div class="fg"><label>Способ оплаты</label>
+        <select id="lobbyPayMethod">
+          <option value="KASPI">Kaspi</option>
+          <option value="CARD">Карта</option>
+          <option value="CASH">Наличные</option>
+        </select>
+      </div>
+      <button class="b b1" onclick="payLobbyShare(${lb.id})">💳 Оплатить ${totalPay>0?fmtMoney(me.total_to_pay||me.court_share||'0'):'(бесплатно)'}</button>
+      <div id="payLobbyRes" style="margin-top:6px"></div>
+    `;
+  } else if(lb.status === 'BOOKED' && me && me.is_paid){
+    payBtn = `<div class="al al-s">✅ Вы оплатили свою долю ${fmtMoney(me.total_to_pay||'0')}</div>`;
+  }
+
+  // ── Статус оплат ──
+  let payStatus = '';
+  if(['BOOKED','PAID'].includes(lb.status)){
+    const allPaid = lb.paid_count >= lb.players_count;
+    payStatus = `
+      <div class="hr"></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <div class="sec-title" style="font-size:12px">Оплатили ${lb.paid_count}/${lb.players_count}</div>
+        ${allPaid?'<span class="cv-g" style="font-size:11px">✅ Все!</span>':''}
+      </div>
+      <div style="background:var(--s2);border-radius:6px;height:6px;overflow:hidden;margin-bottom:6px">
+        <div style="height:100%;border-radius:6px;background:var(--g);width:${lb.players_count?Math.round(lb.paid_count/lb.players_count*100):0}%;transition:.5s"></div>
+      </div>
+      ${lb.status==='PAID'?'<div class="al al-s">🎉 Все оплатили! Бронь #'+lb.booking_id+' подтверждена.</div>':''}
+    `;
+  }
+
+  // Гид: что делать прямо сейчас
+  const hint = lobbyNextStep(lb, isCreator, me);
+  const hintColor = {READY:'var(--ac)',BOOKED:'var(--o)',PAID:'var(--g)'}[lb.status]||'var(--dm)';
+
+  el.innerHTML = `
+    <!-- Шапка -->
+    <div class="bk" style="border-color:${{PAID:'rgba(74,222,128,.45)',BOOKED:'rgba(34,211,238,.35)',READY:'rgba(34,211,238,.25)'}[lb.status]||'var(--bd)'}">
+      <div class="bh" style="margin-bottom:4px">
+        <div class="bn">${esc(lb.title)}</div>
+        <span style="font-size:9px;color:var(--dm)">${lb.players_count}/${lb.max_players}</span>
+      </div>
+      <div class="bi">
+        🎾 <b>${esc(lb.court_name||'—')}</b>${lb.court_price?' · '+fmtMoney(lb.court_price)+'/ч':''}<br>
+        📅 ${dt} · ⏱ ${lb.duration_minutes} мин
+        ${lb.booking_id?`<br>📋 Бронь <b>#${lb.booking_id}</b> · ${esc(lb.booking_status||'')} · Корт: ${lb.booking_price?fmtMoney(lb.booking_price):'—'}`:''}
+      </div>
+    </div>
+
+    <!-- Прогресс шагов -->
+    ${lobbyStepIndicator(lb, isCreator)}
+
+    <!-- Что делать сейчас -->
+    <div style="background:rgba(34,211,238,.06);border:1px solid rgba(34,211,238,.15);border-radius:9px;padding:10px 12px;margin-bottom:12px;font-size:11px;color:${hintColor};line-height:1.6">
+      ${esc(hint)}
+    </div>
+
+    <!-- Участники -->
+    <div class="sec-title" style="font-size:12px;margin-bottom:6px">Участники (${lb.players_count}/${lb.max_players})</div>
+    ${partRows || '<div class="al al-w">Нет участников</div>'}
+
+    <!-- Предложения времени -->
+    ${proposalsHtml}
+
+    <!-- Назначить команды -->
+    ${teamAssignHtml}
+
+    <!-- Создать бронь -->
+    ${bookBtn}
+
+    <!-- Личные услуги -->
+    ${extrasHtml}
+
+    <!-- Статус оплат -->
+    ${payStatus}
+
+    <!-- Оплата -->
+    ${payBtn}
+
+    <div class="hr"></div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      <button class="b b2 bsm" onclick="renderLobbyDetail(${lb.id})">🔄 Обновить</button>
+      ${isCreator && !['BOOKED','PAID'].includes(lb.status) ? `<button class="bsm br" onclick="closeLobby(${lb.id})">Закрыть лобби</button>` : ''}
+    </div>
+  `;
+}
+
+// Загрузить список услуг для добавления
+let _lobbyServices = [];
+async function loadLobbyServices(){
+  if(_lobbyServices.length){
+    fillLobbyServiceSel();
+    return;
+  }
+  const r = await api('GET', '/api/inventory/services/', null, false);
+  if(r.ok) _lobbyServices = r.data || [];
+  fillLobbyServiceSel();
+}
+function fillLobbyServiceSel(){
+  const sel = $('lobbyExtraSvc');
+  if(!sel) return;
+  sel.innerHTML = _lobbyServices.length
+    ? _lobbyServices.map(s=>`<option value="${s.id}">${esc(s.name)} — ${fmtMoney(s.price)}</option>`).join('')
+    : '<option value="">Услуг нет</option>';
+}
+
+async function addLobbyExtra(lobbyId){
+  const svcId = $('lobbyExtraSvc')?.value;
+  const qty = parseInt($('lobbyExtraQty')?.value || '1');
+  if(!svcId) return;
+  const r = await api('POST', `/api/lobby/${lobbyId}/my-extras/`, {services:[{service_id:parseInt(svcId), quantity:qty}]});
+  const el = $('extrasRes');
+  if(r.ok){
+    el.innerHTML = `<div class="al al-s">✅ Добавлено. Итого к оплате: ${fmtMoney(r.data.total_to_pay)}</div>`;
+    setTimeout(()=>renderLobbyDetail(lobbyId), 800);
+  } else {
+    el.innerHTML = `<div class="al al-e">❌ ${esc(r.data.detail||JSON.stringify(r.data))}</div>`;
+  }
+}
+
+async function removeLobbyExtra(lobbyId, extraId){
+  const r = await api('DELETE', `/api/lobby/${lobbyId}/my-extras/${extraId}/`);
+  if(r.ok) renderLobbyDetail(lobbyId);
+  else alert('❌ ' + (r.data.detail || JSON.stringify(r.data)));
+}
+
+// Загрузить корты в select (используется в форме предложений)
+async function loadCourtsIntoSelect(selId){
+  const sel = $(selId);
+  if(!sel) return;
+  const r = await api('GET', '/api/courts/', null, false);
+  if(r.ok && r.data.length){
+    sel.innerHTML = r.data.map(c=>`<option value="${c.id}">${esc(c.name)} — ${fmtMoney(c.price_per_hour)}/ч</option>`).join('');
+  } else {
+    sel.innerHTML = '<option value="">Корты не найдены</option>';
+  }
+}
+
+// Предложить время и корт
+async function proposeLobbyTime(lobbyId){
+  if(!AT) return alert('Войдите');
+  const courtId = $('propCourt')?.value;
+  const timeVal = $('propTime')?.value;
+  const duration = $('propDuration')?.value || 90;
+  if(!courtId) return alert('Выберите корт');
+  if(!timeVal) return alert('Укажите дату и время');
+  const body = {
+    court: parseInt(courtId),
+    scheduled_time: new Date(timeVal).toISOString(),
+    duration_minutes: parseInt(duration),
+  };
+  const r = await api('POST', `/api/lobby/${lobbyId}/proposals/`, body);
+  const el = $('propRes');
+  if(r.ok){
+    if(el) el.innerHTML = '<div class="al al-s">✅ Предложение отправлено! Остальные могут проголосовать.</div>';
+    setTimeout(()=>renderLobbyDetail(lobbyId), 800);
+  } else {
+    if(el) el.innerHTML = `<div class="al al-e">❌ ${esc(JSON.stringify(r.data))}</div>`;
+  }
+}
+
+// Проголосовать за предложение
+async function voteLobbyProposal(lobbyId, proposalId){
+  if(!AT) return alert('Войдите');
+  const r = await api('POST', `/api/lobby/${lobbyId}/proposals/${proposalId}/vote/`);
+  if(r.ok){
+    if(r.data.auto_accepted){
+      alert('✅ Все проголосовали! Время и корт согласованы автоматически. Создатель назначит команды.');
+    }
+    renderLobbyDetail(lobbyId);
+  } else alert('❌ ' + (r.data.detail || JSON.stringify(r.data)));
+}
+
+// Создатель принимает предложение
+async function acceptLobbyProposal(lobbyId, proposalId){
+  if(!AT) return alert('Войдите');
+  if(!confirm('Принять это время и корт?')) return;
+  const r = await api('POST', `/api/lobby/${lobbyId}/proposals/${proposalId}/accept/`);
+  if(r.ok){
+    alert('✅ ' + r.data.status);
+    renderLobbyDetail(lobbyId);
+  } else alert('❌ ' + (r.data.detail || JSON.stringify(r.data)));
+}
+
+async function assignTeams(id){
+  const lb_r = await api('GET', `/api/lobby/${id}/`);
+  if(!lb_r.ok) return;
+  const teams = {};
+  for(const p of lb_r.data.participants){
+    document.querySelectorAll(`input[name="tm_${p.user}"]`).forEach(r=>{ if(r.checked) teams[String(p.user)]=r.value; });
+  }
+  const r = await api('POST', `/api/lobby/${id}/assign-teams/`, {teams});
+  const el = $('teamAssignRes');
+  if(r.ok){
+    el.innerHTML = '<div class="al al-s">✅ Команды назначены!</div>';
+    setTimeout(()=>renderLobbyDetail(id), 800);
+  } else {
+    el.innerHTML = `<div class="al al-e">❌ ${esc(r.data.detail||JSON.stringify(r.data))}</div>`;
+  }
+}
+
+async function bookLobby(id){
+  const r = await api('POST', `/api/lobby/${id}/book/`);
+  const el = $('bookLobbyRes');
+  if(r.ok){
+    const players = r.data.players || [];
+    const rows = players.map(p=>`
+      <div style="display:flex;justify-content:space-between;font-size:11px;padding:3px 0;border-bottom:1px solid var(--bd)">
+        <span>${esc(p.user_name)} (${p.team})</span>
+        <span>${p.membership_used?'🎫 абонемент':`<b>${fmtMoney(p.court_share)}</b>`}</span>
+      </div>`).join('');
+    el.innerHTML = `<div class="al al-s">
+      ✅ Бронь #${r.data.booking_id} создана!<br>
+      Стоимость корта: ${fmtMoney(r.data.court_total)}<br>
+      ${rows}
+      <div style="margin-top:6px;font-size:10px">Теперь каждый добавляет личные услуги и оплачивает.</div>
+    </div>`;
+    setTimeout(()=>renderLobbyDetail(id), 1500);
+  } else {
+    el.innerHTML = `<div class="al al-e">❌ ${esc(r.data.detail||JSON.stringify(r.data))}</div>`;
+  }
+}
+
+async function payLobbyShare(id){
+  const method = $('lobbyPayMethod')?.value || 'KASPI';
+  const r = await api('POST', `/api/lobby/${id}/pay-share/`, {payment_method: method});
+  const el = $('payLobbyRes');
+  if(r.ok){
+    el.innerHTML = `<div class="al al-s">
+      ✅ Оплачено!<br>
+      Корт: ${r.data.membership_used?'🎫 абонемент':fmtMoney(r.data.court_share)}<br>
+      Услуги: ${fmtMoney(r.data.extras_total)}<br>
+      Итого: <b>${fmtMoney(r.data.total_paid)}</b> (${method})<br>
+      Оплатили: ${r.data.paid_count}/${r.data.total_count}<br>
+      ${r.data.all_paid ? '🎉 Все оплатили! Бронь подтверждена.' : '⏳ Ждём остальных...'}
+    </div>`;
+    setTimeout(()=>renderLobbyDetail(id), 1500);
+  } else {
+    el.innerHTML = `<div class="al al-e">❌ ${esc(r.data.detail||JSON.stringify(r.data))}</div>`;
+  }
+}
+
+async function closeLobby(id){
+  if(!confirm('Закрыть это лобби?')) return;
+  const r = await api('POST', `/api/lobby/${id}/close/`);
+  if(r.ok){ alert('Лобби закрыто.'); loadMyLobbies(); }
+  else alert('❌ ' + (r.data.detail || JSON.stringify(r.data)));
+}
+
+// ============ NOTIFICATIONS ============
+async function loadNotifications(filter=''){
+  if(!AT){ $('ntfList').innerHTML='<div class="al al-w">Войдите чтобы видеть уведомления</div>'; return; }
+  let q = filter === 'unread' ? '?unread=true' : filter ? `?type=${filter}` : '';
+  const r = await api('GET', `/api/notifications/${q}`);
+  if(!r.ok){ $('ntfList').innerHTML=`<div class="al al-e">${esc(JSON.stringify(r.data))}</div>`; return; }
+  if(!r.data.length){ $('ntfList').innerHTML='<div class="al al-w">Уведомлений нет</div>'; return; }
+  $('ntfList').innerHTML = r.data.map(n => `
+    <div class="bk" style="${n.is_read?'opacity:.7':'border-color:var(--ac)'}">
+      <div class="bh">
+        <div style="font-size:12px;font-weight:${n.is_read?400:700}">${esc(n.title)}</div>
+        <span style="font-size:9px;color:var(--dm)">${esc(n.time_ago||'')}</span>
+      </div>
+      ${n.body?`<div style="font-size:11px;color:var(--dm);margin-top:3px">${esc(n.body)}</div>`:''}
+      <div style="display:flex;gap:6px;margin-top:6px">
+        <span style="font-size:9px;padding:2px 6px;border-radius:6px;background:var(--s2);color:var(--dm)">${esc(n.type_label)}</span>
+        ${!n.is_read?`<button class="bsm bg" style="font-size:9px;padding:2px 8px" onclick="markNotifRead(${n.id})">✓ Прочитано</button>`:''}
+        <button class="bsm br" style="font-size:9px;padding:2px 8px" onclick="deleteNotif(${n.id})">🗑</button>
+      </div>
+    </div>`).join('');
+}
+
+async function loadUnreadCount(){
+  if(!AT) return;
+  const r = await api('GET', '/api/notifications/unread-count/');
+  if(r.ok){
+    const c = r.data.unread_count;
+    const btn = $('ntfNavBtn');
+    if(btn) btn.innerHTML = `<span class="ic">🔔</span>Оповещ.${c>0?`<span style="background:var(--r);color:#fff;padding:0 3px;border-radius:6px;font-size:8px;margin-left:1px">${c}</span>`:''}`;
+    const badge = $('ntfUnreadBadge');
+    if(badge) badge.textContent = c > 0 ? `${c} непрочитанных` : 'Все прочитаны';
+  }
+}
+
+async function markNotifRead(id){
+  await api('POST', `/api/notifications/${id}/read/`);
+  loadNotifications(); loadUnreadCount();
+}
+
+async function markAllRead(){
+  if(!AT) return;
+  await api('POST', '/api/notifications/read-all/');
+  loadNotifications(); loadUnreadCount();
+}
+
+async function deleteNotif(id){
+  await api('DELETE', `/api/notifications/${id}/`);
+  loadNotifications(); loadUnreadCount();
+}
+
+// ============ FRIEND FEED ============
+async function loadFriendFeed(){
+  if(!AT){ $('feedList').innerHTML='<div class="al al-w">Войдите чтобы видеть ленту</div>'; return; }
+  const r = await api('GET', '/api/friends/feed/?limit=20');
+  if(!r.ok){ $('feedList').innerHTML=`<div class="al al-e">${esc(JSON.stringify(r.data))}</div>`; return; }
+  if(!r.data.length){ $('feedList').innerHTML='<div class="al al-w">Нет активности от друзей за последние 30 дней</div>'; return; }
+  $('feedList').innerHTML = r.data.map(ev => {
+    const dt = new Date(ev.date).toLocaleString('ru',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+    const icon = ev.type==='MATCH' ? '🎾' : ev.type==='ACHIEVEMENT' ? '🏆' : '📣';
+    return `<div class="ur">
+      <div class="av">${(ev.user_name||'?')[0].toUpperCase()}</div>
+      <div class="inf">
+        <div class="nm">${icon} ${esc(ev.user_name)}</div>
+        <div class="sub">${esc(ev.description)}</div>
+        <div class="sub">${dt}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ============ LEAGUE ============
+async function loadLeague(){
+  if(!AT) return alert('Войдите');
+  const r = await api('GET', '/api/auth/me/league/');
+  if(!r.ok){ $('leagueContent').innerHTML=`<div class="al al-e">${esc(JSON.stringify(r.data))}</div>`; return; }
+  const d = r.data;
+  const cl = d.current_league;
+  const nl = d.next_league;
+  const pct = d.progress_to_next;
+  $('leagueContent').innerHTML = `
+    <div class="hero" style="background:linear-gradient(135deg,${cl.color}22,${cl.color}08);border-color:${cl.color}44">
+      <div class="grt" style="color:${cl.color}">${cl.name}</div>
+      <div class="usr">${d.rating_elo} ELO</div>
+    </div>
+    ${nl ? `
+    <div class="card">
+      <div class="cl">Прогресс до лиги «${esc(nl.name)}»</div>
+      <div style="background:var(--s2);border-radius:6px;height:8px;margin:6px 0;overflow:hidden">
+        <div style="height:100%;border-radius:6px;background:${cl.color};width:${pct}%;transition:.3s"></div>
+      </div>
+      <div style="font-size:10px;color:var(--dm)">${pct}% · Нужно ещё ${d.elo_needed} ELO</div>
+    </div>` : '<div class="al al-s">🏆 Вы в высшей лиге!</div>'}
+    <div class="card">
+      <div class="cl">Все лиги</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:6px">
+        ${[{name:'Новичок',min:0,color:'#78909c'},{name:'Бронза',min:1000,color:'#cd7f32'},{name:'Серебро',min:1200,color:'#9e9e9e'},{name:'Золото',min:1400,color:'#ffd700'},{name:'Платина',min:1600,color:'#00bcd4'},{name:'Элита',min:1800,color:'#e91e63'}].map(l=>`
+          <div style="text-align:center;padding:6px 4px;border-radius:8px;background:${d.rating_elo>=l.min?l.color+'22':'var(--s2)'};border:1px solid ${d.rating_elo>=l.min?l.color+'55':'var(--bd)'}">
+            <div style="font-size:10px;font-weight:700;color:${d.rating_elo>=l.min?l.color:'var(--dm)'}">${l.name}</div>
+            <div style="font-size:8px;color:var(--dm)">${l.min}+</div>
+          </div>`).join('')}
+      </div>
+    </div>
+  `;
+}
+
+// ============ ACCOUNT DELETION ============
+async function deleteAccount(){
+  if(!AT) return alert('Войдите');
+  if(!confirm('ВНИМАНИЕ! Ваш аккаунт будет удалён безвозвратно. Вы уверены?')) return;
+  if(!confirm('Последнее предупреждение: все данные, брони и платежи будут удалены. Продолжить?')) return;
+  const r = await api('DELETE', '/api/auth/me/delete/', {confirm: true});
+  const el = $('deleteRes');
+  if(r.ok || r.status === 204){
+    el.innerHTML = '<div class="al al-s">Аккаунт удалён.</div>';
+    AT=RT=UID=ROLE=null; upd();
+    setTimeout(() => nav('login'), 1500);
+  } else {
+    el.innerHTML = `<div class="al al-e">❌ ${esc(JSON.stringify(r.data))}</div>`;
+  }
+}
+
+// ============ INIT ============
+upd();
+// Preload news and leaderboard on home
+loadNewsHome();
+loadLeaderMini();
+</script>
+</body>
+</html>

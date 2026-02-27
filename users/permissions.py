@@ -2,16 +2,33 @@ from rest_framework.permissions import BasePermission
 
 
 class IsReceptionist(BasePermission):
-    """
-    Ресепшн: пропуск клиентов, просмотр данных, разблокировка QR.
-    Доступ также для ADMIN (у него всё).
-    """
+    """Ресепшн и ADMIN — доступ к клиентским данным."""
     message = "Доступно только для ресепшн и администраторов."
 
     def has_permission(self, request, view):
         if not request.user or not request.user.is_authenticated:
             return False
         return request.user.role in ['ADMIN', 'RECEPTIONIST']
+
+
+class IsAdminRole(BasePermission):
+    """Только ADMIN (не через is_staff, а через кастомную role)."""
+    message = "Доступно только для администраторов."
+
+    def has_permission(self, request, view):
+        if not request.user or not request.user.is_authenticated:
+            return False
+        return request.user.role == 'ADMIN'
+
+
+class IsStaffMember(BasePermission):
+    """ADMIN, RECEPTIONIST, COACH_PADEL, COACH_FITNESS — любой сотрудник клуба."""
+    message = "Доступно только для сотрудников клуба."
+
+    def has_permission(self, request, view):
+        if not request.user or not request.user.is_authenticated:
+            return False
+        return request.user.role in ['ADMIN', 'RECEPTIONIST', 'COACH_PADEL', 'COACH_FITNESS']
 
 
 class IsCoach(BasePermission):

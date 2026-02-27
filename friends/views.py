@@ -10,6 +10,7 @@ from .serializers import (
 from django.contrib.auth import get_user_model
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
+from django.db.models import Q
 
 User = get_user_model()
 
@@ -143,3 +144,70 @@ class FriendListView(generics.ListAPIView):
             to_user=me, status='ACCEPTED'
         ).values_list('from_user_id', flat=True)
         return User.objects.filter(id__in=list(sent) + list(received))
+
+
+# 8. Лента активности друзей
+class FriendActivityFeedView(APIView):
+    """
+    GET /api/friends/feed/?limit=20
+    Хронологическая лента активности друзей:
+    - завершённые матчи друзей
+    - получение ELO изменений
+    Каждый элемент: { type, user_id, user_name, description, date, data }
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        from gamification.models import Match
+        from bookings.models import Booking
+
+        me = request.user
+        limit = int(request.query_params.get('limit', 20))
+
+        sent = FriendRequest.objects.filter(
+            from_user=me, status='ACCEPTED'
+        ).values_list('to_user_id', flat=True)
+        received = FriendRequest.objects.filter(
+            to_user=me, status='ACCEPTED'
+        ).values_list('from_user_id', flat=True)
+        friend_ids = list(set(list(sent) + list(received)))
+
+        if not friend_ids:
+            return Response([])
+
+        feed = []
+
+        # Матчи друзей (последние 30 дней)
+        from django.utils import timezone
+        from datetime import timedelta
+        since = timezone.now() - timedelta(days=30)
+
+        matches = Match.objects.filter(
+            Q(team_a__in=friend_ids) | Q(team_b__in=friend_ids),
+            date__gte=since,
+        ).distinct().order_by('-date')[:30]
+
+        friends_map = {u.id: u for u in User.objects.filter(id__in=friend_ids)}
+
+        for m in matches:
+            # Какие друзья участвовали
+            a_ids = set(m.team_a.values_list('id', flat=True))
+            b_ids = set(m.team_b.values_list('id', flat=True))
+            involved = [friends_map[uid] for uid in friend_ids if uid in a_ids | b_ids]
+            for player in involved:
+                elo_change = m.elo_changes.get(str(player.id))
+                elo_txt = f" ELO: {'+' if elo_change and elo_change > 0 else ''}{elo_change}" if elo_change is not None else ""
+                winner_side = 'A' if player.id in a_ids else 'B'
+                won = m.winner_team == winner_side
+                feed.append({
+                    "type": "MATCH",
+                    "user_id": player.id,
+                    "user_name": f"{player.first_name} {player.last_name}".strip() or player.username,
+                    "description": f"{'🏆 Победил' if won else '❌ Проиграл'} матч {m.score or ''}{elo_txt}",
+                    "date": m.date.isoformat(),
+                    "data": {"match_id": m.id, "score": m.score, "won": won, "elo_change": elo_change},
+                })
+
+        # Сортируем по дате
+        feed.sort(key=lambda x: x['date'], reverse=True)
+        return Response(feed[:limit])

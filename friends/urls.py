@@ -7,6 +7,7 @@ from .views import (
     CancelFriendRequestView,
     RemoveFriendView,
     FriendListView,
+    FriendActivityFeedView,
 )
 
 urlpatterns = [
@@ -17,4 +18,5 @@ urlpatterns = [
     path('respond/', RespondToRequestView.as_view(), name='respond-request'),
     path('cancel/', CancelFriendRequestView.as_view(), name='cancel-request'),
     path('remove/', RemoveFriendView.as_view(), name='remove-friend'),
+    path('feed/', FriendActivityFeedView.as_view(), name='friend-feed'),
 ]

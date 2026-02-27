@@ -104,3 +104,75 @@ class ReceptionistUserSerializer(serializers.ModelSerializer):
             'rating_elo', 'is_profile_complete', 'created_at',
         )
         read_only_fields = fields
+
+
+class CoachListSerializer(serializers.ModelSerializer):
+    """Список тренеров для выбора в брони (имя, роль, цена)."""
+    full_name = serializers.SerializerMethodField()
+    coach_price = serializers.DecimalField(source='price_per_hour', max_digits=10, decimal_places=2, read_only=True)
+
+    class Meta:
+        model = User
+        fields = ('id', 'full_name', 'role', 'coach_price', 'phone_number', 'avatar')
+
+    def get_full_name(self, obj):
+        full = f"{obj.first_name or ''} {obj.last_name or ''}".strip()
+        return full or obj.username or f"Тренер #{obj.id}"
+
+
+def _get_league(elo):
+    """Возвращает словарь с данными лиги по ELO."""
+    if elo < 1000:
+        return {"name": "Новичок", "min_elo": 0, "max_elo": 999, "color": "#78909c"}
+    elif elo < 1200:
+        return {"name": "Бронза", "min_elo": 1000, "max_elo": 1199, "color": "#cd7f32"}
+    elif elo < 1400:
+        return {"name": "Серебро", "min_elo": 1200, "max_elo": 1399, "color": "#9e9e9e"}
+    elif elo < 1600:
+        return {"name": "Золото", "min_elo": 1400, "max_elo": 1599, "color": "#ffd700"}
+    elif elo < 1800:
+        return {"name": "Платина", "min_elo": 1600, "max_elo": 1799, "color": "#00bcd4"}
+    else:
+        return {"name": "Элита", "min_elo": 1800, "max_elo": 9999, "color": "#e91e63"}
+
+
+class PublicUserProfileSerializer(serializers.ModelSerializer):
+    """Публичный профиль пользователя для просмотра другом."""
+    full_name = serializers.SerializerMethodField()
+    league = serializers.SerializerMethodField()
+    matches_played = serializers.SerializerMethodField()
+    matches_won = serializers.SerializerMethodField()
+    total_bookings = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = (
+            'id', 'username', 'first_name', 'last_name', 'full_name',
+            'avatar', 'rating_elo', 'league', 'role',
+            'matches_played', 'matches_won', 'total_bookings',
+        )
+
+    def get_full_name(self, obj):
+        return f"{obj.first_name} {obj.last_name}".strip() or obj.username
+
+    def get_league(self, obj):
+        return _get_league(obj.rating_elo)
+
+    def get_matches_played(self, obj):
+        from gamification.models import Match
+        from django.db.models import Q
+        return Match.objects.filter(Q(team_a=obj) | Q(team_b=obj)).distinct().count()
+
+    def get_matches_won(self, obj):
+        from gamification.models import Match
+        from django.db.models import Q
+        return Match.objects.filter(
+            Q(team_a=obj, winner_team='A') | Q(team_b=obj, winner_team='B')
+        ).distinct().count()
+
+    def get_total_bookings(self, obj):
+        from bookings.models import Booking
+        from django.db.models import Q
+        return Booking.objects.filter(
+            Q(user=obj) | Q(participants=obj)
+        ).exclude(status='CANCELED').distinct().count()

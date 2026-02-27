@@ -35,9 +35,12 @@ class Match(models.Model):
 
     court = models.ForeignKey(Court, on_delete=models.SET_NULL, null=True, verbose_name="Корт")
     date = models.DateTimeField(auto_now_add=True, verbose_name="Дата игры")
-    
+
     # Флаг: Рейтинг уже обновлен? (чтобы не начислить дважды)
     is_rated = models.BooleanField(default=False, verbose_name="Рейтинг начислен")
+
+    # ELO-дельта: {"player_id": delta} — сколько получил/потерял каждый игрок
+    elo_changes = models.JSONField(default=dict, blank=True, verbose_name="Изменения ELO")
 
     def __str__(self):
         return f"Матч {self.date.strftime('%d.%m')} | {self.score}"
