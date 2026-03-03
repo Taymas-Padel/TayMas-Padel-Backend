@@ -6,7 +6,8 @@ from django.utils.translation import gettext_lazy as _
 class User(AbstractUser):
     class Role(models.TextChoices):
         SUPER_ADMIN = 'ADMIN', _('Super Admin')
-        RECEPTIONIST = 'RECEPTIONIST', _('Receptionist')  # Ресепшн — пропуск клиентов, просмотр данных
+        RECEPTIONIST = 'RECEPTIONIST', _('Receptionist')
+        SALES_MANAGER = 'SALES_MANAGER', _('Sales Manager')
         COACH_PADEL = 'COACH_PADEL', _('Padel Coach')
         COACH_FITNESS = 'COACH_FITNESS', _('Fitness Coach')
         CLIENT = 'CLIENT', _('Client')
@@ -72,10 +73,11 @@ class User(AbstractUser):
     # ---- Проверка: может ли входить в CRM по паролю? ----
     @property
     def can_login_to_crm(self):
-        """Только админы и ресепшн входят в CRM"""
+        """Админы, ресепшн и менеджеры продаж входят в CRM"""
         return self.role in [
             self.Role.SUPER_ADMIN,
             self.Role.RECEPTIONIST,
+            self.Role.SALES_MANAGER,
         ]
 
     def __str__(self):

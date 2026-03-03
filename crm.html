@@ -132,6 +132,21 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--tx);min-he
 .ni .nd{font-size:10px;color:var(--dm);line-height:1.5}
 .ni .nb{display:flex;gap:5px;margin-top:6px;align-items:center;justify-content:space-between}
 
+/* kanban */
+.kanban{display:flex;gap:10px;overflow-x:auto;padding-bottom:10px}
+.kanban-col{min-width:240px;max-width:280px;flex:1;background:var(--s);border:1px solid var(--bd);border-radius:var(--rad);display:flex;flex-direction:column;max-height:calc(100vh - 200px)}
+.kanban-col-head{padding:10px 12px;border-bottom:1px solid var(--bd);display:flex;justify-content:space-between;align-items:center;flex-shrink:0}
+.kanban-col-head .kc-title{font-size:12px;font-weight:700}
+.kanban-col-head .kc-count{font-size:10px;background:var(--ac);color:#fff;padding:1px 7px;border-radius:10px;font-weight:700}
+.kanban-col-body{flex:1;overflow-y:auto;padding:8px}
+.lead-card{background:var(--s2);border:1px solid var(--bd);border-radius:7px;padding:10px;margin-bottom:6px;cursor:pointer;transition:.12s}
+.lead-card:hover{border-color:var(--ac)}
+.lead-card .lc-name{font-weight:600;font-size:12px}
+.lead-card .lc-phone{font-size:10px;color:var(--dm);font-family:'JetBrains Mono',monospace}
+.lead-card .lc-meta{display:flex;gap:4px;margin-top:4px;flex-wrap:wrap}
+.lead-card .lc-meta span{font-size:8px;padding:1px 6px;border-radius:8px;font-weight:600}
+.lead-detail-modal{position:fixed;top:0;left:0;right:0;bottom:0;z-index:200;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center}
+.lead-detail-box{background:var(--bg);border:1px solid var(--bd);border-radius:12px;width:620px;max-height:85vh;overflow-y:auto;padding:20px}
 .hidden{display:none!important}
 ::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--bd);border-radius:2px}
     </style>
@@ -156,6 +171,11 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--tx);min-he
     <div class="lbl">Дашборды</div>
     <button data-s="dash-r"><i>📊</i> Ресепшн</button>
     <button data-s="dash-d"><i>📈</i> Директор</button>
+
+    <div class="lbl">Лиды / Воронка</div>
+    <button data-s="leads-kanban"><i>📊</i> Канбан-доска</button>
+    <button data-s="leads-list"><i>📋</i> Список лидов</button>
+    <button data-s="leads-stats"><i>📈</i> Статистика</button>
 
     <div class="lbl">Расписание</div>
     <button data-s="schedule"><i>📅</i> Расписание</button>
@@ -618,6 +638,100 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--tx);min-he
       </div>
       <div class="btns"><button class="b b1" onclick="createCourt()">Создать</button><button class="b b2" onclick="loadCourtsManage()">🔄 Список</button></div>
       <div id="courtsAdminList"></div>
+    </div>
+
+    <!-- ===== LEADS KANBAN ===== -->
+    <div id="s-leads-kanban" class="sec">
+      <div class="sec-title">📊 Воронка продаж</div>
+      <div class="sec-sub">Канбан-доска лидов — перетаскивайте карточки между стадиями</div>
+      <div class="row2" style="margin-bottom:12px">
+        <div class="fg"><label>Поиск</label><input id="lkSearch" placeholder="Имя или телефон" oninput="loadKanban()"></div>
+        <div class="fg"><label>Менеджер</label>
+          <select id="lkAssigned" onchange="loadKanban()">
+            <option value="">Все</option>
+            <option value="me">Мои лиды</option>
+          </select>
+        </div>
+      </div>
+      <div class="btns">
+        <button class="b b1" onclick="loadKanban()">🔄 Обновить</button>
+        <button class="b bg" onclick="showNewLeadForm()">➕ Новый лид</button>
+      </div>
+      <div id="kanbanBoard" class="kanban"></div>
+    </div>
+
+    <!-- ===== LEADS LIST ===== -->
+    <div id="s-leads-list" class="sec">
+      <div class="sec-title">📋 Список лидов</div>
+      <div class="sec-sub">GET <code>/api/leads/?stage=&search=</code></div>
+      <div class="row3">
+        <div class="fg"><label>Поиск</label><input id="llSearch" placeholder="Имя или телефон"></div>
+        <div class="fg"><label>Стадия</label>
+          <select id="llStage">
+            <option value="">Все</option>
+            <option value="NEW">Новые</option>
+            <option value="IN_PROGRESS">В работе</option>
+            <option value="NEGOTIATION">Переговоры</option>
+            <option value="SOLD">Продажа</option>
+            <option value="LOST">Закрыто</option>
+          </select>
+        </div>
+        <div class="fg"><label>Менеджер</label>
+          <select id="llAssigned">
+            <option value="">Все</option>
+            <option value="me">Мои</option>
+          </select>
+        </div>
+      </div>
+      <div class="btns">
+        <button class="b b1" onclick="loadLeadsList()">🔍 Найти</button>
+        <button class="b bg" onclick="showNewLeadForm()">➕ Новый лид</button>
+      </div>
+      <div id="leadsListResult"></div>
+    </div>
+
+    <!-- ===== LEADS STATS ===== -->
+    <div id="s-leads-stats" class="sec">
+      <div class="sec-title">📈 Статистика воронки</div>
+      <div class="sec-sub">GET <code>/api/leads/stats/</code></div>
+      <div class="btns"><button class="b b1" onclick="loadLeadsStats()">🔄 Загрузить</button></div>
+      <div id="leadsStatsResult"></div>
+    </div>
+
+    <!-- Lead Detail Modal (hidden by default) -->
+    <div id="leadDetailModal" class="lead-detail-modal hidden">
+      <div class="lead-detail-box" id="leadDetailBox"></div>
+    </div>
+
+    <!-- New Lead Modal -->
+    <div id="newLeadModal" class="lead-detail-modal hidden">
+      <div class="lead-detail-box">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+          <div style="font-weight:700;font-size:15px">➕ Новый лид</div>
+          <button class="b b2" style="padding:4px 10px" onclick="$('newLeadModal').classList.add('hidden')">✕</button>
+        </div>
+        <div class="row2">
+          <div class="fg"><label>Имя *</label><input id="nlName" placeholder="Азамат"></div>
+          <div class="fg"><label>Телефон *</label><input id="nlPhone" placeholder="+77001234567"></div>
+        </div>
+        <div class="row2">
+          <div class="fg"><label>Email</label><input id="nlEmail" placeholder="email@mail.ru"></div>
+          <div class="fg"><label>Источник</label>
+            <select id="nlSource">
+              <option value="PHONE_CALL">Звонок</option>
+              <option value="INSTAGRAM">Instagram</option>
+              <option value="WEBSITE">Сайт</option>
+              <option value="WALK_IN">Пришёл сам</option>
+              <option value="REFERRAL">Рекомендация</option>
+              <option value="WHATSAPP">WhatsApp</option>
+              <option value="OTHER">Другое</option>
+            </select>
+          </div>
+        </div>
+        <div class="fg"><label>Заметки</label><textarea id="nlNotes" placeholder="Интересуется утренними тренировками..." style="padding:8px;background:var(--s);border:1px solid var(--bd);border-radius:var(--rad);color:var(--tx);font-family:'Outfit',sans-serif;font-size:12px;min-height:60px;width:100%"></textarea></div>
+        <div class="btns"><button class="b b1" onclick="createLead()">➕ Создать лид</button></div>
+        <div id="nlRes"></div>
+      </div>
     </div>
 
     <!-- ===== SESSION ===== -->
@@ -1325,6 +1439,250 @@ async function loadAllMemberships(){
       </div>
     </div>`;
   }).join(''):'<div class="al al-w">Абонементов не найдено</div>';
+}
+
+// ============ LEADS / KANBAN ============
+const STAGE_COLORS={NEW:'var(--ac)',IN_PROGRESS:'var(--o)',NEGOTIATION:'#a78bfa',SOLD:'var(--g)',LOST:'var(--r)'};
+
+async function loadKanban(){
+  if(!AT)return alert('Войдите');
+  let url='/api/leads/kanban/?';
+  const s=$('lkSearch').value.trim(), a=$('lkAssigned').value;
+  if(s) url+=`search=${encodeURIComponent(s)}&`;
+  if(a) url+=`assigned_to=${a}&`;
+  const r=await api('GET',url.slice(0,-1));
+  if(!r.ok){$('kanbanBoard').innerHTML=`<div class="al al-e">${esc(JSON.stringify(r.data))}</div>`;return;}
+  $('kanbanBoard').innerHTML=r.data.map(col=>`
+    <div class="kanban-col" data-stage="${col.stage}">
+      <div class="kanban-col-head">
+        <span class="kc-title" style="color:${STAGE_COLORS[col.stage]||'var(--tx)'}">${esc(col.label)}</span>
+        <span class="kc-count">${col.count}</span>
+      </div>
+      <div class="kanban-col-body" data-stage="${col.stage}"
+        ondragover="event.preventDefault();this.style.background='rgba(91,108,247,.08)'"
+        ondragleave="this.style.background=''"
+        ondrop="dropLead(event,'${col.stage}');this.style.background=''">
+        ${col.leads.map(l=>leadCardHTML(l)).join('')}
+      </div>
+    </div>`).join('');
+}
+
+function leadCardHTML(l){
+  return `<div class="lead-card" draggable="true" data-id="${l.id}"
+    ondragstart="event.dataTransfer.setData('lead_id','${l.id}')"
+    onclick="openLeadDetail(${l.id})">
+    <div class="lc-name">${esc(l.name)}</div>
+    <div class="lc-phone">${esc(l.phone)}</div>
+    <div class="lc-meta">
+      <span style="background:rgba(91,108,247,.15);color:var(--acl)">${esc(l.source_label)}</span>
+      ${l.assigned_to_name?`<span style="background:var(--s);color:var(--dm)">${esc(l.assigned_to_name)}</span>`:''}
+      ${l.open_tasks_count?`<span style="background:var(--od);color:var(--o)">${l.open_tasks_count} задач</span>`:''}
+      ${l.comments_count?`<span style="background:var(--s);color:var(--dm)">${l.comments_count} ком.</span>`:''}
+    </div>
+    ${l.last_contact_formatted?`<div style="font-size:8px;color:var(--dm);margin-top:4px">Последний контакт: ${esc(l.last_contact_formatted)}</div>`:''}
+  </div>`;
+}
+
+async function dropLead(event,newStage){
+  event.preventDefault();
+  const leadId=event.dataTransfer.getData('lead_id');
+  if(!leadId)return;
+  const r=await api('POST',`/api/leads/${leadId}/move/`,{stage:newStage});
+  if(r.ok) loadKanban();
+  else alert('Ошибка: '+JSON.stringify(r.data));
+}
+
+function showNewLeadForm(){ $('newLeadModal').classList.remove('hidden'); $('nlRes').innerHTML=''; }
+
+async function createLead(){
+  if(!AT)return alert('Войдите');
+  const name=$('nlName').value.trim(), phone=$('nlPhone').value.trim();
+  if(!name||!phone)return alert('Имя и телефон обязательны');
+  const body={name, phone, source:$('nlSource').value, stage:'NEW'};
+  const email=$('nlEmail').value.trim();
+  if(email) body.email=email;
+  const notes=$('nlNotes').value.trim();
+  if(notes) body.notes=notes;
+  const r=await api('POST','/api/leads/',body);
+  if(r.ok){
+    $('nlRes').innerHTML=`<div class="al al-s">✅ Лид создан: ${esc(r.data.name)} (ID: ${r.data.id})</div>`;
+    $('nlName').value='';$('nlPhone').value='';$('nlEmail').value='';$('nlNotes').value='';
+    loadKanban();
+    setTimeout(()=>$('newLeadModal').classList.add('hidden'),1200);
+  } else {
+    $('nlRes').innerHTML=`<div class="al al-e">❌ ${esc(JSON.stringify(r.data))}</div>`;
+  }
+}
+
+async function openLeadDetail(id){
+  if(!AT)return;
+  const r=await api('GET',`/api/leads/${id}/`);
+  if(!r.ok){alert(JSON.stringify(r.data));return;}
+  const l=r.data;
+  $('leadDetailBox').innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px">
+      <div>
+        <div style="font-weight:700;font-size:17px">${esc(l.name)}</div>
+        <div style="font-size:12px;color:var(--dm);font-family:'JetBrains Mono',monospace">${esc(l.phone)} ${l.email?'· '+esc(l.email):''}</div>
+      </div>
+      <button class="b b2" style="padding:4px 10px" onclick="$('leadDetailModal').classList.add('hidden')">✕</button>
+    </div>
+    <div class="g3" style="margin-bottom:12px">
+      <div class="card"><div class="cl">Стадия</div><div class="cv" style="color:${STAGE_COLORS[l.stage]||'var(--tx)'}">${esc(l.stage_label)}</div></div>
+      <div class="card"><div class="cl">Источник</div><div class="cv">${esc(l.source_label)}</div></div>
+      <div class="card"><div class="cl">Менеджер</div><div class="cv">${esc(l.assigned_to_name||'Не назначен')}</div></div>
+    </div>
+    <div class="g2" style="margin-bottom:12px">
+      <div class="card"><div class="cl">Создан</div><div class="cv">${esc(l.created_at_formatted)}</div></div>
+      <div class="card"><div class="cl">Последний контакт</div><div class="cv">${esc(l.last_contact_formatted||'—')}</div></div>
+    </div>
+    ${l.notes?`<div class="card" style="margin-bottom:12px"><div class="cl">Заметки</div><div class="cv" style="font-size:11px;white-space:pre-wrap">${esc(l.notes)}</div></div>`:''}
+
+    <!-- Смена стадии -->
+    <div style="margin-bottom:14px">
+      <div style="font-weight:600;font-size:12px;margin-bottom:6px">Переместить</div>
+      <div class="btns">
+        ${['NEW','IN_PROGRESS','NEGOTIATION','SOLD','LOST'].map(s=>
+          `<button class="b ${l.stage===s?'b1':'b2'}" style="padding:4px 10px;font-size:10px" onclick="moveLead(${l.id},'${s}')">${s==='NEW'?'Новые':s==='IN_PROGRESS'?'В работе':s==='NEGOTIATION'?'Переговоры':s==='SOLD'?'Продажа':'Закрыто'}</button>`
+        ).join('')}
+      </div>
+    </div>
+    <div class="hr"></div>
+
+    <!-- Комментарии -->
+    <div style="font-weight:600;font-size:13px;margin-bottom:8px">💬 История (${l.comments.length})</div>
+    <div id="ldComments">${l.comments.length?l.comments.map(c=>`
+      <div class="card" style="padding:8px;margin-bottom:4px">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span style="font-weight:600;font-size:11px">${esc(c.author_name)}</span>
+          <span style="font-size:9px;color:var(--dm)">${esc(c.created_at_formatted)}</span>
+        </div>
+        <div style="font-size:11px;margin-top:3px;color:var(--tx)">${esc(c.text)}</div>
+      </div>`).join(''):'<div style="font-size:11px;color:var(--dm);margin-bottom:8px">Нет комментариев</div>'}
+    </div>
+    <div class="fg" style="margin-top:8px"><input id="ldNewComment" placeholder="Добавить комментарий..." style="font-size:11px"></div>
+    <div class="btns"><button class="b b1" style="padding:4px 12px;font-size:10px" onclick="addLeadComment(${l.id})">💬 Отправить</button></div>
+    <div class="hr"></div>
+
+    <!-- Задачи -->
+    <div style="font-weight:600;font-size:13px;margin-bottom:8px">📋 Задачи (${l.tasks.length})</div>
+    <div id="ldTasks">${l.tasks.length?l.tasks.map(t=>`
+      <div class="card" style="padding:8px;margin-bottom:4px;display:flex;align-items:center;gap:8px">
+        <input type="checkbox" ${t.is_done?'checked':''} onchange="toggleTask(${l.id},${t.id},this.checked)" style="width:16px;height:16px;accent-color:var(--g)">
+        <div style="flex:1">
+          <div style="font-size:11px;font-weight:600;${t.is_done?'text-decoration:line-through;opacity:.5':''}">${esc(t.title)}</div>
+          <div style="font-size:9px;color:var(--dm)">${esc(t.due_datetime_formatted)} ${t.assigned_to_name?'· '+esc(t.assigned_to_name):''}</div>
+        </div>
+        <button class="b br" style="padding:2px 8px;font-size:9px" onclick="deleteTask(${l.id},${t.id})">✕</button>
+      </div>`).join(''):'<div style="font-size:11px;color:var(--dm);margin-bottom:8px">Нет задач</div>'}
+    </div>
+    <div class="row2" style="margin-top:8px">
+      <div class="fg"><input id="ldNewTask" placeholder="Задача..." style="font-size:11px"></div>
+      <div class="fg"><input type="datetime-local" id="ldTaskDue" style="font-size:11px"></div>
+    </div>
+    <div class="btns"><button class="b b1" style="padding:4px 12px;font-size:10px" onclick="addLeadTask(${l.id})">📋 Добавить задачу</button></div>
+    <div class="hr"></div>
+
+    <!-- Удалить -->
+    <div class="btns"><button class="b br" style="padding:6px 14px;font-size:11px" onclick="deleteLead(${l.id})">🗑 Удалить лид</button></div>
+  `;
+  $('leadDetailModal').classList.remove('hidden');
+}
+
+async function moveLead(id,stage){
+  const r=await api('POST',`/api/leads/${id}/move/`,{stage});
+  if(r.ok){openLeadDetail(id);loadKanban();}
+  else alert(JSON.stringify(r.data));
+}
+
+async function addLeadComment(id){
+  const text=$('ldNewComment').value.trim();
+  if(!text)return alert('Введите комментарий');
+  const r=await api('POST',`/api/leads/${id}/comments/`,{text});
+  if(r.ok){$('ldNewComment').value='';openLeadDetail(id);}
+  else alert(JSON.stringify(r.data));
+}
+
+async function addLeadTask(id){
+  const title=$('ldNewTask').value.trim();
+  const due=$('ldTaskDue').value;
+  if(!title)return alert('Введите задачу');
+  if(!due)return alert('Укажите срок');
+  const r=await api('POST',`/api/leads/${id}/tasks/`,{title,due_datetime:new Date(due).toISOString()});
+  if(r.ok){$('ldNewTask').value='';$('ldTaskDue').value='';openLeadDetail(id);}
+  else alert(JSON.stringify(r.data));
+}
+
+async function toggleTask(leadId,taskId,done){
+  await api('PATCH',`/api/leads/${leadId}/tasks/${taskId}/`,{is_done:done});
+}
+
+async function deleteTask(leadId,taskId){
+  if(!confirm('Удалить задачу?'))return;
+  const r=await api('DELETE',`/api/leads/${leadId}/tasks/${taskId}/`);
+  if(r.ok||r.status===204) openLeadDetail(leadId);
+}
+
+async function deleteLead(id){
+  if(!confirm('Удалить лид? Это действие нельзя отменить.'))return;
+  const r=await api('DELETE',`/api/leads/${id}/`);
+  if(r.ok||r.status===204){
+    $('leadDetailModal').classList.add('hidden');
+    loadKanban();
+  } else alert(JSON.stringify(r.data));
+}
+
+// ---- LEADS LIST (flat) ----
+async function loadLeadsList(){
+  if(!AT)return alert('Войдите');
+  let url='/api/leads/?';
+  const s=$('llSearch').value.trim(),st=$('llStage').value,a=$('llAssigned').value;
+  if(s) url+=`search=${encodeURIComponent(s)}&`;
+  if(st) url+=`stage=${st}&`;
+  if(a) url+=`assigned_to=${a}&`;
+  const r=await api('GET',url.slice(0,-1));
+  if(!r.ok){showAl('leadsListResult','e',r.data);return;}
+  const list=r.data;
+  $('leadsListResult').innerHTML=list.length?list.map(l=>`
+    <div class="uc" onclick="openLeadDetail(${l.id})">
+      <div class="av" style="background:${STAGE_COLORS[l.stage]||'var(--ac)'}">${(l.name[0]||'?').toUpperCase()}</div>
+      <div class="ui">
+        <div class="un">${esc(l.name)}</div>
+        <div class="up">${esc(l.phone)} · ${esc(l.source_label)}</div>
+        <div class="ub">
+          <span class="badge" style="background:${STAGE_COLORS[l.stage]||'var(--ac)'};color:#fff">${esc(l.stage_label)}</span>
+          ${l.assigned_to_name?`<span class="badge bd-a">${esc(l.assigned_to_name)}</span>`:''}
+        </div>
+      </div>
+      <div style="text-align:right;font-size:9px;color:var(--dm)">${esc(l.created_at_formatted)}<br>${l.comments_count} ком. · ${l.open_tasks_count} задач</div>
+    </div>`).join(''):'<div class="al al-w">Лидов не найдено</div>';
+}
+
+// ---- LEADS STATS ----
+async function loadLeadsStats(){
+  if(!AT)return alert('Войдите');
+  const r=await api('GET','/api/leads/stats/');
+  if(!r.ok){showAl('leadsStatsResult','e',r.data);return;}
+  const d=r.data;
+  $('leadsStatsResult').innerHTML=`
+    <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:14px">
+      <div class="kpi"><div class="kv cv-a">${d.total}</div><div class="kl">Всего лидов</div></div>
+      <div class="kpi"><div class="kv cv-g">${d.sold_count}</div><div class="kl">Успешные продажи</div></div>
+      <div class="kpi"><div class="kv" style="color:var(--g)">${d.conversion_rate}%</div><div class="kl">Конверсия</div></div>
+    </div>
+    <div style="font-weight:600;font-size:13px;margin-bottom:10px">По стадиям</div>
+    ${d.stages.map(s=>`
+      <div class="card" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="width:10px;height:10px;border-radius:50%;background:${STAGE_COLORS[s.stage]||'var(--dm)'}"></div>
+          <span style="font-weight:600;font-size:12px">${esc(s.label)}</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px">
+          <div style="width:100px;height:6px;background:var(--s2);border-radius:3px;overflow:hidden"><div style="width:${s.percent}%;height:100%;background:${STAGE_COLORS[s.stage]||'var(--ac)'}"></div></div>
+          <span style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;min-width:32px;text-align:right">${s.count}</span>
+          <span style="font-size:10px;color:var(--dm);min-width:40px">${s.percent}%</span>
+        </div>
+      </div>`).join('')}`;
 }
 
 // ============ INIT ============

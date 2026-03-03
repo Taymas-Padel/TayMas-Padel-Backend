@@ -21,14 +21,24 @@ class IsAdminRole(BasePermission):
         return request.user.role == 'ADMIN'
 
 
+class IsSalesManager(BasePermission):
+    """ADMIN, RECEPTIONIST, SALES_MANAGER — доступ к лидам и воронке."""
+    message = "Доступно только для менеджеров, ресепшн и администраторов."
+
+    def has_permission(self, request, view):
+        if not request.user or not request.user.is_authenticated:
+            return False
+        return request.user.role in ['ADMIN', 'RECEPTIONIST', 'SALES_MANAGER']
+
+
 class IsStaffMember(BasePermission):
-    """ADMIN, RECEPTIONIST, COACH_PADEL, COACH_FITNESS — любой сотрудник клуба."""
+    """ADMIN, RECEPTIONIST, SALES_MANAGER, COACH_PADEL, COACH_FITNESS — любой сотрудник клуба."""
     message = "Доступно только для сотрудников клуба."
 
     def has_permission(self, request, view):
         if not request.user or not request.user.is_authenticated:
             return False
-        return request.user.role in ['ADMIN', 'RECEPTIONIST', 'COACH_PADEL', 'COACH_FITNESS']
+        return request.user.role in ['ADMIN', 'RECEPTIONIST', 'SALES_MANAGER', 'COACH_PADEL', 'COACH_FITNESS']
 
 
 class IsCoach(BasePermission):
