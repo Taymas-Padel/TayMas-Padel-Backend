@@ -38,6 +38,8 @@ USE_X_FORWARDED_HOST = True
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 INSTALLED_APPS = [
+    'admin_interface',
+    'colorfield',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -257,3 +259,9 @@ KASPI_SECRET_KEY  = os.getenv('KASPI_SECRET_KEY', '')
 # В продакшне обязательно убрать (оставить пустым или удалить из .env).
 # Использование: введи этот код вместо реального в любой форме верификации.
 SMS_MASTER_CODE = os.getenv('SMS_MASTER_CODE', '000000')
+
+# ============================================================
+# ADMIN INTERFACE (красивая админка)
+# ============================================================
+# После первого входа зайди в «Администрирование» → «Темы» и выбери/настрой тему (цвета, логотип).
+X_FRAME_OPTIONS = "SAMEORIGIN"

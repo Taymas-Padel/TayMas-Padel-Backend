@@ -1,5 +1,10 @@
 from django.contrib import admin
 from django.urls import path, include
+
+# Красивый заголовок админки
+admin.site.site_header = "Padel Club — Администрирование"
+admin.site.site_title = "Padel Club"
+admin.site.index_title = "Главная"
 from django.http import HttpResponse
 from django.conf.urls.static import static
 from django.conf import settings
