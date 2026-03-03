@@ -4,7 +4,7 @@ from rest_framework import status
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 
-from users.permissions import IsReceptionist
+from users.permissions import IsSalesManager
 from .models import Lead, LeadComment, LeadTask
 from .serializers import (
     LeadListSerializer,
@@ -20,7 +20,7 @@ from .serializers import (
 # =============================================
 
 @api_view(['GET', 'POST'])
-@permission_classes([IsReceptionist])
+@permission_classes([IsSalesManager])
 def leads_list_create(request):
     """
     GET  /api/leads/?stage=NEW&assigned_to=me&search=Азамат
@@ -59,7 +59,7 @@ def leads_list_create(request):
 # =============================================
 
 @api_view(['GET'])
-@permission_classes([IsReceptionist])
+@permission_classes([IsSalesManager])
 def leads_kanban(request):
     """
     GET /api/leads/kanban/
@@ -97,7 +97,7 @@ def leads_kanban(request):
 # =============================================
 
 @api_view(['GET', 'PATCH', 'DELETE'])
-@permission_classes([IsReceptionist])
+@permission_classes([IsSalesManager])
 def lead_detail(request, pk):
     """
     GET    /api/leads/{id}/
@@ -126,7 +126,7 @@ def lead_detail(request, pk):
 # =============================================
 
 @api_view(['POST'])
-@permission_classes([IsReceptionist])
+@permission_classes([IsSalesManager])
 def lead_move_stage(request, pk):
     """
     POST /api/leads/{id}/move/
@@ -161,7 +161,7 @@ def lead_move_stage(request, pk):
 # =============================================
 
 @api_view(['GET', 'POST'])
-@permission_classes([IsReceptionist])
+@permission_classes([IsSalesManager])
 def lead_comments(request, pk):
     """
     GET  /api/leads/{id}/comments/
@@ -186,7 +186,7 @@ def lead_comments(request, pk):
 
 
 @api_view(['DELETE'])
-@permission_classes([IsReceptionist])
+@permission_classes([IsSalesManager])
 def lead_comment_delete(request, pk, comment_id):
     """
     DELETE /api/leads/{id}/comments/{comment_id}/
@@ -206,7 +206,7 @@ def lead_comment_delete(request, pk, comment_id):
 # =============================================
 
 @api_view(['GET', 'POST'])
-@permission_classes([IsReceptionist])
+@permission_classes([IsSalesManager])
 def lead_tasks(request, pk):
     """
     GET  /api/leads/{id}/tasks/
@@ -228,7 +228,7 @@ def lead_tasks(request, pk):
 
 
 @api_view(['PATCH', 'DELETE'])
-@permission_classes([IsReceptionist])
+@permission_classes([IsSalesManager])
 def lead_task_detail(request, pk, task_id):
     """
     PATCH  /api/leads/{id}/tasks/{task_id}/
@@ -254,7 +254,7 @@ def lead_task_detail(request, pk, task_id):
 # =============================================
 
 @api_view(['GET'])
-@permission_classes([IsReceptionist])
+@permission_classes([IsSalesManager])
 def leads_stats(request):
     """
     GET /api/leads/stats/
