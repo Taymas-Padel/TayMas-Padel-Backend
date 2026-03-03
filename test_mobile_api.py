@@ -1,15 +1,19 @@
 """
 Полный тест мобильного API.
-Запуск: python test_mobile_api.py
-Сервер должен быть запущен на 127.0.0.1:8000
+Запуск локально: python test_mobile_api.py
+
+По умолчанию тестит http://127.0.0.1:8000.
+Для сервера можно передать BASE через переменную окружения:
+  API_BASE_URL=http://213.155.23.227 python test_mobile_api.py
 """
+import os
 import requests
 import json
 import sys
 import time as _time
 from datetime import datetime, timedelta
 
-BASE = "http://127.0.0.1:8000"
+BASE = os.environ.get("API_BASE_URL", "http://127.0.0.1:8000")
 
 # Уникальные телефоны на каждый запуск (format: +77011XXXXXX, +77022XXXXXX)
 _TS = str(int(_time.time()))[-6:]  # последние 6 цифр unix timestamp

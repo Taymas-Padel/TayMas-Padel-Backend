@@ -1,4 +1,4 @@
-# Деплой на VPS (Ubuntu 22.04)
+# Деплой на VPS (AlmaLinux 9)
 
 > Стек: Django 4.2 + PostgreSQL + Gunicorn + Nginx
 
@@ -7,8 +7,13 @@
 ## 1. Подготовка сервера
 
 ```bash
-sudo apt update && sudo apt upgrade -y
-sudo apt install -y python3.11 python3.11-venv python3-pip git nginx postgresql postgresql-contrib
+sudo dnf update -y
+sudo dnf install -y python3 python3-pip git nginx postgresql-server postgresql-contrib
+
+# инициализация PostgreSQL
+sudo postgresql-setup --initdb --unit postgresql
+sudo systemctl enable postgresql
+sudo systemctl start postgresql
 ```
 
 ---
@@ -30,17 +35,24 @@ GRANT ALL PRIVILEGES ON DATABASE padel_db TO padel_user;
 ## 3. Загрузка кода
 
 ```bash
-mkdir -p /var/www && cd /var/www
-git clone https://github.com/YOUR_REPO/padel_project.git padel
-cd /var/www/padel
+sudo mkdir -p /opt && cd /opt
+sudo mkdir -p padel
+sudo chown "$USER":"$USER" /opt/padel
+cd /opt/padel
+
+# сюда подставь URL своего репозитория
+git clone https://github.com/YOUR_REPO/padel_project.git .
 ```
 
 ---
 
 ## 4. Виртуальное окружение и зависимости
 
+На AlmaLinux модуль `venv` уже встроен в Python, отдельный пакет `python3-virtualenv` не нужен.
+
 ```bash
-python3.11 -m venv venv
+cd /opt/padel
+python3 -m venv venv
 source venv/bin/activate
 pip install --upgrade pip
 pip install -r requirements.txt
@@ -50,7 +62,7 @@ pip install -r requirements.txt
 
 ## 5. Переменные окружения `.env`
 
-Создай файл `/var/www/padel/.env`:
+Создай файл `/opt/padel/.env`:
 
 ```ini
 # ---- Django ----
@@ -105,7 +117,7 @@ ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '').split(',')
 ## 7. Миграции, статика, суперпользователь
 
 ```bash
-cd /var/www/padel
+cd /opt/padel
 source venv/bin/activate
 
 python manage.py migrate
@@ -125,11 +137,11 @@ Description=Padel Project Gunicorn
 After=network.target
 
 [Service]
-User=www-data
-Group=www-data
-WorkingDirectory=/var/www/padel
-EnvironmentFile=/var/www/padel/.env
-ExecStart=/var/www/padel/venv/bin/gunicorn \
+User=almalinux
+Group=nginx
+WorkingDirectory=/opt/padel
+EnvironmentFile=/opt/padel/.env
+ExecStart=/opt/padel/venv/bin/gunicorn \
     --workers 3 \
     --bind unix:/run/padel.sock \
     --access-logfile /var/log/padel/access.log \
@@ -143,8 +155,8 @@ WantedBy=multi-user.target
 
 ```bash
 sudo mkdir -p /var/log/padel
-sudo chown www-data:www-data /var/log/padel
-sudo chown -R www-data:www-data /var/www/padel
+sudo chown almalinux:nginx /var/log/padel
+sudo chown -R almalinux:nginx /opt/padel
 sudo systemctl daemon-reload
 sudo systemctl enable padel
 sudo systemctl start padel
@@ -155,7 +167,9 @@ sudo systemctl status padel
 
 ## 9. Nginx конфиг
 
-Создай `/etc/nginx/sites-available/padel`:
+На AlmaLinux виртуальные хосты обычно лежат в `/etc/nginx/conf.d/`.
+
+Создай `/etc/nginx/conf.d/padel.conf`:
 
 ```nginx
 server {
@@ -165,12 +179,12 @@ server {
     client_max_body_size 20M;
 
     location /static/ {
-        alias /var/www/padel/staticfiles/;
+        alias /opt/padel/static/;
         expires 30d;
     }
 
     location /media/ {
-        alias /var/www/padel/media/;
+        alias /opt/padel/media/;
         expires 7d;
     }
 
@@ -185,9 +199,9 @@ server {
 ```
 
 ```bash
-sudo ln -s /etc/nginx/sites-available/padel /etc/nginx/sites-enabled/
 sudo nginx -t
-sudo systemctl reload nginx
+sudo systemctl enable nginx
+sudo systemctl restart nginx
 ```
 
 ---
@@ -195,7 +209,7 @@ sudo systemctl reload nginx
 ## 10. HTTPS (Let's Encrypt)
 
 ```bash
-sudo apt install certbot python3-certbot-nginx -y
+sudo dnf install -y certbot python3-certbot-nginx
 sudo certbot --nginx -d YOUR_DOMAIN
 sudo systemctl reload nginx
 ```
@@ -219,7 +233,7 @@ CORS_ALLOWED_ORIGINS = [
 ## 12. Обновление кода (деплой новой версии)
 
 ```bash
-cd /var/www/padel
+cd /opt/padel
 git pull origin main
 source venv/bin/activate
 pip install -r requirements.txt
@@ -250,7 +264,7 @@ sudo systemctl restart padel
 ## 14. Структура файлов на сервере
 
 ```
-/var/www/padel/
+/opt/padel/
 ├── config/              # Настройки Django
 ├── users/               # Аутентификация, профили
 ├── courts/              # Корты
@@ -263,7 +277,7 @@ sudo systemctl restart padel
 ├── payments/            # Платёжная абстракция
 ├── finance/             # История транзакций
 ├── media/               # Загруженные файлы
-├── staticfiles/         # collectstatic output
+├── static/              # collectstatic output
 ├── venv/                # Python окружение
 ├── .env                 # Секреты (НЕ в git!)
 ├── requirements.txt     # Зависимости

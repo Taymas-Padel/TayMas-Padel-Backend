@@ -84,6 +84,9 @@ urlpatterns = [
     # Платёжная система (webhook + статус сессии)
     path('api/payments/', include('payments.urls')),
 
+    # Лиды / Воронка продаж (CRM)
+    path('api/leads/', include('leads.urls')),
+
     path('', home, name='home'),
 ]
 
