@@ -728,6 +728,10 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--tx);min-he
             </select>
           </div>
         </div>
+        <div class="fg"><label>Назначить менеджера</label>
+          <select id="nlAssigned"><option value="">Не назначен</option></select>
+          <button class="b b2" style="padding:3px 8px;font-size:9px;margin-top:4px" onclick="loadManagersList('nlAssigned')">🔄 Загрузить</button>
+        </div>
         <div class="fg"><label>Заметки</label><textarea id="nlNotes" placeholder="Интересуется утренними тренировками..." style="padding:8px;background:var(--s);border:1px solid var(--bd);border-radius:var(--rad);color:var(--tx);font-family:'Outfit',sans-serif;font-size:12px;min-height:60px;width:100%"></textarea></div>
         <div class="btns"><button class="b b1" onclick="createLead()">➕ Создать лид</button></div>
         <div id="nlRes"></div>
@@ -1443,6 +1447,34 @@ async function loadAllMemberships(){
 
 // ============ LEADS / KANBAN ============
 const STAGE_COLORS={NEW:'var(--ac)',IN_PROGRESS:'var(--o)',NEGOTIATION:'#a78bfa',SOLD:'var(--g)',LOST:'var(--r)'};
+let _managers=[];
+
+async function loadManagersList(selectId){
+  if(!AT)return;
+  if(_managers.length){fillManagerSelect(selectId);return;}
+  const roles=['ADMIN','RECEPTIONIST','SALES_MANAGER'];
+  const all=[];
+  for(const role of roles){
+    const r=await api('GET',`/api/auth/clients/?role=${role}`);
+    if(r.ok)(r.data.results||r.data).forEach(u=>all.push(u));
+  }
+  _managers=all;
+  fillManagerSelect(selectId);
+}
+
+function fillManagerSelect(selectId){
+  const sel=$(selectId);
+  if(!sel)return;
+  const cur=sel.value;
+  sel.innerHTML='<option value="">Не назначен</option>';
+  _managers.forEach(m=>{
+    const o=document.createElement('option');
+    o.value=m.id;
+    o.textContent=`${(m.first_name||'')} ${(m.last_name||'')}`.trim()||m.username||`ID:${m.id}`;
+    sel.appendChild(o);
+  });
+  if(cur) sel.value=cur;
+}
 
 async function loadKanban(){
   if(!AT)return alert('Войдите');
@@ -1503,6 +1535,8 @@ async function createLead(){
   if(email) body.email=email;
   const notes=$('nlNotes').value.trim();
   if(notes) body.notes=notes;
+  const assigned=$('nlAssigned').value;
+  if(assigned) body.assigned_to=parseInt(assigned);
   const r=await api('POST','/api/leads/',body);
   if(r.ok){
     $('nlRes').innerHTML=`<div class="al al-s">✅ Лид создан: ${esc(r.data.name)} (ID: ${r.data.id})</div>`;
@@ -1537,6 +1571,19 @@ async function openLeadDetail(id){
       <div class="card"><div class="cl">Последний контакт</div><div class="cv">${esc(l.last_contact_formatted||'—')}</div></div>
     </div>
     ${l.notes?`<div class="card" style="margin-bottom:12px"><div class="cl">Заметки</div><div class="cv" style="font-size:11px;white-space:pre-wrap">${esc(l.notes)}</div></div>`:''}
+
+    <!-- Назначить менеджера -->
+    <div style="margin-bottom:14px">
+      <div style="font-weight:600;font-size:12px;margin-bottom:6px">Назначить менеджера</div>
+      <div style="display:flex;gap:6px;align-items:center">
+        <select id="ldAssignTo" style="flex:1;padding:6px 8px;background:var(--s);border:1px solid var(--bd);border-radius:var(--rad);color:var(--tx);font-size:11px">
+          <option value="">Не назначен</option>
+        </select>
+        <button class="b b2" style="padding:5px 10px;font-size:10px" onclick="loadManagersList('ldAssignTo')">🔄</button>
+        <button class="b b1" style="padding:5px 10px;font-size:10px" onclick="assignManager(${l.id})">Назначить</button>
+      </div>
+    </div>
+    <div class="hr"></div>
 
     <!-- Смена стадии -->
     <div style="margin-bottom:14px">
@@ -1587,6 +1634,16 @@ async function openLeadDetail(id){
     <div class="btns"><button class="b br" style="padding:6px 14px;font-size:11px" onclick="deleteLead(${l.id})">🗑 Удалить лид</button></div>
   `;
   $('leadDetailModal').classList.remove('hidden');
+  loadManagersList('ldAssignTo');
+  setTimeout(()=>{if($('ldAssignTo'))$('ldAssignTo').value=l.assigned_to||'';},400);
+}
+
+async function assignManager(leadId){
+  const mgrId=$('ldAssignTo').value;
+  const body=mgrId?{assigned_to:parseInt(mgrId)}:{assigned_to:null};
+  const r=await api('PATCH',`/api/leads/${leadId}/`,body);
+  if(r.ok){openLeadDetail(leadId);loadKanban();}
+  else alert(JSON.stringify(r.data));
 }
 
 async function moveLead(id,stage){

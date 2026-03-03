@@ -1,36 +1,149 @@
-# Padel Club — API документация для CRM (React)
+# Padel Club — Полная документация CRM-системы (для React)
 
-Документ описывает **все эндпоинты бэкенда, используемые веб-приложением CRM** (ресепшн и админ). Для мобильного приложения (клиенты и тренеры) используется отдельная документация: **`API_MOBILE.md`**.
+> Единый справочник для разработчика фронтенда CRM.  
+> Backend: Django 4.2 + DRF + JWT | DB: PostgreSQL  
+> Мобильное приложение — отдельная документация: **`API_MOBILE.md`**
 
 ---
 
-## Общие сведения
+## Содержание
+
+1. [Общие сведения](#1-общие-сведения)
+2. [Роли и права доступа](#2-роли-и-права-доступа)
+3. [Навигация CRM (структура меню)](#3-навигация-crm-структура-меню)
+4. [Авторизация](#4-авторизация)
+5. [Главная панель (Dashboard)](#5-главная-панель-dashboard)
+6. [Управление клиентской базой](#6-управление-клиентской-базой)
+7. [Система управления лидами (Воронка продаж)](#7-система-управления-лидами-воронка-продаж)
+8. [Управление бронированиями](#8-управление-бронированиями)
+9. [Система абонементов](#9-система-абонементов)
+10. [База тренеров](#10-база-тренеров)
+11. [Управление кортами](#11-управление-кортами)
+12. [Услуги и инвентарь](#12-услуги-и-инвентарь)
+13. [Финансовый модуль](#13-финансовый-модуль)
+14. [QR-сканер (вход в клуб)](#14-qr-сканер-вход-в-клуб)
+15. [Маркетинг (акции и промокоды)](#15-маркетинг-акции-и-промокоды)
+16. [Новости и объявления](#16-новости-и-объявления)
+17. [Уведомления](#17-уведомления)
+18. [Настройки клуба](#18-настройки-клуба)
+19. [Турниры и мероприятия](#19-турниры-и-мероприятия-планируется)
+20. [Аналитика и отчетность](#20-аналитика-и-отчетность-планируется)
+21. [Управление пользователями CRM](#21-управление-пользователями-crm)
+22. [Справочники для форм](#22-справочники-для-форм)
+23. [Обработка ошибок](#23-обработка-ошибок)
+24. [Рекомендации для React](#24-рекомендации-для-react)
+25. [Сводная таблица всех эндпоинтов](#25-сводная-таблица-всех-эндпоинтов)
+
+---
+
+## 1. Общие сведения
 
 | Параметр | Значение |
 |----------|-----------|
 | **Base URL** | `http://213.155.23.227/api` |
 | **Swagger** | `http://213.155.23.227/swagger/` |
 | **Авторизация** | JWT: заголовок `Authorization: Bearer <access_token>` |
-| **Формат тела** | JSON (`Content-Type: application/json`) |
-| **Даты/время** | ISO 8601, например `2026-03-28T14:00:00Z` |
-
-### Роли CRM
-
-| Роль | Описание |
-|------|----------|
-| **ADMIN** | Полный доступ ко всему: дашборды, клиенты, брони, финансы, абонементы, лиды, управление кортами/услугами/акциями/новостями. |
-| **RECEPTIONIST** | Клиенты, брони, оплаты, абонементы, расписание, финансы, QR, лиды. |
-| **SALES_MANAGER** | Менеджер продаж: лиды/воронка, просмотр клиентов. Не видит брони, финансы, QR, управление. |
-
-Эндпоинты с пометкой **(только ADMIN)** доступны только пользователям с ролью `ADMIN`. Лиды доступны: ADMIN, RECEPTIONIST, SALES_MANAGER.
+| **Content-Type** | `application/json` |
+| **Даты/время** | ISO 8601 (`2026-03-28T14:00:00Z`) |
+| **Деньги** | `string` (decimal, 2 знака): `"5000.00"` |
 
 ---
 
-## 1. Авторизация
+## 2. Роли и права доступа
 
-### 1.1 Вход в CRM
+### 2.1 Роли CRM
 
-Вход только по логину и паролю. Клиенты и тренеры в CRM через этот эндпоинт не входят (для них — мобильный вход по SMS).
+| Роль | Вход в CRM | Описание |
+|------|------------|----------|
+| **ADMIN** | По паролю | Полный доступ: всё ниже + управление кортами, услугами, акциями, новостями, системные настройки |
+| **RECEPTIONIST** | По паролю | Дашборды, клиенты, брони, оплаты, абонементы, расписание, финансы, QR, лиды |
+| **SALES_MANAGER** | По паролю | Лиды/воронка продаж, просмотр клиентов. Не видит: брони, финансы, QR, управление |
+
+### 2.2 Матрица доступа по модулям
+
+| Модуль CRM | ADMIN | RECEPTIONIST | SALES_MANAGER |
+|------------|:-----:|:------------:|:-------------:|
+| Дашборд ресепшн | ✅ | ✅ | ❌ |
+| Дашборд директора | ✅ | ❌ | ❌ |
+| Клиенты (просмотр, поиск) | ✅ | ✅ | ✅ (только просмотр) |
+| Действия с клиентом (QR, деактивация) | ✅ | ✅ | ❌ |
+| Лиды / Воронка продаж | ✅ | ✅ | ✅ |
+| Расписание кортов | ✅ | ✅ | ❌ |
+| Все бронирования | ✅ | ✅ | ❌ |
+| Создать бронь | ✅ | ✅ | ❌ |
+| Подтвердить оплату | ✅ | ✅ | ❌ |
+| Финансы (транзакции, сводка) | ✅ | ✅ | ❌ |
+| Выдать абонемент | ✅ | ✅ | ❌ |
+| Все абонементы | ✅ | ✅ | ❌ |
+| QR-сканер | ✅ | ✅ | ❌ |
+| Управление кортами (CRUD) | ✅ | ❌ | ❌ |
+| Управление услугами (CRUD) | ✅ | ❌ | ❌ |
+| Управление типами абонементов | ✅ | ✅ | ❌ |
+| Управление акциями (CRUD) | ✅ | ❌ | ❌ |
+| Управление новостями (CRUD) | ✅ | ❌ | ❌ |
+| Настройки клуба | ✅ | ❌ | ❌ |
+
+### 2.3 React: роутинг по ролям
+
+После логина (из поля `role` в ответе) фронтенд должен:
+- Показывать/скрывать пункты меню согласно матрице выше
+- При `role === 'SALES_MANAGER'` — показывать только: Лиды, Клиенты (только просмотр)
+- При `role === 'RECEPTIONIST'` — всё кроме управления кортами/услугами/акциями/новостями/настроек
+- При `role === 'ADMIN'` — всё
+
+---
+
+## 3. Навигация CRM (структура меню)
+
+Рекомендуемая структура sidebar для React:
+
+```
+📊  Главная панель
+    ├── Дашборд ресепшн          (RECEPTIONIST, ADMIN)
+    └── Дашборд директора        (только ADMIN)
+
+👥  Клиенты
+    ├── База клиентов            (все CRM-роли)
+    ├── Поиск по телефону        (все CRM-роли)
+    └── Карточка клиента         (RECEPTIONIST, ADMIN)
+
+📊  Лиды / Воронка продаж
+    ├── Канбан-доска             (все CRM-роли)
+    ├── Список лидов             (все CRM-роли)
+    └── Статистика воронки       (все CRM-роли)
+
+📅  Бронирования
+    ├── Расписание кортов        (RECEPTIONIST, ADMIN)
+    ├── Все бронирования         (RECEPTIONIST, ADMIN)
+    └── Создать бронь            (RECEPTIONIST, ADMIN)
+
+🎫  Абонементы
+    ├── Выдать абонемент         (RECEPTIONIST, ADMIN)
+    ├── Все абонементы           (RECEPTIONIST, ADMIN)
+    └── Типы абонементов (CRUD)  (RECEPTIONIST, ADMIN)
+
+👨‍🏫  Тренеры
+    └── Список тренеров          (RECEPTIONIST, ADMIN)
+
+💰  Финансы
+    ├── Транзакции               (RECEPTIONIST, ADMIN)
+    └── Сводка                   (RECEPTIONIST, ADMIN)
+
+📱  QR-сканер                    (RECEPTIONIST, ADMIN)
+
+⚙️  Управление (только ADMIN)
+    ├── Корты (CRUD)
+    ├── Услуги / Инвентарь (CRUD)
+    ├── Акции / Промокоды (CRUD)
+    ├── Новости (CRUD)
+    └── Настройки клуба
+```
+
+---
+
+## 4. Авторизация
+
+### 4.1 Вход в CRM
 
 ```
 POST /api/auth/crm/login/
@@ -60,60 +173,41 @@ POST /api/auth/crm/login/
 }
 ```
 
-**Errors:**
-- `401` — неверный логин или пароль
-- `403` — у пользователя нет доступа к CRM (роль не ADMIN и не RECEPTIONIST)
+Допустимые роли для CRM: `ADMIN`, `RECEPTIONIST`, `SALES_MANAGER`.
+
+**Errors:** `401` — неверный логин/пароль. `403` — роль не имеет доступа к CRM.
 
 ---
 
-### 1.2 Обновление токена
+### 4.2 Обновление токена
 
 ```
 POST /api/auth/jwt/refresh/
 ```
 
-**Request body:**
-```json
-{
-  "refresh": "eyJ..."
-}
-```
+**Request:** `{ "refresh": "eyJ..." }`  
+**Response:** `{ "access": "eyJ...", "refresh": "eyJ..." }`
 
-**Response 200:**
-```json
-{
-  "access": "eyJ...",
-  "refresh": "eyJ..."
-}
-```
-
-После обновления старый `refresh` аннулируется — сохраняйте новый.
+Старый refresh аннулируется — сохраняйте новый.
 
 ---
 
-### 1.3 Проверка токена
+### 4.3 Проверка токена
 
 ```
 POST /api/auth/jwt/verify/
 ```
 
-**Request body:**
-```json
-{
-  "token": "<access_token>"
-}
-```
-
-**Response 200** — пустое тело при валидном токене.  
-**401** — токен истёк или невалиден.
+**Request:** `{ "token": "<access_token>" }`  
+**200** — валиден. **401** — истёк или невалиден.
 
 ---
 
-## 2. Дашборды
+## 5. Главная панель (Dashboard)
 
-### 2.1 Дашборд ресепшн
+### 5.1 Дашборд ресепшн
 
-Краткая сводка на сегодня: брони, ожидающие оплаты, выручка, ближайшие брони.
+Сводка на сегодня: брони, ожидающие оплаты, выручка, ближайшие брони.
 
 ```
 GET /api/analytics/reception/
@@ -142,11 +236,13 @@ GET /api/analytics/reception/
 }
 ```
 
+**React-подсказка:** KPI-карточки вверху (4 метрики), ниже — таблица/список ближайших броней с кнопкой «Принять оплату» для неоплаченных.
+
 ---
 
-### 2.2 Дашборд директора
+### 5.2 Дашборд директора
 
-Расширенная аналитика: выручка по периодам, загрузка кортов, структура выручки по типам.
+Расширенная аналитика: выручка по периодам, загрузка кортов, структура выручки.
 
 ```
 GET /api/analytics/dashboard/
@@ -157,10 +253,7 @@ GET /api/analytics/dashboard/
 **Response 200:**
 ```json
 {
-  "period": {
-    "date": "2026-03-25",
-    "month": "March 2026"
-  },
+  "period": { "date": "2026-03-25", "month": "March 2026" },
   "kpi": {
     "today_revenue": 150000.0,
     "week_revenue": 450000.0,
@@ -174,36 +267,436 @@ GET /api/analytics/dashboard/
     "new_clients_this_month": 28
   },
   "revenue_structure": [
-    {
-      "type": "BOOKING",
-      "label": "Оплата бронирования",
-      "amount": 800000.0,
-      "count": 120
-    },
-    {
-      "type": "MEMBERSHIP",
-      "label": "Покупка абонемента",
-      "amount": 400000.0,
-      "count": 15
-    }
+    { "type": "BOOKING", "label": "Оплата бронирования", "amount": 800000.0, "count": 120 },
+    { "type": "MEMBERSHIP", "label": "Покупка абонемента", "amount": 400000.0, "count": 15 }
   ],
   "work_hours": "7:00 – 23:00"
 }
 ```
 
+**React-подсказка:** 8 KPI-карточек (в 2 ряда по 4), блок «Структура выручки» — bar chart или список карточек.
+
 ---
 
-## 3. Расписание и бронирования
+## 6. Управление клиентской базой
 
-### 3.1 Расписание по кортам на дату
+### 6.1 Список клиентов (с поиском и фильтрами)
 
-Расписание всех кортов на выбранный день с бронями.
+```
+GET /api/auth/clients/?search=иван&role=CLIENT
+```
+
+**Доступ:** RECEPTIONIST, ADMIN, SALES_MANAGER
+
+| Параметр | Описание |
+|----------|----------|
+| `search` | Поиск по имени, фамилии, телефону, username |
+| `role` | `CLIENT`, `COACH_PADEL`, `COACH_FITNESS`, или пусто (клиенты + тренеры) |
+
+**Response 200:**
+```json
+[
+  {
+    "id": 42,
+    "username": "+77001234567",
+    "phone_number": "+77001234567",
+    "first_name": "Азамат",
+    "last_name": "Есимханулы",
+    "avatar": null,
+    "is_qr_blocked": false,
+    "last_device_id": "...",
+    "role": "CLIENT",
+    "rating_elo": 1200,
+    "is_profile_complete": true,
+    "created_at": "2026-01-15T10:00:00Z"
+  }
+]
+```
+
+**React-подсказка:** таблица с колонками: Аватар, Имя, Телефон, Роль, QR-статус, ELO, Дата регистрации. Строка кликабельна → открывает карточку клиента.
+
+---
+
+### 6.2 Быстрый поиск по телефону
+
+```
+GET /api/auth/reception/search/?phone=7700
+```
+
+**Доступ:** RECEPTIONIST, ADMIN
+
+**Параметры:** `phone` — минимум 4 символа. Возвращает только пользователей с ролью CLIENT.
+
+**Response 200:** массив клиентов (те же поля).
+
+**React-подсказка:** используется как автокомплит при создании брони или выдаче абонемента.
+
+---
+
+### 6.3 Карточка клиента (детальный профиль)
+
+```
+GET /api/auth/reception/user/{id}/
+```
+
+**Доступ:** RECEPTIONIST, ADMIN
+
+**Response 200:** один объект пользователя (как в 6.1).
+
+**React-подсказка:** показывать: контактные данные, QR-статус, ELO, дата регистрации. Внизу — кнопки действий и вкладки: «Брони клиента» (GET `/api/bookings/all/?client_id={id}`), «Абонементы» (GET `/api/memberships/all/?client_id={id}`), «Транзакции» (GET `/api/finance/transactions/?user_id={id}`).
+
+---
+
+### 6.4 Действия с клиентом
+
+```
+POST /api/auth/reception/user/{id}/action/
+```
+
+**Доступ:** RECEPTIONIST, ADMIN. Действия доступны только для пользователей с ролью CLIENT.
+
+#### Разблокировать QR
+
+**Request:** `{ "action": "unblock_qr" }`  
+**Response:** `{ "status": "success", "message": "QR-код разблокирован...", "is_qr_blocked": false }`
+
+#### Обновить имя/фамилию
+
+**Request:** `{ "action": "update_info", "first_name": "Иван", "last_name": "Иванов" }`  
+**Response:** `{ "status": "success", "message": "Данные обновлены.", "user": { "id": 42, "first_name": "Иван", "last_name": "Иванов" } }`
+
+#### Деактивировать аккаунт
+
+**Request:** `{ "action": "deactivate" }`
+
+#### Активировать аккаунт
+
+**Request:** `{ "action": "activate" }`
+
+**Ошибки:** `403` — если целевой пользователь не клиент. `400` — неизвестное action.
+
+---
+
+## 7. Система управления лидами (Воронка продаж)
+
+Модуль для работы с потенциальными клиентами. Канбан-доска с drag & drop.
+
+**Доступ:** ADMIN, RECEPTIONIST, SALES_MANAGER
+
+### Стадии воронки
+
+| Код | Название | Цвет (рекомендация) |
+|-----|----------|---------------------|
+| `NEW` | Новые обращения | синий |
+| `IN_PROGRESS` | В работе | оранжевый |
+| `NEGOTIATION` | Переговоры | фиолетовый |
+| `SOLD` | Успешная продажа | зелёный |
+| `LOST` | Закрыто / потеря | красный |
+
+### Источники лида
+
+| Код | Название |
+|-----|----------|
+| `PHONE_CALL` | Звонок |
+| `INSTAGRAM` | Instagram |
+| `WEBSITE` | Сайт |
+| `WALK_IN` | Пришёл сам |
+| `REFERRAL` | Рекомендация |
+| `WHATSAPP` | WhatsApp |
+| `OTHER` | Другое |
+
+---
+
+### 7.1 Канбан-доска (все стадии сразу)
+
+```
+GET /api/leads/kanban/?assigned_to=me&search=Азамат
+```
+
+| Параметр | Описание |
+|----------|----------|
+| `assigned_to` | `me` — мои лиды; число — по ID менеджера; пусто — все |
+| `search` | Поиск по имени или телефону |
+
+**Response 200:**
+```json
+[
+  {
+    "stage": "NEW",
+    "label": "Новые обращения",
+    "count": 3,
+    "leads": [
+      {
+        "id": 1,
+        "name": "Азамат",
+        "phone": "+77001234567",
+        "email": null,
+        "source": "INSTAGRAM",
+        "source_label": "Instagram",
+        "stage": "NEW",
+        "stage_label": "Новые обращения",
+        "assigned_to": 2,
+        "assigned_to_name": "Иван Менеджер",
+        "last_contact": null,
+        "last_contact_formatted": null,
+        "created_at": "2026-03-25T10:00:00Z",
+        "created_at_formatted": "25.03.2026",
+        "comments_count": 0,
+        "tasks_count": 1,
+        "open_tasks_count": 1
+      }
+    ]
+  },
+  { "stage": "IN_PROGRESS", "label": "В работе", "count": 1, "leads": [...] },
+  { "stage": "NEGOTIATION", "label": "Переговоры", "count": 0, "leads": [] },
+  { "stage": "SOLD", "label": "Успешная продажа", "count": 2, "leads": [...] },
+  { "stage": "LOST", "label": "Закрыто / потеря", "count": 0, "leads": [] }
+]
+```
+
+**React-подсказка:** рендерить 5 колонок (каждый элемент массива — колонка). Карточка лида: имя, телефон, источник, менеджер, кол-во открытых задач. Drag & drop — при перетаскивании вызывать `POST /api/leads/{id}/move/`.
+
+---
+
+### 7.2 Список лидов (плоский, с фильтрами)
+
+```
+GET /api/leads/?stage=NEW&assigned_to=me&search=Азамат
+```
+
+**Response:** массив лидов (формат как в одной стадии канбана).
+
+---
+
+### 7.3 Создать лид
+
+```
+POST /api/leads/
+```
+
+**Request body:**
+```json
+{
+  "name": "Азамат",
+  "phone": "+77001234567",
+  "email": "azamat@mail.ru",
+  "source": "INSTAGRAM",
+  "stage": "NEW",
+  "notes": "Интересуется утренними тренировками",
+  "assigned_to": 2,
+  "last_contact": "2026-03-25T10:00:00Z"
+}
+```
+
+| Поле | Обязательное | По умолчанию |
+|------|:------------:|:------------:|
+| `name` | да | — |
+| `phone` | да | — |
+| `email` | нет | null |
+| `source` | нет | `OTHER` |
+| `stage` | нет | `NEW` |
+| `notes` | нет | пусто |
+| `assigned_to` | нет | null |
+| `last_contact` | нет | null |
+
+**Response 201:** полный объект лида (с `comments[]` и `tasks[]`).
+
+**React-подсказка:** быстрая модалка с полями: имя, телефон, email, источник (select), менеджер (select, загрузить из `/api/auth/clients/?role=ADMIN` + `?role=RECEPTIONIST` + `?role=SALES_MANAGER`), заметки.
+
+---
+
+### 7.4 Детали лида (карточка)
+
+```
+GET /api/leads/{id}/
+```
+
+**Response 200:**
+```json
+{
+  "id": 1,
+  "name": "Азамат",
+  "phone": "+77001234567",
+  "email": null,
+  "source": "INSTAGRAM",
+  "source_label": "Instagram",
+  "stage": "IN_PROGRESS",
+  "stage_label": "В работе",
+  "notes": "Интересуется утренними тренировками",
+  "assigned_to": 2,
+  "assigned_to_name": "Иван Менеджер",
+  "last_contact": "2026-03-25T10:00:00Z",
+  "last_contact_formatted": "25.03.2026 10:00",
+  "created_at": "2026-03-20T09:00:00Z",
+  "created_at_formatted": "20.03.2026 09:00",
+  "comments": [
+    {
+      "id": 5,
+      "text": "Клиент перезвонит в пятницу",
+      "author": 2,
+      "author_name": "Иван Менеджер",
+      "created_at": "2026-03-25T10:00:00Z",
+      "created_at_formatted": "25.03.2026 10:00"
+    }
+  ],
+  "tasks": [
+    {
+      "id": 3,
+      "title": "Перезвонить и уточнить расписание",
+      "due_datetime": "2026-03-28T10:00:00Z",
+      "due_datetime_formatted": "28.03.2026 10:00",
+      "assigned_to": 2,
+      "assigned_to_name": "Иван Менеджер",
+      "is_done": false,
+      "created_at": "2026-03-25T10:00:00Z"
+    }
+  ]
+}
+```
+
+**React-подсказка:** модальное окно или страница с блоками: Контакты, Стадия (кнопки переключения), Менеджер (select), Заметки, История комментариев (хронология), Задачи (чекбоксы).
+
+---
+
+### 7.5 Обновить лид
+
+```
+PATCH /api/leads/{id}/
+```
+
+**Request body** (все поля опциональные): `{ "notes": "...", "assigned_to": 3 }`  
+**Response 200:** полный обновлённый объект.
+
+---
+
+### 7.6 Удалить лид
+
+```
+DELETE /api/leads/{id}/
+```
+
+**Response 204.**
+
+---
+
+### 7.7 Переместить лид (drag & drop)
+
+```
+POST /api/leads/{id}/move/
+```
+
+**Request:** `{ "stage": "NEGOTIATION" }`
+
+**Response 200:**
+```json
+{ "status": "ok", "id": 1, "stage": "NEGOTIATION", "stage_label": "Переговоры", "last_contact": "2026-03-25T12:00:00Z" }
+```
+
+Автоматически обновляет `last_contact`.
+
+---
+
+### 7.8 Комментарии (история взаимодействий)
+
+**Список:**
+```
+GET /api/leads/{id}/comments/
+```
+
+**Добавить:**
+```
+POST /api/leads/{id}/comments/
+```
+**Request:** `{ "text": "Клиент перезвонит в пятницу" }`  
+**Response 201:** объект комментария. Автоматически обновляет `last_contact`.
+
+**Удалить:**
+```
+DELETE /api/leads/{id}/comments/{comment_id}/
+```
+Менеджер может удалить только свой. ADMIN — любой.
+
+---
+
+### 7.9 Задачи / напоминания
+
+**Список:**
+```
+GET /api/leads/{id}/tasks/
+```
+
+**Добавить:**
+```
+POST /api/leads/{id}/tasks/
+```
+**Request:**
+```json
+{ "title": "Перезвонить", "due_datetime": "2026-03-28T10:00:00Z", "assigned_to": 2 }
+```
+`title` и `due_datetime` обязательны. `assigned_to` опционален.
+
+**Обновить (отметить выполненной):**
+```
+PATCH /api/leads/{id}/tasks/{task_id}/
+```
+**Request:** `{ "is_done": true }`
+
+**Удалить:**
+```
+DELETE /api/leads/{id}/tasks/{task_id}/
+```
+
+---
+
+### 7.10 Статистика воронки
+
+```
+GET /api/leads/stats/
+```
+
+**Response 200:**
+```json
+{
+  "total": 42,
+  "sold_count": 18,
+  "conversion_rate": 42.9,
+  "stages": [
+    { "stage": "NEW", "label": "Новые обращения", "count": 10, "percent": 23.8 },
+    { "stage": "IN_PROGRESS", "label": "В работе", "count": 8, "percent": 19.0 },
+    { "stage": "NEGOTIATION", "label": "Переговоры", "count": 6, "percent": 14.3 },
+    { "stage": "SOLD", "label": "Успешная продажа", "count": 18, "percent": 42.9 },
+    { "stage": "LOST", "label": "Закрыто / потеря", "count": 0, "percent": 0.0 }
+  ]
+}
+```
+
+**React-подсказка:** 3 KPI-карточки (всего, продажи, конверсия %) + progress-bar по каждой стадии.
+
+---
+
+### 7.11 Получить список менеджеров (для select «Назначить менеджера»)
+
+Специального эндпоинта нет — используются 3 запроса к `/api/auth/clients/`:
+
+```
+GET /api/auth/clients/?role=ADMIN
+GET /api/auth/clients/?role=RECEPTIONIST
+GET /api/auth/clients/?role=SALES_MANAGER
+```
+
+Объединить результаты → заполнить dropdown «Менеджер». Кешировать на время сессии.
+
+---
+
+## 8. Управление бронированиями
+
+### 8.1 Расписание по кортам на дату
 
 ```
 GET /api/bookings/manager/schedule/?date=YYYY-MM-DD
 ```
 
-**Параметры:** `date` — дата (по умолчанию — сегодня).
+**Доступ:** RECEPTIONIST, ADMIN
 
 **Response 200:**
 ```json
@@ -237,29 +730,28 @@ GET /api/bookings/manager/schedule/?date=YYYY-MM-DD
 }
 ```
 
+**React-подсказка:** визуализация — таблица или timeline. Колонки: время слота (с шагом 30/60 мин), строки: корты. Цвет ячейки по `status`. Клик по занятому слоту → детали брони.
+
 ---
 
-### 3.2 Все брони (список с фильтрами)
+### 8.2 Все брони (список с фильтрами)
 
 ```
 GET /api/bookings/all/?date=YYYY-MM-DD&status=CONFIRMED&court_id=1&client_id=42
 ```
 
-**Параметры (все опциональны):**
 | Параметр | Описание |
-|----------|-----------|
-| `date` | Фильтр по дате брони |
+|----------|----------|
+| `date` | Дата |
 | `status` | `PENDING`, `CONFIRMED`, `CANCELED`, `COMPLETED` |
 | `court_id` | ID корта |
-| `client_id` | ID клиента (владельца брони) |
+| `client_id` | ID клиента |
 
-**Response 200:** массив объектов брони (те же поля, что в расписании: `id`, `start_time`, `end_time`, `court_name`, `client_name`, `client_phone`, `status`, `is_paid`, `price`, `coach_name`, `participants`, `services`).
+**Response 200:** массив броней (те же поля, что в расписании).
 
 ---
 
-### 3.3 Создать бронь от имени клиента
-
-Ресепшн/админ создаёт бронирование за выбранного клиента.
+### 8.3 Создать бронь от имени клиента
 
 ```
 POST /api/bookings/reception/create/
@@ -275,201 +767,294 @@ POST /api/bookings/reception/create/
   "coach": 3,
   "payment_method": "KASPI",
   "promo_code": "",
-  "services": [
-    { "service_id": 1, "quantity": 1 }
-  ]
+  "services": [{ "service_id": 1, "quantity": 1 }]
 }
 ```
 
-| Поле | Тип | Обязательное | Описание |
-|------|-----|--------------|----------|
-| `client_id` | int | да | ID клиента |
-| `court` | int | да | ID корта |
-| `start_time` | string (ISO) | да | Начало брони |
-| `duration` | int | да | Длительность в минутах (30–240) |
-| `coach` | int | нет | ID тренера |
-| `payment_method` | string | нет | `KASPI`, `CARD`, `CASH` |
-| `promo_code` | string | нет | Промокод |
-| `services` | array | нет | `[{ "service_id": 1, "quantity": 1 }]` |
+| Поле | Обязательное | Описание |
+|------|:------------:|----------|
+| `client_id` | да | Выбирается из поиска клиентов |
+| `court` | да | Выбирается из `/api/courts/` |
+| `start_time` | да | ISO 8601 |
+| `duration` | да | Минуты: 30, 60, 90, 120 |
+| `coach` | нет | Из `/api/auth/coaches/` |
+| `payment_method` | нет | `KASPI`, `CARD`, `CASH` |
+| `promo_code` | нет | Промокод |
+| `services` | нет | Из `/api/inventory/services/` |
 
-**Response 201:** объект созданной брони (как в разделе 3.1).  
-**400** — ошибки валидации (корт занят, время в прошлом, выходной и т.д.).
+**React-подсказка:** форма с автокомплитом клиента (поиск по телефону), select кортов (подгрузить список), select тренеров, чекбоксы услуг. Preview стоимости (корт × часы + тренер + услуги). Валидация: бэкенд проверит занятость корта, время работы, выходные.
+
+**Response 201:** объект созданной брони.  
+**400:** `{ "detail": "Корт занят..." }` или `{ "field": ["error"] }`.
 
 ---
 
-### 3.4 Подтвердить оплату брони
-
-Фиксирует факт оплаты на ресепшн (создаётся транзакция).
+### 8.4 Подтвердить оплату брони
 
 ```
 POST /api/bookings/{id}/confirm-payment/
 ```
 
-**Request body:**
-```json
-{
-  "payment_method": "CASH"
-}
-```
+**Request:** `{ "payment_method": "CASH" }`
 
-Допустимые значения: `KASPI`, `CARD`, `CASH`, `UNKNOWN`.
+Допустимые: `KASPI`, `CARD`, `CASH`, `UNKNOWN`.
 
 **Response 200:**
 ```json
+{ "status": "Оплата подтверждена.", "booking_id": 101, "is_paid": true, "payment_method": "CASH" }
+```
+
+---
+
+## 9. Система абонементов
+
+### 9.1 Выдать абонемент клиенту
+
+```
+POST /api/memberships/reception/buy/
+```
+
+**Доступ:** RECEPTIONIST, ADMIN
+
+**Request:**
+```json
 {
-  "status": "Оплата подтверждена.",
-  "booking_id": 101,
-  "is_paid": true,
+  "client_id": 42,
+  "membership_type_id": 1,
   "payment_method": "CASH"
 }
 ```
 
-**400** — бронь уже оплачена или отменена.
+**React-подсказка:** поиск клиента (автокомплит) → выбор типа абонемента (карточки с ценой, сроком, часами) → выбор оплаты → «Выдать».
+
+**Response 201:**
+```json
+{
+  "status": "Абонемент выдан",
+  "membership_id": 15,
+  "client": "Азамат Есимханулы",
+  "type": "Padel Pro",
+  "end_date": "2026-04-25",
+  "payment_method": "CASH"
+}
+```
 
 ---
 
-## 4. Клиенты
-
-### 4.1 Список клиентов (с поиском и фильтром по роли)
+### 9.2 Все абонементы (список)
 
 ```
-GET /api/auth/clients/?search=иван&role=CLIENT
+GET /api/memberships/all/?client_id=42&is_active=true
 ```
 
-**Параметры:**
 | Параметр | Описание |
 |----------|----------|
-| `search` | Поиск по имени, фамилии, телефону, username |
-| `role` | `CLIENT`, `COACH_PADEL`, `COACH_FITNESS` или пусто (все перечисленные) |
+| `client_id` | Фильтр по клиенту |
+| `is_active` | `true` / `false` |
 
-**Response 200:** массив пользователей (сериализатор ресепшн):
+**Response 200:** массив с полями: `id`, `user`, `user_name`, `membership_type_name`, `start_date`, `end_date`, `hours_remaining`, `visits_remaining`, `is_active`, `is_frozen`, `created_at`.
 
+---
+
+### 9.3 Типы абонементов — публичный список
+
+```
+GET /api/memberships/types/
+```
+
+**Auth:** не требуется
+
+**Response 200:** массив типов: `id`, `name`, `service_type` (`PADEL`/`GYM_UNLIMITED`/`GYM_PACK`), `total_hours`, `total_visits`, `days_valid`, `price`, `description`, `is_active`.
+
+---
+
+### 9.4 Типы абонементов — управление (CRUD)
+
+**Доступ:** RECEPTIONIST, ADMIN
+
+**Список (включая неактивные):**
+```
+GET /api/memberships/types/manage/
+```
+
+**Создать:**
+```
+POST /api/memberships/types/manage/
+```
+```json
+{
+  "name": "Padel Pro",
+  "service_type": "PADEL",
+  "price": "50000.00",
+  "days_valid": 30,
+  "total_hours": "30.0",
+  "total_visits": 0,
+  "discount_on_court": 0,
+  "is_active": true
+}
+```
+
+**Детали / обновление / удаление:**
+```
+GET    /api/memberships/types/manage/{id}/
+PATCH  /api/memberships/types/manage/{id}/
+DELETE /api/memberships/types/manage/{id}/
+```
+
+---
+
+## 10. База тренеров
+
+### 10.1 Список тренеров
+
+```
+GET /api/auth/coaches/
+```
+
+**Auth:** не требуется (публичный, используется в формах)
+
+**Response 200:**
 ```json
 [
   {
-    "id": 42,
-    "username": "+77001234567",
-    "phone_number": "+77001234567",
-    "first_name": "Азамат",
-    "last_name": "Есимханулы",
-    "avatar": null,
-    "is_qr_blocked": false,
-    "last_device_id": "...",
-    "role": "CLIENT",
-    "rating_elo": 1200,
-    "is_profile_complete": true,
-    "created_at": "2026-01-15T10:00:00Z"
+    "id": 3,
+    "full_name": "Алексей Тренер",
+    "first_name": "Алексей",
+    "last_name": "Тренер",
+    "role": "COACH_PADEL",
+    "coach_price": 5000.0,
+    "rating_elo": 1500,
+    "avatar": null
   }
 ]
 ```
 
----
+### 10.2 Фильтр по роли
 
-### 4.2 Поиск клиента по телефону
-
-Удобно для быстрого поиска при создании брони или выдаче абонемента.
+Можно получить список тренеров через клиентский эндпоинт:
 
 ```
-GET /api/auth/reception/search/?phone=7700
+GET /api/auth/clients/?role=COACH_PADEL
+GET /api/auth/clients/?role=COACH_FITNESS
 ```
 
-**Параметры:** `phone` — минимум 4 символа (часть номера).
-
-**Response 200:** массив клиентов (те же поля, что в 4.1). Ресепшн видит только пользователей с ролью CLIENT.
-
-**400** — если передано меньше 4 символов.
+**React-подсказка:** таблица тренеров с колонками: Аватар, Имя, Специализация (PADEL/FITNESS), Цена/час, ELO, Статус. Клик → карточка.
 
 ---
 
-### 4.3 Карточка клиента
+## 11. Управление кортами
+
+**Доступ: только ADMIN.**
+
+### 11.1 Список всех кортов (включая неактивные)
 
 ```
-GET /api/auth/reception/user/{id}/
-```
-
-**Response 200:** один объект пользователя (как в 4.1).  
-**404** — пользователь не найден.
-
----
-
-### 4.4 Действия с клиентом
-
-```
-POST /api/auth/reception/user/{id}/action/
-```
-
-**Request body зависит от действия.**
-
-Доступны только для пользователей с ролью **CLIENT**.
-
-#### Разблокировать QR
-
-```json
-{ "action": "unblock_qr" }
+GET /api/courts/manage/
 ```
 
 **Response 200:**
 ```json
-{
-  "status": "success",
-  "message": "QR-код разблокирован для ...",
-  "is_qr_blocked": false
-}
+[
+  {
+    "id": 1,
+    "name": "Корт 1",
+    "court_type": "INDOOR",
+    "description": "Основной корт",
+    "price_per_hour": "8000.00",
+    "image": "http://.../courts/photo.jpg",
+    "gallery": [{ "id": 1, "image": "http://..." }],
+    "is_active": true
+  }
+]
 ```
 
-#### Обновить имя/фамилию
+`court_type`: `INDOOR` (крытый), `OUTDOOR` (открытый), `PANORAMIC` (панорамный).
 
+### 11.2 Создать корт
+
+```
+POST /api/courts/manage/
+```
 ```json
-{
-  "action": "update_info",
-  "first_name": "Иван",
-  "last_name": "Иванов"
-}
+{ "name": "Корт 1", "court_type": "INDOOR", "description": "...", "price_per_hour": "8000.00", "is_active": true }
+```
+
+`image` — загрузка файла (`multipart/form-data`).
+
+### 11.3 Детали / обновление / удаление
+
+```
+GET    /api/courts/manage/{id}/
+PATCH  /api/courts/manage/{id}/
+DELETE /api/courts/manage/{id}/
+```
+
+### 11.4 Публичный список активных кортов (для форм)
+
+```
+GET /api/courts/
+```
+
+---
+
+## 12. Услуги и инвентарь
+
+**Доступ: только ADMIN.**
+
+### 12.1 Список всех услуг
+
+```
+GET /api/inventory/services/manage/
 ```
 
 **Response 200:**
 ```json
-{
-  "status": "success",
-  "message": "Данные обновлены.",
-  "user": { "id": 42, "first_name": "Иван", "last_name": "Иванов" }
-}
+[{ "id": 1, "name": "Аренда ракетки", "price": "2000.00", "is_active": true }]
 ```
 
-#### Деактивировать аккаунт
+### 12.2 Создать услугу
 
+```
+POST /api/inventory/services/manage/
+```
 ```json
-{ "action": "deactivate" }
+{ "name": "Мячи (3 шт)", "price": "1500.00", "is_active": true }
 ```
 
-#### Активировать аккаунт
+### 12.3 Детали / обновление / удаление
 
-```json
-{ "action": "activate" }
+```
+GET    /api/inventory/services/manage/{id}/
+PATCH  /api/inventory/services/manage/{id}/
+DELETE /api/inventory/services/manage/{id}/
 ```
 
-**403** — если целевой пользователь не клиент. **400** — неизвестное `action`.
+### 12.4 Публичный список активных услуг
+
+```
+GET /api/inventory/services/
+```
 
 ---
 
-## 5. Финансы
+## 13. Финансовый модуль
 
-### 5.1 Все транзакции (с фильтрами)
+### 13.1 Все транзакции (с фильтрами)
 
 ```
 GET /api/finance/transactions/?date=2026-03-25&type=BOOKING&method=KASPI&user_id=42
 ```
 
-**Параметры (все опциональны):**
+**Доступ:** RECEPTIONIST, ADMIN
+
 | Параметр | Описание |
 |----------|----------|
-| `date` | Дата в формате `YYYY-MM-DD` |
-| `type` | Тип: `BOOKING`, `MEMBERSHIP`, `REFUND`, `SALARY`, `OTHER` |
-| `method` | Способ оплаты: `KASPI`, `CARD`, `CASH`, `BONUS`, `UNKNOWN` |
+| `date` | `YYYY-MM-DD` |
+| `type` | `BOOKING`, `MEMBERSHIP`, `REFUND`, `SALARY`, `OTHER` |
+| `method` | `KASPI`, `CARD`, `CASH`, `BONUS`, `UNKNOWN` |
 | `user_id` | ID пользователя |
 
-**Response 200:** массив транзакций:
-
+**Response 200:**
 ```json
 [
   {
@@ -494,301 +1079,67 @@ GET /api/finance/transactions/?date=2026-03-25&type=BOOKING&method=KASPI&user_id
 
 ---
 
-### 5.2 Финансовая сводка
+### 13.2 Финансовая сводка
 
 ```
 GET /api/finance/summary/?period=today
 ```
 
-**Параметры:** `period` — `today`, `month` или `all`.
+**Параметры:** `period` = `today` | `month` | `all`
 
 **Response 200:**
 ```json
 {
   "period": "today",
   "total": 150000.0,
-  "by_payment_method": {
-    "Kaspi / QR": 100000.0,
-    "Наличные": 50000.0
-  },
-  "by_type": {
-    "Оплата бронирования": 120000.0,
-    "Покупка абонемента": 30000.0
-  }
+  "by_payment_method": { "Kaspi / QR": 100000.0, "Наличные": 50000.0 },
+  "by_type": { "Оплата бронирования": 120000.0, "Покупка абонемента": 30000.0 }
 }
 ```
 
 ---
 
-## 6. Абонементы
-
-### 6.1 Выдать абонемент клиенту (ресепшн)
-
-Создаёт абонемент выбранного типа для клиента и запись о транзакции.
-
-```
-POST /api/memberships/reception/buy/
-```
-
-**Request body:**
-```json
-{
-  "client_id": 42,
-  "membership_type_id": 1,
-  "payment_method": "CASH"
-}
-```
-
-`payment_method`: `CASH`, `KASPI`, `CARD`, `UNKNOWN`.
-
-**Response 201:**
-```json
-{
-  "status": "Абонемент выдан",
-  "membership_id": 15,
-  "client": "Азамат Есимханулы",
-  "type": "Padel Pro",
-  "end_date": "2026-04-25",
-  "payment_method": "CASH"
-}
-```
-
-**400** — не указаны `client_id` или `membership_type_id`, или тип не найден/неактивен.
-
----
-
-### 6.2 Список всех абонементов
-
-```
-GET /api/memberships/all/?client_id=42&is_active=true
-```
-
-**Параметры:**
-| Параметр | Описание |
-|----------|----------|
-| `client_id` | Фильтр по клиенту |
-| `is_active` | `true` / `false` — только активные или неактивные |
-
-**Response 200:** массив объектов `UserMembership` с полями вроде: `id`, `user`, `user_name`, `membership_type_name`, `type_name`, `start_date`, `end_date`, `hours_remaining`, `visits_remaining`, `is_active`, `is_frozen`, `freeze_start_date`, `created_at`.
-
----
-
-### 6.3 Типы абонементов — список (для выбора при выдаче)
-
-Публичный эндпоинт, можно вызывать без токена или с токеном (для выпадающего списка в CRM).
-
-```
-GET /api/memberships/types/
-```
-
-**Response 200:** массив типов с полями: `id`, `name`, `service_type`, `total_hours`, `total_visits`, `days_valid`, `price`, `description`, `is_active`.  
-`service_type`: `PADEL`, `GYM_UNLIMITED`, `GYM_PACK`.
-
----
-
-## 7. Управление типами абонементов (CRUD)
-
-Доступ: RECEPTIONIST, ADMIN.
-
-### Список всех типов (включая неактивные)
-
-```
-GET /api/memberships/types/manage/
-```
-
-**Response 200:** массив типов (полная модель, включая `discount_on_court` и т.д.).
-
-### Создать тип
-
-```
-POST /api/memberships/types/manage/
-```
-
-**Request body (пример):**
-```json
-{
-  "name": "Padel Pro",
-  "service_type": "PADEL",
-  "price": "50000.00",
-  "days_valid": 30,
-  "total_hours": "30.0",
-  "total_visits": 0,
-  "discount_on_court": 0,
-  "is_active": true
-}
-```
-
-### Детали / обновление / удаление
-
-```
-GET    /api/memberships/types/manage/{id}/
-PATCH  /api/memberships/types/manage/{id}/
-DELETE /api/memberships/types/manage/{id}/
-```
-
----
-
-## 8. QR-сканер (вход в зал/падел)
-
-Ресепшн проверяет QR, сгенерированный в мобильном приложении клиента.
+## 14. QR-сканер (вход в клуб)
 
 ```
 POST /api/gym/qr/scan/
 ```
 
-**Request body:**
+**Доступ:** RECEPTIONIST, ADMIN
+
+**Request:**
 ```json
-{
-  "qr_content": "2:1vuUZi:zvrSNipTTJ5...",
-  "location": "PADEL"
-}
+{ "qr_content": "2:1vuUZi:zvrSNipTTJ5...", "location": "PADEL" }
 ```
 
-**location:** `GYM` (турникет зала), `PADEL` (ресепшн падела), `ALL` (общий вход).
+`location`: `GYM`, `PADEL`, `ALL`
 
 **Response 200 (доступ разрешён):**
 ```json
-{
-  "status": "SUCCESS",
-  "user_id": 42,
-  "user": "Азамат Есимханулы",
-  "phone": "+77001234567",
-  "is_qr_blocked": false,
-  "details": "Член клуба (абонемент Падел) | Бронь: Корт 1 (14:00–15:30)"
-}
+{ "status": "SUCCESS", "user_id": 42, "user": "Азамат Есимханулы", "phone": "+77001234567", "details": "Бронь: Корт 1 (14:00–15:30)" }
 ```
 
-**403 (доступ запрещён):**
-```json
-{
-  "status": "DENIED",
-  "error": "QR-код устарел. Попросите сгенерировать новый."
-}
-```
-
-**403 (QR заблокирован):**
-```json
-{
-  "status": "BLOCKED",
-  "error": "QR-доступ заблокирован для ... Обратитесь на ресепшн."
-}
-```
+**403:** `{ "status": "DENIED", "error": "QR-код устарел..." }` или `{ "status": "BLOCKED", "error": "QR-доступ заблокирован..." }`
 
 ---
 
-## 9. Услуги / инвентарь (CRUD)
+## 15. Маркетинг (акции и промокоды)
 
 **Доступ: только ADMIN.**
 
-### Список всех услуг (включая неактивные)
-
-```
-GET /api/inventory/services/manage/
-```
-
-**Response 200:**
-```json
-[
-  {
-    "id": 1,
-    "name": "Аренда ракетки",
-    "price": "2000.00",
-    "is_active": true
-  }
-]
-```
-
-### Создать услугу
-
-```
-POST /api/inventory/services/manage/
-```
-
-**Request body:**
-```json
-{
-  "name": "Мячи (3 шт)",
-  "price": "1500.00",
-  "is_active": true
-}
-```
-
-### Детали / обновление / удаление
-
-```
-GET    /api/inventory/services/manage/{id}/
-PATCH  /api/inventory/services/manage/{id}/
-DELETE /api/inventory/services/manage/{id}/
-```
-
-Для выпадающего списка при создании брони используется публичный список: **GET** `/api/inventory/services/` (только активные).
-
----
-
-## 10. Корты (CRUD)
-
-**Доступ: только ADMIN.**
-
-### Список всех кортов (включая неактивные)
-
-```
-GET /api/courts/manage/
-```
-
-**Response 200:** массив кортов с полями: `id`, `name`, `court_type`, `description`, `price_per_hour`, `image`, `gallery`, `is_active`.  
-`court_type`: `INDOOR`, `OUTDOOR`, `PANORAMIC`.
-
-### Создать корт
-
-```
-POST /api/courts/manage/
-```
-
-**Request body:**
-```json
-{
-  "name": "Корт 1",
-  "court_type": "INDOOR",
-  "description": "Основной корт",
-  "price_per_hour": "8000.00",
-  "is_active": true
-}
-```
-
-Поле `image` — загрузка файла (multipart/form-data), при необходимости отдельно.
-
-### Детали / обновление / удаление
-
-```
-GET    /api/courts/manage/{id}/
-PATCH  /api/courts/manage/{id}/
-DELETE /api/courts/manage/{id}/
-```
-
-В формах создания брони в CRM используется **GET** `/api/courts/` — список активных кортов.
-
----
-
-## 11. Акции / промокоды (CRUD)
-
-**Доступ: только ADMIN.**
-
-### Список всех акций
+### Список
 
 ```
 GET /api/marketing/manage/
 ```
 
-**Response 200:** массив с полями: `id`, `title`, `description`, `image_url`, `priority`, `promo_code`, `discount_type`, `discount_value`, `start_date`, `end_date`, `is_active`.  
-`discount_type`: `PERCENT`, `FIXED`.
+**Response:** массив: `id`, `title`, `description`, `image_url`, `priority`, `promo_code`, `discount_type` (`PERCENT`/`FIXED`), `discount_value`, `start_date`, `end_date`, `is_active`.
 
-### Создать акцию
+### Создать
 
 ```
 POST /api/marketing/manage/
 ```
-
-**Request body (пример):**
 ```json
 {
   "title": "Скидка 20% на утро",
@@ -807,495 +1158,338 @@ POST /api/marketing/manage/
 ### Детали / обновление / удаление
 
 ```
-GET    /api/marketing/manage/{id}/
-PATCH  /api/marketing/manage/{id}/
-DELETE /api/marketing/manage/{id}/
+GET/PATCH/DELETE /api/marketing/manage/{id}/
 ```
 
 ---
 
-## 12. Новости (CRUD)
+## 16. Новости и объявления
 
 **Доступ: только ADMIN.**
 
-### Список всех новостей (включая неопубликованные)
+### Список
 
 ```
 GET /api/news/manage/
 ```
 
-**Response 200:** массив с полями: `id`, `title`, `content`, `category`, `category_label`, `image_url`, `is_pinned`, `created_at`, `created_at_formatted`.  
-В модели есть также `is_published`, `updated_at` (если сериализатор их отдаёт).
+**Response:** массив: `id`, `title`, `content`, `category` (`NEWS`/`EVENT`/`PROMO`/`ANNOUNCEMENT`), `category_label`, `image_url`, `is_pinned`, `created_at`, `created_at_formatted`.
 
-`category`: `NEWS`, `EVENT`, `PROMO`, `ANNOUNCEMENT`.
-
-### Создать новость
+### Создать
 
 ```
 POST /api/news/manage/
 ```
-
-**Request body (пример):**
 ```json
-{
-  "title": "Открытие нового корта",
-  "content": "Текст новости...",
-  "category": "NEWS",
-  "image_url": "https://...",
-  "is_published": true,
-  "is_pinned": false
-}
+{ "title": "Открытие нового корта", "content": "...", "category": "NEWS", "image_url": "https://...", "is_published": true, "is_pinned": false }
 ```
 
 ### Детали / обновление / удаление
 
 ```
-GET    /api/news/manage/{id}/
-PATCH  /api/news/manage/{id}/
-DELETE /api/news/manage/{id}/
+GET/PATCH/DELETE /api/news/manage/{id}/
 ```
 
 ---
 
-## 13. Справочники для форм CRM (без токена или с токеном)
+## 17. Уведомления
 
-Имеет смысл вызывать при загрузке экранов создания брони и выдачи абонемента.
+Система in-app уведомлений. Типы: `BOOKING`, `MEMBERSHIP`, `FRIEND`, `MATCH`, `LOBBY`, `PROMO`, `NEWS`, `PAYMENT`, `SYSTEM`.
 
-| Метод | URL | Назначение |
-|-------|-----|------------|
-| GET | `/api/courts/` | Список активных кортов (выбор корта в брони) |
-| GET | `/api/auth/coaches/` | Список тренеров (выбор тренера в брони) |
-| GET | `/api/inventory/services/` | Список активных услуг (доп. услуги в брони) |
-| GET | `/api/memberships/types/` | Типы абонементов (выдача абонемента) |
-
-Формат ответов описан в **API_MOBILE.md** (корты, тренеры, услуги, типы абонементов).
-
----
-
-## 14. Обработка ошибок
-
-- **401** — не авторизован или токен истёк. Нужно обновить токен через `/api/auth/jwt/refresh/` или перенаправить на страницу входа.
-- **403** — нет прав (например, ресепшн открыл эндпоинт только для ADMIN).
-- **404** — ресурс не найден (неверный ID).
-- **400** — ошибка валидации. Тело ответа: `{ "field_name": ["сообщение"] }` или `{ "detail": "сообщение" }`.
-- **429** — превышен лимит запросов (throttling).
-
----
-
-## 15. Воронка продаж / Лиды
-
-Система управления потенциальными клиентами (лидами) с канбан-доской.
-
-**Доступ:** RECEPTIONIST, ADMIN.
-
-### Стадии воронки
-
-| Код | Название |
-|-----|----------|
-| `NEW` | Новые обращения |
-| `IN_PROGRESS` | В работе |
-| `NEGOTIATION` | Переговоры |
-| `SOLD` | Успешная продажа |
-| `LOST` | Закрыто / потеря |
-
-### Источники лида
-
-| Код | Название |
-|-----|----------|
-| `PHONE_CALL` | Звонок |
-| `INSTAGRAM` | Instagram |
-| `WEBSITE` | Сайт |
-| `WALK_IN` | Пришёл сам |
-| `REFERRAL` | Рекомендация |
-| `WHATSAPP` | WhatsApp |
-| `OTHER` | Другое |
-
----
-
-### 15.1 Канбан-доска (все стадии сразу)
-
-Основной эндпоинт для отрисовки доски. Возвращает лиды, уже сгруппированными по стадиям.
+### 17.1 Список уведомлений
 
 ```
-GET /api/leads/kanban/?assigned_to=me&search=Азамат
+GET /api/notifications/
 ```
 
-**Параметры:**
-| Параметр | Описание |
-|----------|----------|
-| `assigned_to` | `me` — только мои лиды; число — по ID менеджера |
-| `search` | Поиск по имени или телефону |
+**Response 200:** массив: `id`, `notification_type`, `title`, `body`, `is_read`, `data` (JSON), `created_at`.
+
+### 17.2 Количество непрочитанных
+
+```
+GET /api/notifications/unread-count/
+```
+
+**Response:** `{ "unread_count": 5 }`
+
+### 17.3 Отметить прочитанным
+
+```
+POST /api/notifications/{id}/mark-read/
+```
+
+### 17.4 Отметить все прочитанными
+
+```
+POST /api/notifications/mark-all-read/
+```
+
+### 17.5 Удалить
+
+```
+DELETE /api/notifications/{id}/
+```
+
+**React-подсказка:** иконка колокольчика в header с badge (`unread_count`). Dropdown/панель со списком уведомлений. Клик → отметить прочитанным.
+
+---
+
+## 18. Настройки клуба
+
+### 18.1 Список настроек
+
+```
+GET /api/core/settings/
+```
 
 **Response 200:**
 ```json
 [
-  {
-    "stage": "NEW",
-    "label": "Новые обращения",
-    "count": 3,
-    "leads": [
-      {
-        "id": 1,
-        "name": "Азамат",
-        "phone": "+77001234567",
-        "email": null,
-        "source": "INSTAGRAM",
-        "source_label": "Instagram",
-        "stage": "NEW",
-        "stage_label": "Новые обращения",
-        "assigned_to": 2,
-        "assigned_to_name": "Иван Ресепшн",
-        "last_contact": null,
-        "last_contact_formatted": null,
-        "created_at": "2026-03-25T10:00:00Z",
-        "created_at_formatted": "25.03.2026",
-        "comments_count": 0,
-        "tasks_count": 1,
-        "open_tasks_count": 1
-      }
-    ]
-  },
-  { "stage": "IN_PROGRESS", "label": "В работе", "count": 1, "leads": [] },
-  { "stage": "NEGOTIATION", "label": "Переговоры", "count": 0, "leads": [] },
-  { "stage": "SOLD", "label": "Успешная продажа", "count": 2, "leads": [] },
-  { "stage": "LOST", "label": "Закрыто / потеря", "count": 0, "leads": [] }
+  { "key": "OPEN_TIME", "value": "07:00", "description": "Время открытия" },
+  { "key": "CLOSE_TIME", "value": "23:00", "description": "Время закрытия" },
+  { "key": "CANCELLATION_HOURS", "value": "2", "description": "Часы до начала для отмены" }
 ]
 ```
 
----
-
-### 15.2 Список лидов (плоский, с фильтрами)
+### 18.2 Выходные / закрытые дни
 
 ```
-GET /api/leads/?stage=NEW&assigned_to=me&search=Азамат
-```
-
-**Response 200:** массив лидов (те же поля, что в одной стадии из канбана).
-
----
-
-### 15.3 Создать лид
-
-Вызывается из быстрой формы «Добавить лид».
-
-```
-POST /api/leads/
-```
-
-**Request body:**
-```json
-{
-  "name": "Азамат",
-  "phone": "+77001234567",
-  "email": "azamat@mail.ru",
-  "source": "INSTAGRAM",
-  "stage": "NEW",
-  "notes": "Интересуется утренними тренировками",
-  "assigned_to": 2,
-  "last_contact": "2026-03-25T10:00:00Z"
-}
-```
-
-Обязательные поля: `name`, `phone`. Остальные — опциональные.  
-По умолчанию `stage = NEW`, `source = OTHER`.
-
-**Response 201:** полный объект лида (с комментариями и задачами).
-
----
-
-### 15.4 Детали лида
-
-```
-GET /api/leads/{id}/
-```
-
-**Response 200:** полный объект с вложенными `comments[]` и `tasks[]`:
-
-```json
-{
-  "id": 1,
-  "name": "Азамат",
-  "phone": "+77001234567",
-  "email": null,
-  "source": "INSTAGRAM",
-  "source_label": "Instagram",
-  "stage": "IN_PROGRESS",
-  "stage_label": "В работе",
-  "notes": "Интересуется утренними тренировками",
-  "assigned_to": 2,
-  "assigned_to_name": "Иван Ресепшн",
-  "last_contact": "2026-03-25T10:00:00Z",
-  "last_contact_formatted": "25.03.2026 10:00",
-  "created_at": "2026-03-20T09:00:00Z",
-  "created_at_formatted": "20.03.2026 09:00",
-  "comments": [
-    {
-      "id": 5,
-      "text": "Клиент перезвонит в пятницу",
-      "author": 2,
-      "author_name": "Иван Ресепшн",
-      "created_at": "2026-03-25T10:00:00Z",
-      "created_at_formatted": "25.03.2026 10:00"
-    }
-  ],
-  "tasks": [
-    {
-      "id": 3,
-      "title": "Перезвонить и уточнить расписание",
-      "due_datetime": "2026-03-28T10:00:00Z",
-      "due_datetime_formatted": "28.03.2026 10:00",
-      "assigned_to": 2,
-      "assigned_to_name": "Иван Ресепшн",
-      "is_done": false,
-      "created_at": "2026-03-25T10:00:00Z"
-    }
-  ]
-}
-```
-
----
-
-### 15.5 Обновить лид
-
-```
-PATCH /api/leads/{id}/
-```
-
-**Request body** (любые поля из создания, все опциональные):
-```json
-{
-  "notes": "Уточнил — хочет абонемент на 3 месяца",
-  "assigned_to": 3
-}
-```
-
-**Response 200:** полный обновлённый объект лида.
-
----
-
-### 15.6 Удалить лид
-
-```
-DELETE /api/leads/{id}/
-```
-
-**Response 204:** нет тела.
-
----
-
-### 15.7 Переместить лид (drag & drop)
-
-Вызывается при перетаскивании карточки между колонками канбан-доски.
-
-```
-POST /api/leads/{id}/move/
-```
-
-**Request body:**
-```json
-{ "stage": "NEGOTIATION" }
+GET /api/core/closed-days/
 ```
 
 **Response 200:**
 ```json
-{
-  "status": "ok",
-  "id": 1,
-  "stage": "NEGOTIATION",
-  "stage_label": "Переговоры",
-  "last_contact": "2026-03-25T12:00:00Z"
-}
+[
+  { "date": "2026-03-08", "reason": "Международный женский день" },
+  { "date": "2026-03-22", "reason": "Наурыз" }
+]
 ```
 
-Автоматически обновляет `last_contact` на текущее время.
+**Примечание:** управление настройками и выходными днями пока через Django Admin (`/admin/`). В будущем можно добавить CRUD-эндпоинты для CRM.
 
 ---
 
-### 15.8 Добавить комментарий (история взаимодействий)
+## 19. Турниры и мероприятия (планируется)
 
-```
-POST /api/leads/{id}/comments/
-```
+> **Статус: в разработке.** В бэкенде есть модель `Match` (геймификация: матчи 1v1 и 2v2, ELO рейтинг), но полноценного модуля турниров ещё нет.
 
-**Request body:**
-```json
-{ "text": "Клиент перезвонит в пятницу, интересует корт 1" }
-```
+**Существующие эндпоинты (матчи):**
 
-**Response 201:**
-```json
-{
-  "id": 6,
-  "text": "Клиент перезвонит в пятницу, интересует корт 1",
-  "author": 2,
-  "author_name": "Иван Ресепшн",
-  "created_at": "2026-03-25T11:00:00Z",
-  "created_at_formatted": "25.03.2026 11:00"
-}
-```
+| Метод | URL | Доступ | Описание |
+|-------|-----|--------|----------|
+| GET | `/api/gamification/matches/` | Auth | Список матчей |
+| POST | `/api/gamification/matches/create/` | Тренер | Создать матч + пересчёт ELO |
+| GET | `/api/gamification/leaderboard/` | Публичный | Таблица лидеров |
 
-Добавление комментария автоматически обновляет `last_contact` лида.
+**Планируемое (по ТЗ):** создание турниров, управление участниками, сетка матчей, результаты, анонсы в приложении.
 
 ---
 
-### 15.9 Список комментариев к лиду
+## 20. Аналитика и отчетность (планируется)
 
-```
-GET /api/leads/{id}/comments/
-```
+> **Статус: частично реализовано.** Дашборды (разделы 5.1 и 5.2) покрывают базовые KPI. Расширенная аналитика планируется.
 
-**Response 200:** массив комментариев (те же поля).
+**Реализовано:**
+- KPI: выручка (день/неделя/месяц/всего), загрузка кортов, кол-во броней, новые клиенты
+- Структура выручки по типам транзакций
+- Статистика воронки лидов (конверсия, кол-во по стадиям)
+- Финансовая сводка по периодам
 
----
-
-### 15.10 Удалить комментарий
-
-```
-DELETE /api/leads/{id}/comments/{comment_id}/
-```
-
-Менеджер может удалить только свой комментарий. ADMIN — любой.  
-**Response 204:** нет тела.
+**Планируемое (по ТЗ):**
+- Графики: посещаемость по дням недели, загрузка по часам, сезонность
+- Экспорт отчётов (CSV/Excel/PDF)
+- Автоматическая еженедельная отчётность (OpenAI API + Telegram-бот)
+- Конверсия лидов → клиентов (расширенная)
+- Средний чек, LTV клиента
 
 ---
 
-### 15.11 Добавить задачу / напоминание
+## 21. Управление пользователями CRM
 
-```
-POST /api/leads/{id}/tasks/
-```
+Создание сотрудников CRM (RECEPTIONIST, SALES_MANAGER, ADMIN) — через Django Admin (`/admin/`).
 
-**Request body:**
-```json
-{
-  "title": "Перезвонить и уточнить расписание",
-  "due_datetime": "2026-03-28T10:00:00Z",
-  "assigned_to": 2
-}
-```
+**Для создания CRM-пользователя:**
+1. Зайти в `/admin/` под суперпользователем
+2. Users → Add User
+3. Указать: username, password, role = `RECEPTIONIST` / `SALES_MANAGER` / `ADMIN`
+4. Указать first_name, last_name
 
-| Поле | Обязательное | Описание |
-|------|--------------|----------|
-| `title` | да | Текст задачи |
-| `due_datetime` | да | Срок выполнения (ISO) |
-| `assigned_to` | нет | ID сотрудника-исполнителя |
-
-**Response 201:** объект задачи.
+**Планируемое:** CRUD-эндпоинты для управления сотрудниками прямо из CRM.
 
 ---
 
-### 15.12 Список задач лида
+## 22. Справочники для форм
 
-```
-GET /api/leads/{id}/tasks/
-```
+Эндпоинты для заполнения select/dropdown при создании брони, выдаче абонемента и т.д.
 
-**Response 200:** массив задач.
-
----
-
-### 15.13 Обновить задачу (отметить выполненной)
-
-```
-PATCH /api/leads/{id}/tasks/{task_id}/
-```
-
-**Request body (пример — отметить выполненной):**
-```json
-{ "is_done": true }
-```
-
-**Response 200:** обновлённый объект задачи.
+| Метод | URL | Auth | Назначение |
+|-------|-----|------|------------|
+| GET | `/api/courts/` | нет | Активные корты |
+| GET | `/api/auth/coaches/` | нет | Тренеры |
+| GET | `/api/inventory/services/` | нет | Активные услуги |
+| GET | `/api/memberships/types/` | нет | Типы абонементов |
+| GET | `/api/auth/clients/?role=ADMIN` | да | Сотрудники (для выбора менеджера) |
+| GET | `/api/core/settings/` | нет | Настройки клуба (рабочие часы) |
+| GET | `/api/core/closed-days/` | нет | Выходные дни |
 
 ---
 
-### 15.14 Удалить задачу
+## 23. Обработка ошибок
 
-```
-DELETE /api/leads/{id}/tasks/{task_id}/
-```
+| Код | Описание | Действие фронтенда |
+|-----|----------|-------------------|
+| **401** | Не авторизован / токен истёк | Попробовать refresh → если 401, перенаправить на логин |
+| **403** | Нет прав | Показать «Недостаточно прав» / спрятать элемент |
+| **404** | Ресурс не найден | Показать «Не найдено» |
+| **400** | Ошибка валидации | Показать ошибки полей: `{ "field": ["сообщение"] }` |
+| **429** | Превышен лимит запросов | Показать «Слишком много запросов, подождите» |
+| **500** | Ошибка сервера | Показать «Ошибка сервера» |
 
-**Response 204:** нет тела.
-
----
-
-### 15.15 Статистика воронки
-
-```
-GET /api/leads/stats/
-```
-
-**Response 200:**
-```json
-{
-  "total": 42,
-  "sold_count": 18,
-  "conversion_rate": 42.9,
-  "stages": [
-    { "stage": "NEW",         "label": "Новые обращения",   "count": 10, "percent": 23.8 },
-    { "stage": "IN_PROGRESS", "label": "В работе",          "count": 8,  "percent": 19.0 },
-    { "stage": "NEGOTIATION", "label": "Переговоры",        "count": 6,  "percent": 14.3 },
-    { "stage": "SOLD",        "label": "Успешная продажа",  "count": 18, "percent": 42.9 },
-    { "stage": "LOST",        "label": "Закрыто / потеря",  "count": 0,  "percent": 0.0  }
-  ]
-}
-```
+Формат тела ошибки: `{ "field_name": ["сообщение"] }` или `{ "detail": "сообщение" }` или `{ "error": "сообщение" }`.
 
 ---
 
-## 16. Рекомендации для React
+## 24. Рекомендации для React
 
-- **Хранение токена:** после успешного `POST /api/auth/crm/login/` сохранять `access` и `refresh` (например, в памяти + localStorage или только в памяти для большей безопасности).
-- **Заголовок запросов:** для всех запросов к API добавлять `Authorization: Bearer ${accessToken}`. При ответе 401 — попробовать обновить токен через `POST /api/auth/jwt/refresh/` с сохранённым `refresh`; при успехе — повторить исходный запрос с новым `access`.
-- **Base URL:** вынести в конфиг (например, `process.env.REACT_APP_API_URL` или константа), по умолчанию `http://213.155.23.227/api`.
-- **Роутинг по ролям:** после логина проверять `role` из ответа и показывать/скрывать разделы (например, «Дашборд директора», «Управление кортами/услугами/акциями/новостями» только для ADMIN).
-- **Даты в формах:** для `start_time` при создании брони отправлять значение в ISO 8601 (например, из `<input type="datetime-local">` преобразовать в ISO с учётом таймзоны сервера).
+### Авторизация и токены
+- После `POST /api/auth/crm/login/` сохранять `access` и `refresh` (например, в памяти + localStorage)
+- Для каждого запроса добавлять `Authorization: Bearer ${accessToken}`
+- При 401 → автоматически вызвать `/api/auth/jwt/refresh/` → повторить запрос с новым access
+- При неудачном refresh → перенаправить на логин
+
+### Конфигурация
+- Base URL: `process.env.REACT_APP_API_URL` или константа, по умолчанию `http://213.155.23.227/api`
+- Все даты в формах (`datetime-local`) → преобразовывать в ISO 8601 перед отправкой
+
+### Роутинг по ролям
+- После логина сохранить `role` → показывать только разрешённые разделы (матрица в разделе 2.2)
+- При попытке открыть запрещённый маршрут → redirect на главную
+
+### Работа с ID
+- Пользователь **никогда не вводит ID руками** — все ID берутся из выбора в интерфейсе
+- Клиент → из списка/поиска (таблица, автокомплит)
+- Бронь → из расписания/списка (клик по строке)
+- Корт/тренер/услуга → из select (подгружается из справочников)
+- Менеджер → из select (подгружается из `/api/auth/clients/?role=...`)
+
+### UX рекомендации
+- Для канбан-доски лидов: React DnD или @hello-pangea/dnd
+- Для расписания: react-big-calendar или кастомная сетка
+- Для таблиц: TanStack Table / AG Grid
+- Для графиков (будущее): Recharts / Chart.js
 
 ---
 
-## Сводная таблица эндпоинтов CRM
+## 25. Сводная таблица всех эндпоинтов
+
+### Авторизация
 
 | Метод | URL | Доступ | Описание |
 |-------|-----|--------|----------|
 | POST | `/api/auth/crm/login/` | — | Вход в CRM |
 | POST | `/api/auth/jwt/refresh/` | — | Обновить токен |
 | POST | `/api/auth/jwt/verify/` | — | Проверить токен |
+
+### Дашборды
+
+| Метод | URL | Доступ | Описание |
+|-------|-----|--------|----------|
 | GET | `/api/analytics/reception/` | Ресепшн, Админ | Дашборд ресепшн |
 | GET | `/api/analytics/dashboard/` | Только Админ | Дашборд директора |
-| GET | `/api/bookings/manager/schedule/?date=` | Ресепшн, Админ | Расписание по кортам |
-| GET | `/api/bookings/all/?date=&status=&court_id=&client_id=` | Ресепшн, Админ | Все брони |
-| POST | `/api/bookings/reception/create/` | Ресепшн, Админ | Создать бронь за клиента |
-| POST | `/api/bookings/{id}/confirm-payment/` | Ресепшн, Админ | Подтвердить оплату |
-| GET | `/api/auth/clients/?search=&role=` | Ресепшн, Админ | Список клиентов |
+
+### Клиенты
+
+| Метод | URL | Доступ | Описание |
+|-------|-----|--------|----------|
+| GET | `/api/auth/clients/?search=&role=` | Все CRM | Список клиентов |
 | GET | `/api/auth/reception/search/?phone=` | Ресепшн, Админ | Поиск по телефону |
 | GET | `/api/auth/reception/user/{id}/` | Ресепшн, Админ | Карточка клиента |
-| POST | `/api/auth/reception/user/{id}/action/` | Ресепшн, Админ | Действия с клиентом |
-| GET | `/api/finance/transactions/?date=&type=&method=&user_id=` | Ресепшн, Админ | Транзакции |
-| GET | `/api/finance/summary/?period=` | Ресепшн, Админ | Сводка |
+| POST | `/api/auth/reception/user/{id}/action/` | Ресепшн, Админ | Действия (QR, данные, статус) |
+
+### Лиды / Воронка продаж
+
+| Метод | URL | Доступ | Описание |
+|-------|-----|--------|----------|
+| GET | `/api/leads/kanban/` | Все CRM | Канбан-доска |
+| GET | `/api/leads/stats/` | Все CRM | Статистика воронки |
+| GET/POST | `/api/leads/` | Все CRM | Список / создать |
+| GET/PATCH/DELETE | `/api/leads/{id}/` | Все CRM | Детали / ред. / удалить |
+| POST | `/api/leads/{id}/move/` | Все CRM | Смена стадии (drag & drop) |
+| GET/POST | `/api/leads/{id}/comments/` | Все CRM | Комментарии |
+| DELETE | `/api/leads/{id}/comments/{cid}/` | Все CRM | Удалить комментарий |
+| GET/POST | `/api/leads/{id}/tasks/` | Все CRM | Задачи |
+| PATCH/DELETE | `/api/leads/{id}/tasks/{tid}/` | Все CRM | Обновить / удалить задачу |
+
+### Бронирования
+
+| Метод | URL | Доступ | Описание |
+|-------|-----|--------|----------|
+| GET | `/api/bookings/manager/schedule/?date=` | Ресепшн, Админ | Расписание |
+| GET | `/api/bookings/all/?date=&status=&court_id=&client_id=` | Ресепшн, Админ | Все брони |
+| POST | `/api/bookings/reception/create/` | Ресепшн, Админ | Создать бронь |
+| POST | `/api/bookings/{id}/confirm-payment/` | Ресепшн, Админ | Подтвердить оплату |
+
+### Абонементы
+
+| Метод | URL | Доступ | Описание |
+|-------|-----|--------|----------|
 | POST | `/api/memberships/reception/buy/` | Ресепшн, Админ | Выдать абонемент |
 | GET | `/api/memberships/all/?client_id=&is_active=` | Ресепшн, Админ | Все абонементы |
-| GET/POST | `/api/memberships/types/manage/` | Ресепшн, Админ | Типы абонементов |
+| GET | `/api/memberships/types/` | — | Типы (для форм) |
+| GET/POST | `/api/memberships/types/manage/` | Ресепшн, Админ | Типы CRUD |
 | GET/PATCH/DELETE | `/api/memberships/types/manage/{id}/` | Ресепшн, Админ | Тип по ID |
+
+### Финансы
+
+| Метод | URL | Доступ | Описание |
+|-------|-----|--------|----------|
+| GET | `/api/finance/transactions/?date=&type=&method=&user_id=` | Ресепшн, Админ | Транзакции |
+| GET | `/api/finance/summary/?period=` | Ресепшн, Админ | Сводка |
+
+### QR-сканер
+
+| Метод | URL | Доступ | Описание |
+|-------|-----|--------|----------|
 | POST | `/api/gym/qr/scan/` | Ресепшн, Админ | Сканировать QR |
-| GET/POST | `/api/inventory/services/manage/` | Только Админ | Услуги |
-| GET/PATCH/DELETE | `/api/inventory/services/manage/{id}/` | Только Админ | Услуга по ID |
-| GET/POST | `/api/courts/manage/` | Только Админ | Корты |
-| GET/PATCH/DELETE | `/api/courts/manage/{id}/` | Только Админ | Корт по ID |
-| GET/POST | `/api/marketing/manage/` | Только Админ | Акции |
-| GET/PATCH/DELETE | `/api/marketing/manage/{id}/` | Только Админ | Акция по ID |
-| GET/POST | `/api/news/manage/` | Только Админ | Новости |
-| GET/PATCH/DELETE | `/api/news/manage/{id}/` | Только Админ | Новость по ID |
-| GET | `/api/courts/` | — | Список кортов (для форм) |
-| GET | `/api/auth/coaches/` | — | Список тренеров (для форм) |
-| GET | `/api/inventory/services/` | — | Список услуг (для форм) |
-| GET | `/api/memberships/types/` | — | Типы абонементов (для форм) |
-| **Лиды / Воронка продаж** | | | |
-| GET | `/api/leads/kanban/` | Ресепшн, Админ | Канбан-доска (все стадии сразу) |
-| GET | `/api/leads/stats/` | Ресепшн, Админ | Статистика воронки |
-| GET/POST | `/api/leads/` | Ресепшн, Админ | Список лидов / создать лид |
-| GET/PATCH/DELETE | `/api/leads/{id}/` | Ресепшн, Админ | Детали / ред. / удаление лида |
-| POST | `/api/leads/{id}/move/` | Ресепшн, Админ | Переместить в другую стадию (drag & drop) |
-| GET/POST | `/api/leads/{id}/comments/` | Ресепшн, Админ | История взаимодействий |
-| DELETE | `/api/leads/{id}/comments/{comment_id}/` | Ресепшн, Админ | Удалить комментарий |
-| GET/POST | `/api/leads/{id}/tasks/` | Ресепшн, Админ | Задачи / напоминания |
-| PATCH/DELETE | `/api/leads/{id}/tasks/{task_id}/` | Ресепшн, Админ | Обновить / удалить задачу |
+
+### Управление (только ADMIN)
+
+| Метод | URL | Описание |
+|-------|-----|----------|
+| GET/POST | `/api/courts/manage/` | Корты |
+| GET/PATCH/DELETE | `/api/courts/manage/{id}/` | Корт по ID |
+| GET/POST | `/api/inventory/services/manage/` | Услуги |
+| GET/PATCH/DELETE | `/api/inventory/services/manage/{id}/` | Услуга по ID |
+| GET/POST | `/api/marketing/manage/` | Акции |
+| GET/PATCH/DELETE | `/api/marketing/manage/{id}/` | Акция по ID |
+| GET/POST | `/api/news/manage/` | Новости |
+| GET/PATCH/DELETE | `/api/news/manage/{id}/` | Новость по ID |
+
+### Уведомления
+
+| Метод | URL | Доступ | Описание |
+|-------|-----|--------|----------|
+| GET | `/api/notifications/` | Auth | Список уведомлений |
+| GET | `/api/notifications/unread-count/` | Auth | Непрочитанные |
+| POST | `/api/notifications/{id}/mark-read/` | Auth | Отметить прочитанным |
+| POST | `/api/notifications/mark-all-read/` | Auth | Прочитать все |
+| DELETE | `/api/notifications/{id}/` | Auth | Удалить |
+
+### Справочники
+
+| Метод | URL | Описание |
+|-------|-----|----------|
+| GET | `/api/courts/` | Активные корты |
+| GET | `/api/auth/coaches/` | Тренеры |
+| GET | `/api/inventory/services/` | Активные услуги |
+| GET | `/api/memberships/types/` | Типы абонементов |
+| GET | `/api/core/settings/` | Настройки клуба |
+| GET | `/api/core/closed-days/` | Выходные дни |
+
+### Матчи / Геймификация
+
+| Метод | URL | Доступ | Описание |
+|-------|-----|--------|----------|
+| GET | `/api/gamification/matches/` | Auth | Список матчей |
+| POST | `/api/gamification/matches/create/` | Тренер | Создать матч |
+| GET | `/api/gamification/leaderboard/` | — | Лидерборд ELO |
