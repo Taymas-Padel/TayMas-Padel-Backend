@@ -1,11 +1,11 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>🏢 Padel CRM</title>
-<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<style>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
 :root{--bg:#0c0e14;--s:#13151d;--s2:#1b1d28;--bd:#262836;--bda:#3a3d52;--tx:#e4e4ef;--dm:#7c7e96;
 --ac:#5b6cf7;--acl:#8b96ff;--g:#34d399;--gd:rgba(52,211,153,.12);--r:#f87171;--rd:rgba(248,113,113,.1);
 --o:#fbbf24;--od:rgba(251,191,36,.1);--rad:9px}
@@ -134,23 +134,24 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--tx);min-he
 
 .hidden{display:none!important}
 ::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--bd);border-radius:2px}
-</style>
+    </style>
 </head>
 <body>
 <div class="topbar">
   <h1>🏢 PADEL CRM</h1><span class="tag">MVP</span>
-  <input type="text" id="baseUrl" value="http://127.0.0.1:8000">
+  <input type="text" id="baseUrl" value="http://213.155.23.227" placeholder="Сервер API" title="Base URL (без /api) — см. API_MOBILE.md" style="width:220px">
+  <span style="font-size:9px;color:var(--dm);white-space:nowrap">→ /api/* (прод)</span>
   <div class="ml">
-    <div class="dot" id="dot"></div>
+        <div class="dot" id="dot"></div>
     <span class="status-lbl" id="stxt">Не авторизован</span>
-  </div>
+    </div>
 </div>
 
 <div class="layout">
   <!-- SIDEBAR -->
-  <nav class="side">
-    <div class="lbl">Авторизация</div>
-    <button class="on" data-s="login"><i>🔑</i> Вход в CRM</button>
+    <nav class="side">
+        <div class="lbl">Авторизация</div>
+        <button class="on" data-s="login"><i>🔑</i> Вход в CRM</button>
 
     <div class="lbl">Дашборды</div>
     <button data-s="dash-r"><i>📊</i> Ресепшн</button>
@@ -182,32 +183,32 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--tx);min-he
     <button data-s="qr-scan"><i>📱</i> QR-сканер</button>
     <button data-s="news-mgr"><i>📰</i> Новости</button>
 
-    <div class="lbl">Сессия</div>
+        <div class="lbl">Сессия</div>
     <button data-s="session"><i>🪪</i> Сессия</button>
-  </nav>
+    </nav>
 
   <!-- MAIN -->
-  <main class="main">
+    <main class="main">
 
     <!-- ===== LOGIN ===== -->
-    <div id="s-login" class="sec show">
+        <div id="s-login" class="sec show">
       <div class="sec-title">🔑 Вход в CRM</div>
       <div class="sec-sub">POST <code>/api/auth/crm/login/</code> — Только ADMIN и RECEPTIONIST</div>
       <div class="al al-i">Клиенты и тренеры получат 403 — им вход по SMS в мобильном приложении</div>
       <div class="row2">
         <div class="fg"><label>Логин (username или телефон)</label><input id="crmUser" placeholder="reception1"></div>
-        <div class="fg"><label>Пароль</label><input type="password" id="crmPass" placeholder="••••••••"></div>
+            <div class="fg"><label>Пароль</label><input type="password" id="crmPass" placeholder="••••••••"></div>
       </div>
-      <div class="btns"><button class="b b1" onclick="crmLogin()">🔑 Войти</button></div>
+            <div class="btns"><button class="b b1" onclick="crmLogin()">🔑 Войти</button></div>
       <div id="loginRes" class="hidden">
         <div class="g2" style="margin-top:12px">
           <div class="card"><div class="cl">User ID</div><div class="cv cv-a" id="cId">—</div></div>
-          <div class="card"><div class="cl">Роль</div><div class="cv" id="cRole">—</div></div>
-          <div class="card"><div class="cl">Имя</div><div class="cv" id="cName">—</div></div>
+                    <div class="card"><div class="cl">Роль</div><div class="cv" id="cRole">—</div></div>
+                    <div class="card"><div class="cl">Имя</div><div class="cv" id="cName">—</div></div>
           <div class="card"><div class="cl">Access Token</div><div class="cv cv-g" id="cToken" style="font-size:9px">—</div></div>
+                </div>
+            </div>
         </div>
-      </div>
-    </div>
 
     <!-- ===== RECEPTION DASHBOARD ===== -->
     <div id="s-dash-r" class="sec">
@@ -232,12 +233,12 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--tx);min-he
       <div class="row2">
         <div class="fg"><label>Дата</label><input type="date" id="schedDate"></div>
       </div>
-      <div class="btns">
+            <div class="btns">
         <button class="b b1" onclick="loadSchedule()">📅 Загрузить</button>
         <button class="b b2" onclick="$('schedDate').value=today();loadSchedule()">Сегодня</button>
-      </div>
+            </div>
       <div id="scheduleResult"></div>
-    </div>
+        </div>
 
     <!-- ===== ALL BOOKINGS ===== -->
     <div id="s-all-bookings" class="sec">
@@ -261,7 +262,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--tx);min-he
         <button class="b b2" onclick="clearAllBookings()">Сброс</button>
       </div>
       <div id="allBookingsList"></div>
-    </div>
+        </div>
 
     <!-- ===== NEW BOOKING (RECEPTION) ===== -->
     <div id="s-new-booking" class="sec">
@@ -375,10 +376,10 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--tx);min-he
       <div class="btns"><button class="b b1" onclick="doAction('update_info')">💾 Сохранить</button></div>
       <div class="hr"></div>
       <div style="font-weight:600;font-size:13px;margin-bottom:8px">Аккаунт</div>
-      <div class="btns">
-        <button class="b br" onclick="doAction('deactivate')">🚫 Деактивировать</button>
-        <button class="b bg" onclick="doAction('activate')">✅ Активировать</button>
-      </div>
+            <div class="btns">
+                <button class="b br" onclick="doAction('deactivate')">🚫 Деактивировать</button>
+                <button class="b bg" onclick="doAction('activate')">✅ Активировать</button>
+            </div>
 
       <div class="hr"></div>
       <div style="font-weight:600;font-size:13px;margin-bottom:8px">Подтверждение оплаты брони</div>
@@ -390,7 +391,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--tx);min-he
       </div>
       <div class="btns"><button class="b bo" onclick="confirmPayment()">💵 Подтвердить оплату</button></div>
       <div id="actRes"></div>
-    </div>
+        </div>
 
     <!-- ===== FINANCE ===== -->
     <div id="s-finance" class="sec">
@@ -420,7 +421,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--tx);min-he
       <div class="fg"><label>User ID (необязательно)</label><input type="number" id="finUser" placeholder="Все пользователи"></div>
       <div class="btns"><button class="b b1" onclick="loadTransactions()">🔍 Найти</button></div>
       <div id="transList"></div>
-    </div>
+        </div>
 
     <!-- ===== FINANCE SUMMARY ===== -->
     <div id="s-finance-summary" class="sec">
@@ -430,9 +431,9 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--tx);min-he
         <button class="b b1" onclick="loadSummary('today')">Сегодня</button>
         <button class="b b2" onclick="loadSummary('month')">Месяц</button>
         <button class="b b2" onclick="loadSummary('all')">Всё время</button>
-      </div>
+                </div>
       <div id="summaryRes"></div>
-    </div>
+            </div>
 
     <!-- ===== MEMBERSHIPS - ISSUE ===== -->
     <div id="s-memberships" class="sec">
@@ -458,7 +459,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--tx);min-he
         </div>
         <input type="hidden" id="memTypeId">
         <div id="memTypeSelected" style="font-size:10px;color:var(--acl);margin-top:4px"></div>
-      </div>
+        </div>
 
       <div class="fg">
         <label>Способ оплаты</label>
@@ -635,15 +636,15 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--tx);min-he
       <div id="sesVer"></div>
       <div class="hr"></div>
       <div class="btns"><button class="b br" onclick="doLogout()">🚪 Выйти</button></div>
-    </div>
+        </div>
 
-  </main>
+    </main>
 
   <!-- LOG PANEL -->
-  <aside class="logp">
+    <aside class="logp">
     <div class="logh"><h3>📋 Логи запросов</h3><button onclick="$('logB').innerHTML=''">Очистить</button></div>
-    <div class="logb" id="logB"></div>
-  </aside>
+        <div class="logb" id="logB"></div>
+    </aside>
 </div>
 
 <script>
@@ -658,9 +659,9 @@ const uN=u=>(u.first_name&&u.last_name)?`${u.first_name} ${u.last_name}`:(u.user
 // ---- NAV ----
 document.querySelectorAll('.side button[data-s]').forEach(b=>{
   b.addEventListener('click',()=>{
-    document.querySelectorAll('.side button').forEach(x=>x.classList.remove('on'));
-    b.classList.add('on');
-    document.querySelectorAll('.sec').forEach(s=>s.classList.remove('show'));
+        document.querySelectorAll('.side button').forEach(x=>x.classList.remove('on'));
+        b.classList.add('on');
+        document.querySelectorAll('.sec').forEach(s=>s.classList.remove('show'));
     const el=$('s-'+b.dataset.s);
     if(el) el.classList.add('show');
   });
@@ -668,40 +669,40 @@ document.querySelectorAll('.side button[data-s]').forEach(b=>{
 
 // ---- LOG ----
 function log(type,method,url,body,status,res){
-  const t=new Date().toLocaleTimeString();
-  const c=type==='rq'?'rq':(status<400?'ok':'er');
+    const t=new Date().toLocaleTimeString();
+    const c=type==='rq'?'rq':(status<400?'ok':'er');
   let h=`<div class="le ${c}"><span class="t">${t}</span> <b>${method}</b> <span style="color:var(--dm)">${url}</span>`;
   if(status!==undefined) h+=` → <b style="${status<400?'color:var(--g)':'color:var(--r)'}">${status}</b>`;
   if(body) h+=`<div class="bd">${esc(JSON.stringify(body,null,1))}</div>`;
   if(res) h+=`<div class="bd">${esc(typeof res==='object'?JSON.stringify(res,null,1):res)}</div>`;
-  h+=`</div>`;
-  $('logB').insertAdjacentHTML('afterbegin',h);
+    h+=`</div>`;
+    $('logB').insertAdjacentHTML('afterbegin',h);
 }
 
 // ---- API ----
 async function api(method,path,body=null,auth=true){
-  const url=B()+path;
-  const h={'Content-Type':'application/json'};
-  if(auth&&AT) h['Authorization']=`Bearer ${AT}`;
-  const o={method,headers:h};
-  if(body&&method!=='GET') o.body=JSON.stringify(body);
-  log('rq',method,path,body);
-  try{
-    const r=await fetch(url,o);
-    const ct=r.headers.get('content-type')||'';
-    const d=ct.includes('json')?await r.json():await r.text();
-    log('rs',method,path,null,r.status,d);
-    return{ok:r.ok,status:r.status,data:d};
-  }catch(e){
-    log('rs',method,path,null,0,{error:e.message});
-    return{ok:false,status:0,data:{error:e.message}};
-  }
+    const url=B()+path;
+    const h={'Content-Type':'application/json'};
+    if(auth&&AT) h['Authorization']=`Bearer ${AT}`;
+    const o={method,headers:h};
+    if(body&&method!=='GET') o.body=JSON.stringify(body);
+    log('rq',method,path,body);
+    try{
+        const r=await fetch(url,o);
+        const ct=r.headers.get('content-type')||'';
+        const d=ct.includes('json')?await r.json():await r.text();
+        log('rs',method,path,null,r.status,d);
+        return{ok:r.ok,status:r.status,data:d};
+    }catch(e){
+        log('rs',method,path,null,0,{error:e.message});
+        return{ok:false,status:0,data:{error:e.message}};
+    }
 }
 
 function upd(){
-  const d=$('dot'),t=$('stxt');
+    const d=$('dot'),t=$('stxt');
   if(AT){d.classList.add('on');t.textContent=`${ROLE||'?'} (ID:${UID})`;}
-  else{d.classList.remove('on');t.textContent='Не авторизован';}
+    else{d.classList.remove('on');t.textContent='Не авторизован';}
   $('sesId').textContent=UID||'—';$('sesRole').textContent=ROLE||'—';
   $('sesAt').textContent=AT?AT.substring(0,40)+'...':'—';
   $('sesRt').textContent=RT?RT.substring(0,40)+'...':'—';
@@ -722,12 +723,12 @@ async function crmLogin(){
   const u=$('crmUser').value.trim(),p=$('crmPass').value;
   if(!u||!p)return alert('Заполните логин и пароль');
   const r=await api('POST','/api/auth/crm/login/',{username:u,password:p},false);
-  if(r.ok){
+    if(r.ok){
     AT=r.data.access;RT=r.data.refresh;UID=r.data.user_id;ROLE=r.data.role;upd();
     $('loginRes').classList.remove('hidden');
-    $('cId').textContent=r.data.user_id;
-    $('cRole').textContent=r.data.role;
-    $('cName').textContent=`${r.data.first_name||''} ${r.data.last_name||''}`.trim()||'—';
+        $('cId').textContent=r.data.user_id;
+        $('cRole').textContent=r.data.role;
+        $('cName').textContent=`${r.data.first_name||''} ${r.data.last_name||''}`.trim()||'—';
     $('cToken').textContent=AT.substring(0,60)+'...';
   }else alert('❌ '+(r.data.error||JSON.stringify(r.data)));
 }
@@ -776,13 +777,13 @@ async function loadDirectorDash(){
       <div class="kpi"><div class="kv cv-g">${fmtMoney(k.week_revenue)}</div><div class="kl">Неделя</div></div>
       <div class="kpi"><div class="kv cv-g">${fmtMoney(k.month_revenue)}</div><div class="kl">Месяц</div></div>
       <div class="kpi"><div class="kv cv-a">${fmtMoney(k.total_revenue)}</div><div class="kl">Всё время</div></div>
-    </div>
+                    </div>
     <div class="kpi-grid">
       <div class="kpi"><div class="kv">${k.occupancy_rate_today}</div><div class="kl">Загрузка сегодня</div></div>
       <div class="kpi"><div class="kv">${k.bookings_today}</div><div class="kl">Брони сегодня</div></div>
       <div class="kpi"><div class="kv cv-o">${k.pending_payments}</div><div class="kl">Ждут оплаты</div></div>
       <div class="kpi"><div class="kv">${k.total_clients}</div><div class="kl">Клиентов</div></div>
-    </div>
+                </div>
     <div class="al al-i">Рабочее время: ${esc(d.work_hours||'—')} · Месяц: ${esc(d.period?.month||'')}</div>
     ${struct}`;
 }
@@ -802,7 +803,7 @@ async function loadSchedule(){
           <div class="sch-info">
             <div class="sch-client">${esc(b.client_name||'?')} <span style="font-family:monospace;font-size:9px">${esc(b.client_phone||'')}</span></div>
             <div class="sch-detail">${fmtMoney(b.price)} · ${b.is_paid?'✅ Оплачено':'⏳ Не оплачено'}${b.coach_name?' · 👨‍🏫 '+esc(b.coach_name):''}</div>
-          </div>
+            </div>
           <span class="bs ${b.status==='CONFIRMED'?'bs-c':b.status==='PENDING'?'bs-p':'bs-x'}">${b.status}</span>
         </div>`).join(''):'<div class="al al-i" style="padding:6px 10px;font-size:10px">Броней нет</div>'}
     </div>`).join('');
@@ -929,8 +930,8 @@ async function doAction(action){
   if(!AT)return alert('Войдите');
   const id=$('actId').value;
   if(!id)return alert('Укажите ID клиента');
-  const body={action};
-  if(action==='update_info'){
+    const body={action};
+    if(action==='update_info'){
     const fn=$('actFn').value.trim(),ln=$('actLn').value.trim();
     if(fn) body.first_name=fn;
     if(ln) body.last_name=ln;
@@ -1329,6 +1330,8 @@ async function loadAllMemberships(){
 // ============ INIT ============
 upd();
 $('schedDate').value=today();
+if($('abDate'))$('abDate').value=today();
+if($('finDate'))$('finDate').value=today();
 </script>
 </body>
 </html>

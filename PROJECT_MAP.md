@@ -24,6 +24,7 @@ padel_project/
 ├── news/            — новости и объявления клуба
 ├── analytics/       — дашборд директора + дашборд ресепшн
 ├── friends/         — заявки в друзья
+├── leads/           — воронка продаж / лиды (CRM); Lead, LeadComment, LeadTask
 ├── app.html         — тестовый фронт: мобильное приложение
 └── crm.html         — тестовый фронт: CRM
 ```
@@ -47,6 +48,7 @@ padel_project/
 | **news** | `NewsItem` | — |
 | **friends** | `FriendRequest` | from_user/to_user → User |
 | **analytics** | — | агрегации по другим app |
+| **leads** | `Lead`, `LeadComment`, `LeadTask` | Lead → User (assigned_to); LeadComment/Task → Lead + User |
 
 ---
 
@@ -168,6 +170,20 @@ padel_project/
 | GET | `<id>/` | Anon | Полный текст новости |
 | GET/POST | `manage/` | ADMIN | Управление новостями |
 | GET/PATCH/DELETE | `manage/<id>/` | ADMIN | Управление новостью |
+
+### Лиды / Воронка продаж  `api/leads/`
+
+| Метод | URL | Роль | Описание |
+|-------|-----|------|----------|
+| GET | `kanban/` | Ресепшн | Канбан-доска (все стадии сразу) |
+| GET | `stats/` | Ресепшн | Статистика воронки / конверсия |
+| GET/POST | `` | Ресепшн | Список лидов / создать лид |
+| GET/PATCH/DELETE | `<id>/` | Ресепшн | Детали / редактирование / удаление |
+| POST | `<id>/move/` | Ресепшн | Переместить в другую стадию (drag & drop) |
+| GET/POST | `<id>/comments/` | Ресепшн | История взаимодействий |
+| DELETE | `<id>/comments/<comment_id>/` | Ресепшн | Удалить комментарий |
+| GET/POST | `<id>/tasks/` | Ресепшн | Задачи / напоминания |
+| PATCH/DELETE | `<id>/tasks/<task_id>/` | Ресепшн | Обновить / удалить задачу |
 
 ### Аналитика  `api/analytics/`
 

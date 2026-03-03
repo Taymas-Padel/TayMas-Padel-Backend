@@ -68,6 +68,7 @@ INSTALLED_APPS = [
     'lobby.apps.LobbyConfig',
     'notifications.apps.NotificationsConfig',
     'payments.apps.PaymentsConfig',
+    'leads.apps.LeadsConfig',
 ]
 
 # Настройки DRF
