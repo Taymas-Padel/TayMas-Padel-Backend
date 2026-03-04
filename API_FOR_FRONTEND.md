@@ -12,6 +12,7 @@
 |-------|-----|------|------------|
 | **POST** | `auth/me/fcm/` | Auth | Сохранить FCM token для пуш-уведомлений после логина. Body: `{ "fcm_token": "..." }` |
 | **GET** | `core/closed-days/?from=YYYY-MM-DD&to=YYYY-MM-DD` | Anon | Выходные/праздники для календаря. Без параметров — с сегодня по +1 год. |
+| **POST** | `core/closed-days/` | Admin | Создать выходной. Body: `{ "date": "YYYY-MM-DD", "reason": "..." }`. |
 | **GET** | `gym/visits/` | Auth | История посещений зала текущего пользователя. |
 | **GET** | `marketing/validate-promo/?code=XXX` | Anon | Проверка промокода без применения. Ответ: `{ "valid": true, "title", "discount_type", "discount_value" }` или `{ "valid": false, "error": "..." }`. |
 | **GET** | `auth/coaches/` | Anon | Список тренеров (id, full_name, role, coach_price) для выбора в брони. |
@@ -183,6 +184,7 @@
 |-------|-----|----------|
 | GET | `settings/` | Настройки клуба (OPEN_TIME, CLOSE_TIME, CANCELLATION_HOURS) |
 | **GET** | **`closed-days/?from=YYYY-MM-DD&to=YYYY-MM-DD`** | **Выходные/праздники для календаря** |
+| **POST** | **`closed-days/`** | **Создать выходной (Admin). Body: `date`, `reason`.** |
 
 ---
 

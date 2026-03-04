@@ -2,7 +2,8 @@ from datetime import datetime as dt
 from rest_framework.generics import ListAPIView
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAdminUser
+from rest_framework import status
 from django.utils import timezone
 from .models import ClubSetting, ClosedDay
 from .serializers import ClubSettingSerializer, ClosedDaySerializer
@@ -22,8 +23,12 @@ class ClosedDaysListView(APIView):
     """
     GET /api/core/closed-days/?from=YYYY-MM-DD&to=YYYY-MM-DD
     Выходные и праздничные дни для календаря. Без параметров — с сегодня по +1 год.
+    POST /api/core/closed-days/ — создать выходной (date, reason). Только для staff.
     """
-    permission_classes = [AllowAny]
+    def get_permissions(self):
+        if self.request.method == 'POST':
+            return [IsAdminUser()]
+        return [AllowAny()]
 
     def get(self, request):
         from_date = request.query_params.get('from')
@@ -47,3 +52,10 @@ class ClosedDaysListView(APIView):
             start, end = end, start
         qs = ClosedDay.objects.filter(date__gte=start, date__lte=end).order_by('date')
         return Response(ClosedDaySerializer(qs, many=True).data)
+
+    def post(self, request):
+        ser = ClosedDaySerializer(data=request.data)
+        if not ser.is_valid():
+            return Response(ser.errors, status=status.HTTP_400_BAD_REQUEST)
+        ser.save()
+        return Response(ser.data, status=status.HTTP_201_CREATED)
