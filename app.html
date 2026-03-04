@@ -444,9 +444,12 @@ body{font-family:'Outfit',sans-serif;background:#0a0c12;color:var(--tx);min-heig
       </div>
 
       <div id="gqr">
-        <div class="sec-sub">QR-код для входа в зал/на падел. Действует 60 секунд.</div>
-        <button class="b b1" onclick="genQR()">📱 Сгенерировать QR</button>
-        <div id="qrRes" style="margin-top:10px"></div>
+        <div id="gqrBlocked" class="al al-w" style="display:none">QR-доступ заблокирован. Обратитесь на ресепшн.</div>
+        <div id="gqrNormal">
+          <div class="sec-sub">QR-код для входа в зал/на падел. Действует 60 секунд.</div>
+          <button class="b b1" onclick="genQR()">📱 Сгенерировать QR</button>
+          <div id="qrRes" style="margin-top:10px"></div>
+        </div>
       </div>
 
       <div id="gcheckin" style="display:none">
@@ -608,7 +611,7 @@ body{font-family:'Outfit',sans-serif;background:#0a0c12;color:var(--tx);min-heig
 </div>
 
 <script>
-let AT=null,RT=null,UID=null,ROLE=null;
+let AT=null,RT=null,UID=null,ROLE=null,_isQrBlocked=false;
 const B=()=>document.getElementById('baseUrl').value.replace(/\/+$/,'');
 const $=id=>document.getElementById(id);
 const esc=t=>{const d=document.createElement('div');d.textContent=t;return d.innerHTML};
@@ -632,6 +635,7 @@ function nav(p){
     if(isC){ loadCoachSchedule(); loadCoachMatches(); }
   }
   if(p==='notifications'){ loadNotifications(); loadUnreadCount(); }
+  if(p==='gym'){ updateGymQrUI(); }
   if(p==='lobby'){
     const detBtn = $('lbDetailBtn');
     if(detBtn) detBtn.style.display='none';
@@ -756,7 +760,7 @@ async function verifyCode(){
   if(!dv)return alert('Нужен Device ID');
   const r=await api('POST','/api/auth/mobile/login/',{phone_number:ph,code:cd,device_id:dv},false);
   if(!r.ok)return alert(r.data.error||JSON.stringify(r.data));
-  AT=r.data.access;RT=r.data.refresh;UID=r.data.user_id;ROLE=r.data.role;upd();
+  AT=r.data.access;RT=r.data.refresh;UID=r.data.user_id;ROLE=r.data.role;_isQrBlocked=!!r.data.is_qr_blocked;upd();
   $('loginRes').classList.remove('hidden');
   $('rNew').textContent=r.data.is_new_user?'🆕 Новый':'Уже был';
   $('rProf').textContent=r.data.is_profile_complete?'✅ Заполнен':'⚠️ Нет';
@@ -775,7 +779,7 @@ async function saveProfile(){
   if(r.ok){ $('st3').className='stp done'; setTimeout(()=>{ nav('home'); loadHome(); },600); }
 }
 function doLogout(){
-  AT=RT=UID=ROLE=null;upd();
+  AT=RT=UID=ROLE=null;_isQrBlocked=false;upd();
   $('loginRes').classList.add('hidden');$('nameForm').classList.add('hidden');
   $('code').value='';$('fn').value='';$('ln').value='';
   nav('login');
@@ -1289,6 +1293,15 @@ async function memHistory(id){
 }
 
 // ============ GYM / QR ============
+async function updateGymQrUI(){
+  const blockedEl=$('gqrBlocked'), normalEl=$('gqrNormal');
+  if(!blockedEl||!normalEl)return;
+  if(!AT){ normalEl.style.display='block'; blockedEl.style.display='none'; return; }
+  const r=await api('GET','/api/auth/users/me/',null,false);
+  if(r.ok&&r.data&&typeof r.data.is_qr_blocked==='boolean')_isQrBlocked=r.data.is_qr_blocked;
+  if(_isQrBlocked){ blockedEl.style.display='block'; normalEl.style.display='none'; }
+  else{ blockedEl.style.display='none'; normalEl.style.display='block'; }
+}
 async function genQR(){
   if(!AT)return alert('Войдите');
   const r=await api('GET','/api/gym/qr/generate/');
