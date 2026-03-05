@@ -41,7 +41,10 @@ class CancelBookingView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, pk):
-        booking = get_object_or_404(Booking, pk=pk)
+        booking = get_object_or_404(
+            Booking.objects.select_related('membership_used'),
+            pk=pk,
+        )
         user = request.user
         now = timezone.now()
 
@@ -71,14 +74,15 @@ class CancelBookingView(APIView):
         booking.save(update_fields=['status'])
 
         # Возврат часов на абонемент, если бронь была оплачена часами
-        if booking.membership_used:
-            from decimal import Decimal
+        hours_returned = 0
+        if booking.membership_used_id and booking.membership_used:
             membership = booking.membership_used
             hours_return = Decimal(str(booking.duration_hours))
             membership.hours_remaining += hours_return
             if membership.hours_remaining > 0:
                 membership.is_active = True
             membership.save(update_fields=['hours_remaining', 'is_active'])
+            hours_returned = float(hours_return)
 
         if booking.price > 0 and booking.is_paid:
             Transaction.objects.create(
@@ -90,7 +94,10 @@ class CancelBookingView(APIView):
                 description=f"Возврат по отменённой брони #{booking.id}",
             )
 
-        return Response({"status": "Бронирование отменено."})
+        return Response({
+            "status": "Бронирование отменено.",
+            "hours_returned": hours_returned,
+        })
 
 
 # ---------------------------------------------------------------------------
