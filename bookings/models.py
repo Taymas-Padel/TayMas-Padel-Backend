@@ -64,7 +64,16 @@ class Booking(models.Model):
         default=False, 
         verbose_name=_("Оплачено")
     )
-    
+    # Абонемент, с которого списали часы (для возврата часов при отмене)
+    membership_used = models.ForeignKey(
+        'memberships.UserMembership',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='bookings_paid_by_hours',
+        verbose_name=_("Оплачено по абонементу"),
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

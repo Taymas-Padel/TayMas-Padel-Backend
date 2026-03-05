@@ -70,6 +70,16 @@ class CancelBookingView(APIView):
         booking.status = 'CANCELED'
         booking.save(update_fields=['status'])
 
+        # Возврат часов на абонемент, если бронь была оплачена часами
+        if booking.membership_used:
+            from decimal import Decimal
+            membership = booking.membership_used
+            hours_return = Decimal(str(booking.duration_hours))
+            membership.hours_remaining += hours_return
+            if membership.hours_remaining > 0:
+                membership.is_active = True
+            membership.save(update_fields=['hours_remaining', 'is_active'])
+
         if booking.price > 0 and booking.is_paid:
             Transaction.objects.create(
                 user=booking.user,

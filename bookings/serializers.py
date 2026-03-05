@@ -54,7 +54,7 @@ class BookingSerializer(serializers.ModelSerializer):
             'id', 'court', 'court_name', 'user', 'client_name', 'players_for_match',
             'start_time', 'end_time', 'duration_hours', 'price', 'status', 'is_paid',
             'coach', 'coach_name', 'services', 'participants_names',
-            'created_at',
+            'membership_used', 'created_at',
         ]
 
     def _user_display(self, u):
@@ -320,6 +320,7 @@ class CreateBookingSerializer(serializers.ModelSerializer):
                 price=total_price,
                 status=initial_status,
                 is_paid=is_paid,
+                membership_used=active_membership if paid_by_membership else None,
                 **validated_data,
             )
 

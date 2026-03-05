@@ -82,7 +82,7 @@
 | GET | `history/` | История броней (включая отменённые) |
 | GET | `<id>/` | Детали брони |
 | POST | `create/` | Создать бронь (court, start_time, duration, coach?, services?, friends_ids?, promo_code?, payment_method) |
-| POST | `<id>/cancel/` | Отменить бронь |
+| POST | `<id>/cancel/` | Отменить бронь. **При отмене:** если бронь была оплачена часами абонемента (`membership_used` не null), часы автоматически возвращаются на счёт абонемента. |
 | GET | `check-availability/?court_id=&date=` | Занятые слоты на дату |
 | **GET** | **`available-coaches/?datetime=ISO&duration=60`** | **Свободные тренеры в слот** |
 | **POST** | **`price-preview/`** | **Превью цены с абонементом (court_id, start_time, duration, coach_id?, service_ids[])** |
@@ -93,6 +93,8 @@
 | **GET** | **`coach/schedule/?from=YYYY-MM-DD&to=YYYY-MM-DD`** | **Расписание броней тренера (брони, где он назначен). Без параметров — с сегодня по +14 дней.** |
 
 При создании брони услуги передавать как: `"services": [{"service_id": 1, "quantity": 1}]`.
+
+**Ответы GET (список/детали брони)** теперь включают поле **`membership_used`** (id абонемента или `null`): если бронь была оплачена часами PADEL-абонемента, здесь будет id этого абонемента. По нему можно показывать в UI «Оплачено по абонементу» и учитывать, что при отмене часы вернутся на счёт.
 
 ---
 
