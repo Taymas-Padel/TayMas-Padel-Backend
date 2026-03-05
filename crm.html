@@ -1428,6 +1428,7 @@ async function loadAllMemberships(){
   $('mlList').innerHTML=list.length?list.map(m=>{
     const typeName=m.membership_type_name||m.membership_type?.name||'Абонемент';
     const userName=m.user_name||m.user?.username||`User #${m.user}`;
+    const paid = m.is_paid !== false;
     return `<div class="card">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:5px">
         <div>
@@ -1437,6 +1438,7 @@ async function loadAllMemberships(){
         <span style="font-size:9px;padding:2px 7px;border-radius:6px;${m.is_active?'background:var(--gd);color:var(--g)':'background:var(--rd);color:var(--r)'}">${m.is_active?'Активен':'Неактивен'}</span>
       </div>
       <div style="font-size:10px;color:var(--dm);line-height:1.7">
+        🎫 Абонемент · ${paid?'<span style="color:var(--g)">✅ Оплачено</span>':'<span style="color:var(--o)">⏳ Не оплачено</span>'}<br>
         До: ${m.end_date?new Date(m.end_date).toLocaleDateString('ru'):'-'}<br>
         Часов: ${m.hours_remaining??'-'} · Посещений: ${m.visits_remaining??'-'}
         ${m.is_frozen?'<br>❄️ <b>Заморожен</b>':''}
