@@ -1,7 +1,12 @@
 from rest_framework import serializers
+from django.contrib.auth import get_user_model
 from .models import Lead, LeadComment, LeadTask
 
 ASSIGNABLE_ROLES = ['ADMIN', 'RECEPTIONIST', 'SALES_MANAGER']
+
+
+def _assignable_users_queryset():
+    return get_user_model().objects.filter(role__in=ASSIGNABLE_ROLES)
 
 
 class LeadTaskSerializer(serializers.ModelSerializer):
@@ -139,7 +144,7 @@ class LeadDetailSerializer(serializers.ModelSerializer):
 
 class LeadCreateUpdateSerializer(serializers.ModelSerializer):
     assigned_to = serializers.PrimaryKeyRelatedField(
-        queryset=None,
+        queryset=_assignable_users_queryset(),
         allow_null=True,
         required=False,
     )
@@ -150,12 +155,3 @@ class LeadCreateUpdateSerializer(serializers.ModelSerializer):
             'name', 'phone', 'email', 'source', 'stage',
             'notes', 'assigned_to', 'last_contact',
         ]
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        from django.contrib.auth import get_user_model
-        UserModel = get_user_model()
-        if self.fields['assigned_to'].queryset is None:
-            self.fields['assigned_to'].queryset = UserModel.objects.filter(
-                role__in=ASSIGNABLE_ROLES
-            )
