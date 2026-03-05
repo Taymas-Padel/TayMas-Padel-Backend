@@ -46,7 +46,7 @@ class Lead(models.Model):
         null=True,
         blank=True,
         related_name='assigned_leads',
-        limit_choices_to={'role__in': ['ADMIN', 'RECEPTIONIST']},
+        limit_choices_to={'role__in': ['ADMIN', 'RECEPTIONIST', 'SALES_MANAGER']},
         verbose_name="Назначен менеджеру"
     )
 
