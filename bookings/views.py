@@ -12,6 +12,7 @@ from django.db.models import Q
 from decimal import Decimal
 
 from .models import Booking
+from .utils import complete_past_bookings
 from memberships.models import UserMembership
 from inventory.models import Service
 from courts.models import Court
@@ -111,6 +112,7 @@ class UserBookingsListView(generics.ListAPIView):
 
     def get_queryset(self):
         user = self.request.user
+        complete_past_bookings()  # авто-завершение прошедших броней
         if user.role in ['ADMIN', 'RECEPTIONIST']:
             return Booking.objects.all().order_by('-start_time')
         return Booking.objects.filter(
@@ -126,6 +128,7 @@ class UserBookingHistoryView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
+        complete_past_bookings()  # авто-завершение прошедших броней
         user = self.request.user
         return Booking.objects.filter(
             Q(user=user) | Q(participants=user)
