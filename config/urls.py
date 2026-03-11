@@ -92,6 +92,9 @@ urlpatterns = [
     # Лиды / Воронка продаж (CRM)
     path('api/leads/', include('leads.urls')),
 
+    # Чат (личные сообщения между друзьями)
+    path('api/chat/', include('chat.urls')),
+
     path('', home, name='home'),
 ]
 

@@ -71,6 +71,7 @@ INSTALLED_APPS = [
     'notifications.apps.NotificationsConfig',
     'payments.apps.PaymentsConfig',
     'leads.apps.LeadsConfig',
+    'chat.apps.ChatConfig',
 ]
 
 # Настройки DRF

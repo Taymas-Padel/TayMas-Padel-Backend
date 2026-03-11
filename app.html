@@ -325,6 +325,26 @@ body{font-family:'Outfit',sans-serif;background:#0a0c12;color:var(--tx);min-heig
       </div>
     </div>
 
+    <!-- CHAT -->
+    <div id="p-chat" class="pg">
+      <div class="stb">
+        <button class="on" data-cht="chlist" onclick="switchChatTab(this,'chlist')">Диалоги</button>
+        <button data-cht="chdialog" onclick="switchChatTab(this,'chdialog')" id="chatDialogBtn" style="display:none">Диалог</button>
+      </div>
+      <div id="chlist">
+        <button class="b b2" onclick="loadConversations()" style="margin-bottom:8px">🔄 Обновить</button>
+        <div id="convList"></div>
+      </div>
+      <div id="chdialog" style="display:none">
+        <button class="b b2 bsm" onclick="backToConvList()" style="margin-bottom:8px">← Назад</button>
+        <div id="chatCompanion" style="margin-bottom:8px"></div>
+        <div id="chatMessages" style="max-height:400px;overflow-y:auto;margin-bottom:8px;padding:4px"></div>
+        <div class="fg"><textarea id="chatInput" placeholder="Введите сообщение..." rows="2" maxlength="4000"></textarea></div>
+        <button class="b b1" onclick="sendChatMessage()">📤 Отправить</button>
+        <div id="chatSendRes" style="margin-top:4px"></div>
+      </div>
+    </div>
+
     <!-- LOBBY (поиск партнёров) -->
     <div id="p-lobby" class="pg">
       <div class="stb">
@@ -599,6 +619,7 @@ body{font-family:'Outfit',sans-serif;background:#0a0c12;color:var(--tx);min-heig
     <button onclick="nav('membership')"><span class="ic">🎫</span>Абонемент</button>
     <button onclick="nav('gym')"><span class="ic">🏋️</span>Зал</button>
     <button onclick="nav('friends')"><span class="ic">👥</span>Друзья</button>
+    <button onclick="nav('chat')"><span class="ic">💬</span>Чат<span class="bcnt hidden" id="chatBadge" style="background:var(--r);color:#fff;padding:0 4px;border-radius:8px;margin-left:2px;font-size:8px;font-weight:700">0</span></button>
     <button onclick="nav('profile')"><span class="ic">👤</span>Профиль</button>
     <button onclick="nav('notifications')" id="ntfNavBtn"><span class="ic">🔔</span>Оповещ.</button>
   </div>
@@ -634,6 +655,7 @@ function nav(p){
     if($('coachContent'))$('coachContent').style.display=isC?'block':'none';
     if(isC){ loadCoachSchedule(); loadCoachMatches(); }
   }
+  if(p==='chat'){ loadConversations(); loadChatBadge(); stopChatPolling(); }
   if(p==='notifications'){ loadNotifications(); loadUnreadCount(); }
   if(p==='gym'){ updateGymQrUI(); }
   if(p==='lobby'){
@@ -1218,7 +1240,7 @@ async function loadFriends(){
   const r=await api('GET','/api/friends/');
   const c=$('friendsList');
   if(!r.ok){showErr('friendsList',r.data);return;}
-  c.innerHTML=r.data.length?r.data.map(u=>`<div class="ur"><div class="av">${uI(u)}</div><div class="inf"><div class="nm">${esc(uN(u))}</div><div class="sub">@${esc(u.username)}</div></div><div class="acts"><button class="bsm br" onclick="removeFriend(${u.id})">Удалить</button></div></div>`).join(''):'<div class="al al-w">Нет друзей. Найдите в поиске!</div>';
+  c.innerHTML=r.data.length?r.data.map(u=>`<div class="ur"><div class="av">${uI(u)}</div><div class="inf"><div class="nm">${esc(uN(u))}</div><div class="sub">@${esc(u.username)}</div></div><div class="acts"><button class="bsm bv" onclick="startChat(${u.id})">💬</button><button class="bsm br" onclick="removeFriend(${u.id})">Удалить</button></div></div>`).join(''):'<div class="al al-w">Нет друзей. Найдите в поиске!</div>';
 }
 async function searchUsers(){
   if(!AT)return alert('Войдите');
@@ -2221,6 +2243,158 @@ async function deleteAccount(){
     setTimeout(() => nav('login'), 1500);
   } else {
     el.innerHTML = `<div class="al al-e">❌ ${esc(JSON.stringify(r.data))}</div>`;
+  }
+}
+
+// ============ CHAT ============
+let _chatConvId=null, _chatLastMsgId=null, _chatPollTimer=null;
+
+function switchChatTab(btn,id){
+  document.querySelectorAll('[data-cht]').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  ['chlist','chdialog'].forEach(x=>{const e=$(x);if(e)e.style.display=x===id?'block':'none'});
+}
+
+function stopChatPolling(){ if(_chatPollTimer){clearInterval(_chatPollTimer);_chatPollTimer=null;} }
+
+function backToConvList(){
+  stopChatPolling();
+  _chatConvId=null;
+  $('chatDialogBtn').style.display='none';
+  switchChatTab($('chatDialogBtn').previousElementSibling,'chlist');
+  document.querySelector('[data-cht="chlist"]').classList.add('on');
+  loadConversations();
+}
+
+async function loadChatBadge(){
+  if(!AT)return;
+  const r=await api('GET','/api/chat/unread-count/');
+  const b=$('chatBadge');
+  if(r.ok&&r.data.unread_count>0){b.textContent=r.data.unread_count;b.classList.remove('hidden');}
+  else b.classList.add('hidden');
+}
+
+async function loadConversations(){
+  if(!AT)return alert('Войдите');
+  const r=await api('GET','/api/chat/conversations/');
+  const c=$('convList');
+  if(!r.ok){showErr('convList',r.data);return;}
+  if(!r.data.length){c.innerHTML='<div class="al al-w">Нет диалогов. Нажмите 💬 у друга, чтобы начать!</div>';return;}
+  c.innerHTML=r.data.map(cv=>{
+    const comp=cv.companion;
+    const lm=cv.last_message;
+    const unr=cv.unread_count;
+    const preview=lm?esc(lm.text.length>40?lm.text.slice(0,40)+'…':lm.text):'<i style="color:var(--dm)">нет сообщений</i>';
+    const timeStr=lm?new Date(lm.created_at).toLocaleTimeString('ru',{hour:'2-digit',minute:'2-digit'}):'';
+    const badge=unr>0?`<span style="background:var(--r);color:#fff;padding:1px 6px;border-radius:10px;font-size:10px;font-weight:700">${unr}</span>`:'';
+    return `<div class="ur" style="cursor:pointer" onclick="openConversation(${cv.id})">
+      <div class="av">${(comp.full_name||'?')[0].toUpperCase()}</div>
+      <div class="inf">
+        <div class="nm">${esc(comp.full_name||'User#'+comp.id)}</div>
+        <div class="sub" style="display:flex;align-items:center;gap:4px">${preview} <span style="color:var(--dm);font-size:8px">${timeStr}</span></div>
+      </div>
+      <div class="acts">${badge}</div>
+    </div>`;
+  }).join('');
+}
+
+async function startChat(userId){
+  if(!AT)return alert('Войдите');
+  const r=await api('POST','/api/chat/conversations/start/',{user_id:userId});
+  if(!r.ok){alert('❌ '+(r.data.detail||JSON.stringify(r.data)));return;}
+  nav('chat');
+  openConversation(r.data.id);
+}
+
+async function openConversation(convId){
+  stopChatPolling();
+  _chatConvId=convId;
+  _chatLastMsgId=null;
+  $('chatDialogBtn').style.display='';
+  switchChatTab($('chatDialogBtn'),'chdialog');
+  $('chatMessages').innerHTML='<div class="al al-i">Загрузка…</div>';
+  $('chatSendRes').innerHTML='';
+
+  const convR=await api('GET','/api/chat/conversations/');
+  if(convR.ok){
+    const cv=convR.data.find(c=>c.id===convId);
+    if(cv){
+      const comp=cv.companion;
+      $('chatCompanion').innerHTML=`<div class="ur"><div class="av">${(comp.full_name||'?')[0].toUpperCase()}</div><div class="inf"><div class="nm">${esc(comp.full_name||'User#'+comp.id)}</div><div class="sub">${esc(comp.phone_number||'')}</div></div></div>`;
+    }
+  }
+
+  await loadMessages(false);
+  await api('POST',`/api/chat/conversations/${convId}/read/`);
+  loadChatBadge();
+
+  _chatPollTimer=setInterval(async()=>{
+    await loadMessages(true);
+    await api('POST',`/api/chat/conversations/${convId}/read/`);
+  },2000);
+}
+
+async function loadMessages(delta){
+  if(!_chatConvId)return;
+  let url=`/api/chat/conversations/${_chatConvId}/messages/`;
+  if(delta&&_chatLastMsgId) url+=`?after=${_chatLastMsgId}`;
+  else url+='?limit=100';
+  const r=await api('GET',url);
+  if(!r.ok)return;
+  const msgs=r.data;
+  if(!msgs.length&&!delta){$('chatMessages').innerHTML='<div class="al al-w" style="text-align:center">Нет сообщений — начните переписку!</div>';return;}
+  if(!msgs.length)return;
+
+  if(!delta) $('chatMessages').innerHTML='';
+  const box=$('chatMessages');
+  msgs.forEach(m=>{
+    _chatLastMsgId=m.id;
+    const mine=m.sender_id===UID;
+    const t=new Date(m.created_at).toLocaleTimeString('ru',{hour:'2-digit',minute:'2-digit'});
+    box.insertAdjacentHTML('beforeend',`<div style="display:flex;justify-content:${mine?'flex-end':'flex-start'};margin-bottom:6px">
+      <div style="max-width:75%;padding:8px 11px;border-radius:${mine?'12px 12px 2px 12px':'12px 12px 12px 2px'};background:${mine?'rgba(34,211,238,.15)':'var(--s2)'};border:1px solid ${mine?'rgba(34,211,238,.25)':'var(--bd)'}">
+        <div style="font-size:12px;color:var(--tx);word-break:break-word">${esc(m.text)}</div>
+        <div style="font-size:8px;color:var(--dm);text-align:right;margin-top:2px">${t}${mine?(m.is_read?' ✓✓':' ✓'):''}</div>
+      </div>
+    </div>`);
+  });
+  box.scrollTop=box.scrollHeight;
+}
+
+async function sendChatMessage(){
+  if(!AT)return alert('Войдите');
+  if(!_chatConvId)return alert('Откройте диалог');
+  const inp=$('chatInput');
+  const text=inp.value.trim();
+  if(!text)return;
+  inp.value='';
+
+  const box=$('chatMessages');
+  const noMsg=box.querySelector('.al');
+  if(noMsg)noMsg.remove();
+  const t=new Date().toLocaleTimeString('ru',{hour:'2-digit',minute:'2-digit'});
+  box.insertAdjacentHTML('beforeend',`<div id="tmpMsg" style="display:flex;justify-content:flex-end;margin-bottom:6px;opacity:.5">
+    <div style="max-width:75%;padding:8px 11px;border-radius:12px 12px 2px 12px;background:rgba(34,211,238,.15);border:1px solid rgba(34,211,238,.25)">
+      <div style="font-size:12px;color:var(--tx);word-break:break-word">${esc(text)}</div>
+      <div style="font-size:8px;color:var(--dm);text-align:right;margin-top:2px">${t} ⏳</div>
+    </div>
+  </div>`);
+  box.scrollTop=box.scrollHeight;
+
+  const r=await api('POST',`/api/chat/conversations/${_chatConvId}/send/`,{text});
+  const tmp=$('tmpMsg');
+  if(tmp)tmp.remove();
+  if(r.ok){
+    _chatLastMsgId=r.data.id;
+    box.insertAdjacentHTML('beforeend',`<div style="display:flex;justify-content:flex-end;margin-bottom:6px">
+      <div style="max-width:75%;padding:8px 11px;border-radius:12px 12px 2px 12px;background:rgba(34,211,238,.15);border:1px solid rgba(34,211,238,.25)">
+        <div style="font-size:12px;color:var(--tx);word-break:break-word">${esc(r.data.text)}</div>
+        <div style="font-size:8px;color:var(--dm);text-align:right;margin-top:2px">${new Date(r.data.created_at).toLocaleTimeString('ru',{hour:'2-digit',minute:'2-digit'})} ✓</div>
+      </div>
+    </div>`);
+    box.scrollTop=box.scrollHeight;
+  } else {
+    showErr('chatSendRes',r.data.detail||r.data);
   }
 }
 
