@@ -85,7 +85,7 @@ class ScanQREntryView(APIView):
                 is_active=True,
                 is_frozen=False,
                 end_date__gte=now,
-                membership_type__service_type='PADEL'
+                membership_type__service_type__in=['PADEL_HOURS', 'TRAINING_HOURS', 'VIP'],
             ).exists()
 
             if has_padel_membership:
@@ -117,11 +117,13 @@ class ScanQREntryView(APIView):
                 user=user,
                 is_active=True,
                 is_frozen=False,
-                membership_type__service_type__in=['GYM_UNLIMITED', 'GYM_PACK']
+                membership_type__service_type__in=['GYM', 'VIP'],
             ).first()
 
             if gym_sub:
-                if gym_sub.membership_type.service_type == 'GYM_PACK':
+                has_visits_limit = gym_sub.membership_type.total_visits > 0
+
+                if has_visits_limit:
                     if gym_sub.visits_remaining > 0:
                         if location == 'GYM':
                             gym_sub.visits_remaining -= 1
@@ -131,8 +133,7 @@ class ScanQREntryView(APIView):
                         messages.append(f"Зал: пакет (осталось: {gym_sub.visits_remaining})")
                     else:
                         messages.append("Зал: пакет посещений исчерпан")
-
-                elif gym_sub.membership_type.service_type == 'GYM_UNLIMITED':
+                else:
                     if gym_sub.end_date >= now:
                         if location == 'GYM':
                             GymVisit.objects.create(user=user, checkin_type='SUBSCRIPTION')
@@ -183,42 +184,36 @@ class GymCheckInView(APIView):
         ONE_TIME_PRICE = 3000
 
         # 1. Проверяем безлимит
-        unlimited_sub = UserMembership.objects.filter(
+        gym_sub = UserMembership.objects.filter(
             user=user,
             is_active=True,
             is_frozen=False,
-            membership_type__service_type='GYM_UNLIMITED',
-            end_date__gte=now
+            membership_type__service_type__in=['GYM', 'VIP'],
+            end_date__gte=now,
         ).first()
 
-        if unlimited_sub:
-            GymVisit.objects.create(user=user, checkin_type='SUBSCRIPTION')
-            return Response({
-                "status": "ACCESS_GRANTED",
-                "type": "SUBSCRIPTION",
-                "message": f"Вход по абонементу: {unlimited_sub.membership_type.name}",
-                "valid_until": timezone.localtime(unlimited_sub.end_date).strftime('%d.%m.%Y')
-            })
+        if gym_sub:
+            has_visits_limit = gym_sub.membership_type.total_visits > 0
 
-        # 2. Проверяем пакет посещений
-        pack_sub = UserMembership.objects.filter(
-            user=user,
-            is_active=True,
-            is_frozen=False,
-            membership_type__service_type='GYM_PACK',
-            visits_remaining__gt=0
-        ).first()
-
-        if pack_sub:
-            pack_sub.visits_remaining -= 1
-            pack_sub.save()
-            GymVisit.objects.create(user=user, checkin_type='SUBSCRIPTION')
-            return Response({
-                "status": "ACCESS_GRANTED",
-                "type": "PACK",
-                "message": f"Вход по пакету: {pack_sub.membership_type.name}",
-                "visits_remaining": pack_sub.visits_remaining
-            })
+            if has_visits_limit:
+                if gym_sub.visits_remaining > 0:
+                    gym_sub.visits_remaining -= 1
+                    gym_sub.save()
+                    GymVisit.objects.create(user=user, checkin_type='SUBSCRIPTION')
+                    return Response({
+                        "status": "ACCESS_GRANTED",
+                        "type": "PACK",
+                        "message": f"Вход по пакету: {gym_sub.membership_type.name}",
+                        "visits_remaining": gym_sub.visits_remaining,
+                    })
+            else:
+                GymVisit.objects.create(user=user, checkin_type='SUBSCRIPTION')
+                return Response({
+                    "status": "ACCESS_GRANTED",
+                    "type": "SUBSCRIPTION",
+                    "message": f"Вход по абонементу: {gym_sub.membership_type.name}",
+                    "valid_until": timezone.localtime(gym_sub.end_date).strftime('%d.%m.%Y'),
+                })
 
         # 3. Разовый платеж (ИСПРАВЛЕНО: правильный transaction_type)
         Transaction.objects.create(

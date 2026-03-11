@@ -534,17 +534,20 @@ class AvailableCoachesView(APIView):
 class BookingPricePreviewView(APIView):
     """
     POST /api/bookings/price-preview/
-    Тело: court_id, start_time (ISO), duration, coach_id?, service_ids (список id).
-    Возвращает: total, breakdown, membership_applied, hours_remaining_after.
+    Тело: court_id, start_time (ISO), duration, coach_id?, service_ids, friends_ids.
+    Возвращает: total, breakdown, membership info, prime-time surcharge.
     """
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
+        from bookings.serializers import _find_best_membership
+
         court_id = request.data.get('court_id')
         start_time_str = request.data.get('start_time')
         duration = int(request.data.get('duration', 60))
         coach_id = request.data.get('coach_id')
         service_ids = request.data.get('service_ids') or []
+        friends_ids = request.data.get('friends_ids') or []
 
         if not court_id or not start_time_str:
             return Response(
@@ -562,27 +565,34 @@ class BookingPricePreviewView(APIView):
         end_time = start_time + timedelta(minutes=duration)
         hours = Decimal(str(duration / 60))
         user = request.user
+        participant_count = 1 + len(friends_ids)
 
-        # Абонемент PADEL
-        active_membership = UserMembership.objects.filter(
+        active_membership = _find_best_membership(
             user=user,
-            is_active=True,
-            is_frozen=False,
-            end_date__gte=timezone.now(),
-            hours_remaining__gte=hours,
-            membership_type__service_type='PADEL',
-        ).order_by('end_date').first()
+            hours=hours,
+            court=court,
+            participant_count=participant_count,
+            need_coach=bool(coach_id),
+        )
 
         paid_by_membership = bool(active_membership)
         hours_remaining_after = None
+        prime_surcharge = Decimal('0')
+        prime_hours_val = Decimal('0')
+        coach_covered = False
+
         if active_membership:
             hours_remaining_after = float(active_membership.hours_remaining) - float(hours)
+            mt = active_membership.membership_type
+            prime_surcharge, prime_hours_val = mt.calc_prime_surcharge(start_time, end_time)
+            if mt.includes_coach and coach_id:
+                coach_covered = True
 
         base_court = Decimal(str(court.price_per_hour)) * hours
         final_court = Decimal('0') if paid_by_membership else base_court
 
         coach_price = Decimal('0')
-        if coach_id:
+        if coach_id and not coach_covered:
             coach = User.objects.filter(
                 id=coach_id,
                 role__in=['COACH_PADEL', 'COACH_FITNESS'],
@@ -598,17 +608,30 @@ class BookingPricePreviewView(APIView):
             except Service.DoesNotExist:
                 pass
 
-        total = final_court + coach_price + services_price
+        total = final_court + coach_price + services_price + prime_surcharge
         breakdown = {
             "court": float(final_court),
             "coach": float(coach_price),
             "services": float(services_price),
+            "prime_time_surcharge": float(prime_surcharge),
         }
 
-        return Response({
+        resp = {
             "total": float(total),
             "breakdown": breakdown,
             "membership_applied": paid_by_membership,
-            "hours_remaining_after": round(hours_remaining_after, 1) if hours_remaining_after is not None else None,
             "membership_name": active_membership.membership_type.name if active_membership else None,
-        })
+            "hours_remaining_after": round(hours_remaining_after, 1) if hours_remaining_after is not None else None,
+            "coach_covered_by_membership": coach_covered,
+        }
+
+        if prime_surcharge > 0 and active_membership:
+            mt = active_membership.membership_type
+            resp["prime_time_info"] = {
+                "priority_window": f"{mt.priority_time_start.strftime('%H:%M')}-{mt.priority_time_end.strftime('%H:%M')}",
+                "surcharge_per_hour": float(mt.prime_time_surcharge),
+                "prime_hours": float(prime_hours_val),
+                "surcharge_total": float(prime_surcharge),
+            }
+
+        return Response(resp)

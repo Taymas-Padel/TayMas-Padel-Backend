@@ -67,7 +67,6 @@ class BookingSerializer(serializers.ModelSerializer):
         return self._user_display(obj.user)
 
     def get_players_for_match(self, obj):
-        """Список игроков брони для выбора в матч: клиент + участники. [{id, name}, ...]"""
         out = []
         if obj.user:
             out.append({"id": obj.user.id, "name": self._user_display(obj.user)})
@@ -87,7 +86,6 @@ class BookingSerializer(serializers.ModelSerializer):
 # ---------------------------------------------------------------------------
 
 class BookingServiceInputSerializer(serializers.Serializer):
-    """Принимаем service_id или service (для совместимости с фронтом)."""
     service_id = serializers.IntegerField(required=False)
     service = serializers.IntegerField(required=False)
     quantity = serializers.IntegerField(default=1, min_value=1)
@@ -98,6 +96,39 @@ class BookingServiceInputSerializer(serializers.Serializer):
             raise serializers.ValidationError({"service_id": "Обязательное поле."})
         data['service_id'] = int(sid)
         return data
+
+
+def _find_best_membership(user, hours, court=None, participant_count=1,
+                          need_coach=False):
+    """
+    Подбирает лучший абонемент для брони.
+    Приоритет: TRAINING_HOURS (если нужен тренер) > PADEL_HOURS > ничего.
+    """
+    base_qs = UserMembership.objects.filter(
+        user=user,
+        is_active=True,
+        is_frozen=False,
+        end_date__gte=timezone.now(),
+        hours_remaining__gte=hours,
+    ).select_related('membership_type').order_by('end_date')
+
+    if need_coach:
+        training = base_qs.filter(
+            membership_type__service_type='TRAINING_HOURS',
+            membership_type__includes_coach=True,
+        )
+        for m in training:
+            if m.can_cover_booking(hours, court, participant_count):
+                return m
+
+    padel = base_qs.filter(
+        membership_type__service_type='PADEL_HOURS',
+    )
+    for m in padel:
+        if m.can_cover_booking(hours, court, participant_count):
+            return m
+
+    return None
 
 
 class CreateBookingSerializer(serializers.ModelSerializer):
@@ -116,10 +147,10 @@ class CreateBookingSerializer(serializers.ModelSerializer):
     )
     services = BookingServiceInputSerializer(many=True, required=False, write_only=True)
     friends_ids = serializers.ListField(
-        child=serializers.IntegerField(), required=False, write_only=True
+        child=serializers.IntegerField(), required=False, write_only=True,
     )
     participants_names = serializers.SlugRelatedField(
-        many=True, read_only=True, slug_field='username', source='participants'
+        many=True, read_only=True, slug_field='username', source='participants',
     )
 
     class Meta:
@@ -140,18 +171,15 @@ class CreateBookingSerializer(serializers.ModelSerializer):
 
         end_time = start_time + timedelta(minutes=duration)
 
-        # 1. Нельзя в прошлое
         if start_time < timezone.now():
             raise serializers.ValidationError("Нельзя забронировать время в прошлом.")
 
-        # 2. Выходной/праздник
         closed = ClosedDay.objects.filter(date=start_time.date()).first()
         if closed:
             raise serializers.ValidationError(
                 f"В этот день клуб закрыт: {closed.reason or 'санитарный день'}."
             )
 
-        # 3. График работы
         open_s = ClubSetting.objects.filter(key='OPEN_TIME').first()
         close_s = ClubSetting.objects.filter(key='CLOSE_TIME').first()
         open_h = int(open_s.value.split(':')[0]) if open_s else 7
@@ -167,7 +195,6 @@ class CreateBookingSerializer(serializers.ModelSerializer):
                 f"Игра заканчивается в {end_time.strftime('%H:%M')}, клуб закрывается в {close_h}:00."
             )
 
-        # 4. Занятость корта
         if Booking.objects.filter(
             court=court,
             status__in=['CONFIRMED', 'PENDING'],
@@ -176,7 +203,6 @@ class CreateBookingSerializer(serializers.ModelSerializer):
         ).exists():
             raise serializers.ValidationError("Корт уже занят в это время.")
 
-        # 5. Занятость тренера
         if coach and Booking.objects.filter(
             coach=coach,
             status__in=['CONFIRMED', 'PENDING'],
@@ -187,7 +213,6 @@ class CreateBookingSerializer(serializers.ModelSerializer):
                 f"Тренер {coach.first_name or coach.username} уже занят."
             )
 
-        # 6. Друзья — не более 3, только реальные друзья
         friends_ids = data.get('friends_ids', [])
         request = self.context.get('request')
         if request:
@@ -197,7 +222,6 @@ class CreateBookingSerializer(serializers.ModelSerializer):
             if len(friends_ids) > 3:
                 raise serializers.ValidationError("Максимум 3 участника.")
 
-            # Проверяем, что все добавленные пользователи — друзья
             if friends_ids:
                 from django.db.models import Q as DQ
                 real_friend_ids = set()
@@ -231,31 +255,43 @@ class CreateBookingSerializer(serializers.ModelSerializer):
         user = validated_data['user']
 
         hours = Decimal(str((end_time - validated_data['start_time']).total_seconds() / 3600))
+        participant_count = 1 + len(friends_ids)
 
-        # --- 1. Абонемент (только PADEL тип) ---
-        active_membership = UserMembership.objects.filter(
+        # --- 1. Подбор абонемента ---
+        active_membership = _find_best_membership(
             user=user,
-            is_active=True,
-            is_frozen=False,
-            end_date__gte=timezone.now(),
-            hours_remaining__gte=hours,
-            membership_type__service_type='PADEL',
-        ).order_by('end_date').first()
+            hours=hours,
+            court=court,
+            participant_count=participant_count,
+            need_coach=bool(coach),
+        )
 
-        paid_by_membership = False
+        paid_by_membership = bool(active_membership)
+        coach_covered = False
+        prime_surcharge = Decimal('0')
+        prime_hours = Decimal('0')
+
         if active_membership:
             active_membership.hours_remaining -= hours
             if active_membership.hours_remaining <= 0:
                 active_membership.is_active = False
             active_membership.save()
-            paid_by_membership = True
+
+            mt = active_membership.membership_type
+
+            if mt.includes_coach and coach:
+                coach_covered = True
+
+            prime_surcharge, prime_hours = mt.calc_prime_surcharge(
+                validated_data['start_time'], end_time,
+            )
 
         # --- 2. Расчёт цены ---
         base_court_price = Decimal(str(court.price_per_hour)) * hours
         final_court_price = Decimal('0') if paid_by_membership else base_court_price
 
         final_coach_price = Decimal('0')
-        if coach:
+        if coach and not coach_covered:
             final_coach_price = Decimal(str(coach.price_per_hour)) * hours
 
         services_price = Decimal('0')
@@ -268,11 +304,13 @@ class CreateBookingSerializer(serializers.ModelSerializer):
             qty = item['quantity']
             cost = Decimal(str(svc.price)) * qty
             services_price += cost
-            services_to_create.append({'service': svc, 'quantity': qty, 'price_at_moment': svc.price})
+            services_to_create.append({
+                'service': svc, 'quantity': qty, 'price_at_moment': svc.price,
+            })
 
-        total_price = final_court_price + final_coach_price + services_price
+        total_price = final_court_price + final_coach_price + services_price + prime_surcharge
 
-        # --- 3. Лояльность (скидка через gym-абонемент) ---
+        # --- 3. Лояльность (скидка через абонемент) ---
         discount_loyalty = Decimal('0')
         if not paid_by_membership and final_court_price > 0:
             gym_mem = UserMembership.objects.filter(
@@ -310,16 +348,15 @@ class CreateBookingSerializer(serializers.ModelSerializer):
 
         total_discount = discount_loyalty + discount_promo
 
-        # --- 5. Создаём бронь (одним сохранением!) ---
+        # --- 5. Создаём бронь ---
         initial_status = 'CONFIRMED' if (total_price == 0 and paid_by_membership) else 'PENDING'
-        is_paid = False
 
         with db_transaction.atomic():
             booking = Booking.objects.create(
                 end_time=end_time,
                 price=total_price,
                 status=initial_status,
-                is_paid=is_paid,
+                is_paid=False,
                 membership_used=active_membership if paid_by_membership else None,
                 **validated_data,
             )
@@ -335,15 +372,24 @@ class CreateBookingSerializer(serializers.ModelSerializer):
                     price_at_moment=svc_data['price_at_moment'],
                 )
 
-            # 6. Транзакция (только если что-то платить деньгами)
             if total_price > 0:
                 desc_parts = []
                 if paid_by_membership:
-                    desc_parts.append(f"Корт {court.name} (абонемент, -{float(hours):.1f}ч)")
+                    mem_name = active_membership.membership_type.name
+                    desc_parts.append(
+                        f"Корт {court.name} (абонемент «{mem_name}», -{float(hours):.1f}ч)"
+                    )
+                    if prime_surcharge > 0:
+                        desc_parts.append(
+                            f"Доплата прайм-тайм: {prime_surcharge}₸ ({float(prime_hours):.1f}ч)"
+                        )
                 else:
                     desc_parts.append(f"Корт {court.name}")
                 if coach:
-                    desc_parts.append(f"Тренер: {coach.first_name or coach.username}")
+                    if coach_covered:
+                        desc_parts.append(f"Тренер: {coach.first_name or coach.username} (по абонементу)")
+                    else:
+                        desc_parts.append(f"Тренер: {coach.first_name or coach.username}")
                 if services_to_create:
                     items = [f"{s['service'].name}×{s['quantity']}" for s in services_to_create]
                     desc_parts.append(f"Инвентарь: {', '.join(items)}")
@@ -363,7 +409,6 @@ class CreateBookingSerializer(serializers.ModelSerializer):
                     description=', '.join(desc_parts),
                 )
 
-                # Финальное обновление статуса
                 booking.status = 'CONFIRMED'
                 booking.is_paid = True
                 booking.save(update_fields=['status', 'is_paid'])
