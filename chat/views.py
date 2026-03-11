@@ -8,6 +8,7 @@ from django.contrib.auth import get_user_model
 from .models import Conversation, Message
 from .serializers import ConversationSerializer, MessageSerializer
 from friends.models import FriendRequest
+from notifications.models import send_notification
 
 User = get_user_model()
 
@@ -114,6 +115,17 @@ class SendMessageView(APIView):
 
         msg = Message.objects.create(conversation=conv, sender=user, text=text)
         conv.save(update_fields=['updated_at'])
+
+        recipient = conv.user2 if conv.user1_id == user.id else conv.user1
+        sender_name = f'{user.first_name} {user.last_name}'.strip() or user.phone_number or user.username
+        preview = text[:80] + ('…' if len(text) > 80 else '')
+        send_notification(
+            user=recipient,
+            notification_type='MESSAGE',
+            title=f'Сообщение от {sender_name}',
+            body=preview,
+            data={'conversation_id': conv.id, 'message_id': msg.id, 'sender_id': user.id},
+        )
 
         data = MessageSerializer(msg).data
         return Response(data, status=status.HTTP_201_CREATED)

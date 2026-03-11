@@ -14,6 +14,7 @@ class Notification(models.Model):
         PROMO = 'PROMO', 'Акция'
         NEWS = 'NEWS', 'Новость'
         PAYMENT = 'PAYMENT', 'Оплата'
+        MESSAGE = 'MESSAGE', 'Сообщение'
         SYSTEM = 'SYSTEM', 'Система'
 
     user = models.ForeignKey(
