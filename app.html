@@ -1068,11 +1068,40 @@ function updateBookingTotal(){
     }).then(r=>r.json()).then(d=>{
       const total=d.total!=null?d.total:(courtPrice+coachPrice+servicesPrice);
       preview.style.display='block';
-      $('bPriceLines').innerHTML=lines.join('<br>')+
-        (d.membership_applied?`<br><span class="cv-g">🎫 По абонементу «${esc(d.membership_name||'')}»</span>`:'')+
-        (d.hours_remaining_after!=null?`<br><span class="cv-g">Часов останется: ${d.hours_remaining_after}</span>`:'');
+
+      const br=d.breakdown||{};
+      let finalLines=[];
+
+      if(Object.keys(br).length){
+        if(br.court>0) finalLines.push(`🎾 Корт ${dur} мин: ${fmtMoney(br.court)}`);
+        if(br.coach>0) finalLines.push(`👨‍🏫 Тренер ${dur} мин: ${fmtMoney(br.coach)}`);
+        if(br.services>0) finalLines.push(`📦 Услуги и инвентарь: ${fmtMoney(br.services)}`);
+        if(br.prime_time_surcharge>0) finalLines.push(`⏰ Прайм-тайм: +${fmtMoney(br.prime_time_surcharge)}`);
+      } else {
+        finalLines = [...lines];
+      }
+
+      if(d.membership_applied){
+        finalLines.push(`<span class="cv-g">🎫 По абонементу «${esc(d.membership_name||'')}»</span>`);
+        if(d.coach_covered_by_membership){
+          finalLines.push('<span class="cv-g">👨‍🏫 Тренер включён в абонемент</span>');
+        }
+      }
+      if(d.hours_remaining_after!=null){
+        finalLines.push(`<span class="cv-g">Часов останется: ${d.hours_remaining_after}</span>`);
+      }
+      if(d.prime_time_info){
+        finalLines.push(
+          `<span class="cv-r">⏰ Прайм-тайм: за пределами ${esc(d.prime_time_info.priority_window)}, `+
+          `доплата ${fmtMoney(d.prime_time_info.surcharge_total)} (${d.prime_time_info.prime_hours} ч)</span>`
+        );
+      }
+
+      $('bPriceLines').innerHTML=finalLines.join('<br>');
       $('bPriceTotal').textContent=fmtMoney(total);
-      if(d.membership_applied&&total===0) $('bPriceTotal').innerHTML='<span class="cv-g">0₸ (абонемент)</span>';
+      if(d.membership_applied&&total===0&&!d.prime_time_info){
+        $('bPriceTotal').innerHTML='<span class="cv-g">0₸ (абонемент)</span>';
+      }
     }).catch(()=>{
       const total=courtPrice+coachPrice+servicesPrice;
       preview.style.display=total>0?'block':'none';
