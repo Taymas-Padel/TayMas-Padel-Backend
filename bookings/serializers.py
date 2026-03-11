@@ -8,6 +8,7 @@ from django.contrib.auth import get_user_model
 from inventory.models import Service
 from finance.models import Transaction
 from core.models import ClubSetting, ClosedDay
+from core.utils import get_club_work_hours
 from memberships.models import UserMembership
 from decimal import Decimal
 from marketing.models import Promotion
@@ -180,19 +181,22 @@ class CreateBookingSerializer(serializers.ModelSerializer):
                 f"В этот день клуб закрыт: {closed.reason or 'санитарный день'}."
             )
 
-        open_s = ClubSetting.objects.filter(key='OPEN_TIME').first()
-        close_s = ClubSetting.objects.filter(key='CLOSE_TIME').first()
-        open_h = int(open_s.value.split(':')[0]) if open_s else 7
-        close_h = int(close_s.value.split(':')[0]) if close_s else 23
+        open_h, close_h, close_at_midnight = get_club_work_hours()
 
         club_open = start_time.replace(hour=open_h, minute=0, second=0, microsecond=0)
-        club_close = start_time.replace(hour=close_h, minute=0, second=0, microsecond=0)
+        if close_at_midnight:
+            # 00:00 = закрытие в полночь (конец рабочего дня = начало следующего дня 00:00)
+            club_close = (start_time.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1))
+        else:
+            club_close = start_time.replace(hour=close_h, minute=0, second=0, microsecond=0)
+
+        close_label = "24:00 (полночь)" if close_at_midnight else f"{close_h}:00"
 
         if start_time < club_open:
             raise serializers.ValidationError(f"Клуб открывается в {open_h}:00.")
         if end_time > club_close:
             raise serializers.ValidationError(
-                f"Игра заканчивается в {end_time.strftime('%H:%M')}, клуб закрывается в {close_h}:00."
+                f"Игра заканчивается в {end_time.strftime('%H:%M')}, клуб закрывается в {close_label}."
             )
 
         if Booking.objects.filter(

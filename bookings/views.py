@@ -25,6 +25,7 @@ from .serializers import (
 from finance.models import Transaction
 from courts.models import Court
 from core.models import ClubSetting, ClosedDay
+from core.utils import get_club_work_hours, work_hours_display_string
 from users.permissions import IsReceptionist, IsAdminRole
 from django.contrib.auth import get_user_model
 from drf_yasg.utils import swagger_auto_schema
@@ -366,13 +367,13 @@ class CheckAvailabilityView(APIView):
                 "busy_slots": [],
             })
 
-        open_s = ClubSetting.objects.filter(key='OPEN_TIME').first()
-        close_s = ClubSetting.objects.filter(key='CLOSE_TIME').first()
-        open_h = int(open_s.value.split(':')[0]) if open_s else 7
-        close_h = int(close_s.value.split(':')[0]) if close_s else 23
+        open_h, close_h, close_at_midnight = get_club_work_hours()
 
         day_start = make_aware(datetime.combine(date_obj, time(open_h, 0)))
-        day_end = make_aware(datetime.combine(date_obj, time(close_h, 0)))
+        if close_at_midnight:
+            day_end = make_aware(datetime.combine(date_obj + timedelta(days=1), time(0, 0)))
+        else:
+            day_end = make_aware(datetime.combine(date_obj, time(close_h, 0)))
 
         bookings = Booking.objects.filter(
             court_id=court_id,
@@ -393,7 +394,7 @@ class CheckAvailabilityView(APIView):
         return Response({
             "court_id": court_id,
             "date": date_obj,
-            "work_hours": f"{open_h}:00 – {close_h}:00",
+            "work_hours": work_hours_display_string(open_h, close_h, close_at_midnight),
             "is_holiday": False,
             "busy_slots": sorted(busy_slots, key=lambda x: x['start']),
         })
