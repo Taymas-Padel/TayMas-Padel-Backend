@@ -10,6 +10,7 @@ from courts.models import Court
 from finance.models import Transaction
 from users.permissions import IsReceptionist, IsAdminRole
 from core.models import ClubSetting
+from core.utils import get_club_work_hours, work_hours_display_string
 
 
 class DirectorDashboardView(APIView):
@@ -61,12 +62,9 @@ class DirectorDashboardView(APIView):
                 })
 
         # --- 3. Загрузка кортов сегодня ---
-        # ИСПРАВЛЕНО: берём рабочее время из ClubSetting
-        open_s = ClubSetting.objects.filter(key='OPEN_TIME').first()
-        close_s = ClubSetting.objects.filter(key='CLOSE_TIME').first()
-        open_h = int(open_s.value.split(':')[0]) if open_s else 7
-        close_h = int(close_s.value.split(':')[0]) if close_s else 23
-        work_minutes_per_day = (close_h - open_h) * 60
+        open_h, close_h, close_at_midnight = get_club_work_hours()
+        effective_close_h = 24 if close_at_midnight else close_h
+        work_minutes_per_day = (effective_close_h - open_h) * 60
 
         bookings_today = Booking.objects.filter(
             start_time__gte=today_start,
@@ -122,7 +120,7 @@ class DirectorDashboardView(APIView):
                 "new_clients_this_month": new_clients_month,
             },
             "revenue_structure": revenue_structure,
-            "work_hours": f"{open_h}:00 – {close_h}:00",
+            "work_hours": work_hours_display_string(open_h, close_h, close_at_midnight),
         })
 
 
