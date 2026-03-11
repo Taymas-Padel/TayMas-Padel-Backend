@@ -151,7 +151,7 @@ body{font-family:'Outfit',sans-serif;background:#0a0c12;color:var(--tx);min-heig
     <h1>🏓 Padel App</h1>
     <div class="st"><div class="dot" id="dot"></div><span class="stxt" id="stxt">Не авторизован</span></div>
   </div>
-  <div class="sbar"><input type="text" id="baseUrl" value="http://127.0.0.1:8000" placeholder="http://..."></div>
+  <div class="sbar"><input type="text" id="baseUrl" value="http://213.155.23.227" placeholder="http://..."></div>
 
   <div class="cnt">
 
@@ -435,6 +435,7 @@ body{font-family:'Outfit',sans-serif;background:#0a0c12;color:var(--tx);min-heig
         <button data-nf="nfunread" onclick="switchNtfTab(this,'nfunread','unread')">Новые</button>
         <button data-nf="nfbooking" onclick="switchNtfTab(this,'nfbooking','BOOKING')">Брони</button>
         <button data-nf="nffriend" onclick="switchNtfTab(this,'nffriend','FRIEND')">Друзья</button>
+        <button data-nf="nfmsg" onclick="switchNtfTab(this,'nfmsg','MESSAGE')">Сообщения</button>
       </div>
       <div id="ntfList"></div>
     </div>
@@ -548,6 +549,15 @@ body{font-family:'Outfit',sans-serif;background:#0a0c12;color:var(--tx);min-heig
       <div id="prstats">
         <button class="b b1" onclick="loadStats()">🔄 Загрузить профиль</button>
         <div id="profileContent" style="margin-top:8px"></div>
+        <div class="hr"></div>
+        <div class="sec-sub">Тест: загрузка аватара (PATCH /api/auth/users/me/)</div>
+        <div class="fg">
+          <label>Аватар</label>
+          <input type="file" id="avatarFile" accept="image/*">
+          <div class="hint">Файл отправляется как multipart/form-data в поле <code>avatar</code>.</div>
+        </div>
+        <button class="b b1" onclick="uploadAvatar()">📤 Загрузить аватар</button>
+        <div id="avatarRes" style="margin-top:6px"></div>
       </div>
       <div id="prleague" style="display:none">
         <div class="sec-sub">Текущая лига, ELO и прогресс до следующей</div>
@@ -764,6 +774,39 @@ function upd(){
 }
 function showErr(id,msg){$(id).innerHTML=`<div class="al al-e">❌ ${esc(typeof msg==='object'?JSON.stringify(msg):msg)}</div>`;}
 function showOk(id,msg){$(id).innerHTML=`<div class="al al-s">✅ ${esc(msg)}</div>`;}
+
+// Специальный helper для multipart (аватар)
+async function uploadAvatar(){
+  if(!AT){ alert('Сначала войдите'); return; }
+  const input = $('avatarFile');
+  if(!input || !input.files || !input.files[0]){ alert('Выберите файл'); return; }
+  const file = input.files[0];
+  const url = B() + '/api/auth/users/me/';
+  const fd = new FormData();
+  fd.append('avatar', file);
+  const headers = {};
+  headers['Authorization'] = `Bearer ${AT}`;
+
+  log('rq','PATCH','/api/auth/users/me/',{avatar:'<file>'});
+  try{
+    const r = await fetch(url,{
+      method:'PATCH',
+      headers,
+      body:fd
+    });
+    const ct = r.headers.get('content-type')||'';
+    const d = ct.includes('json')?await r.json():await r.text();
+    log('rs','PATCH','/api/auth/users/me/',null,r.status,d);
+    if(r.ok){
+      showOk('avatarRes','Аватар обновлён');
+      loadStats();
+    } else {
+      showErr('avatarRes',d);
+    }
+  }catch(e){
+    showErr('avatarRes',e.message||e);
+  }
+}
 
 // ============ AUTH ============
 async function sendCode(){
@@ -1459,8 +1502,19 @@ async function loadStats(){
   const u=d.user,s=d.stats,m=d.active_membership;
   $('profileContent').innerHTML=`
     <div class="hero">
-      <div class="grt">${esc(u.full_name||u.phone)}</div>
-      <div class="usr">${esc(u.phone||'')} · ${esc(u.role)}</div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        ${
+          u.avatar
+            ? `<img src="${esc(u.avatar)}" style="width:48px;height:48px;border-radius:50%;object-fit:cover;border:1px solid var(--bd);">`
+            : `<div style="width:48px;height:48px;border-radius:50%;background:var(--s2);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:18px;border:1px solid var(--bd);">
+                 ${esc((u.full_name||u.phone||'?')[0]||'?')}
+               </div>`
+        }
+        <div>
+          <div class="grt">${esc(u.full_name||u.phone)}</div>
+          <div class="usr">${esc(u.phone||'')} · ${esc(u.role)}</div>
+        </div>
+      </div>
     </div>
     <div class="stats-row">
       <div class="stat"><div class="sv">${s.total_bookings}</div><div class="sl">Брони</div></div>
