@@ -418,7 +418,7 @@ def receptionist_user_detail_view(request, pk):
     Просмотр полных данных клиента ресепшн.
     """
     user = get_object_or_404(User, pk=pk)
-    serializer = ReceptionistUserSerializer(user)
+    serializer = ReceptionistUserSerializer(user, context={'request': request})
     return Response(serializer.data)
 
 
