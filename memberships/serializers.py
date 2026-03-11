@@ -4,19 +4,67 @@ from finance.models import Transaction
 
 
 class MembershipTypeSerializer(serializers.ModelSerializer):
+    service_type_display = serializers.CharField(
+        source='get_service_type_display', read_only=True,
+    )
+
     class Meta:
         model = MembershipType
-        fields = '__all__'
+        fields = [
+            'id',
+            'name',
+            'description',
+            'service_type',
+            'service_type_display',
+            'price',
+            'days_valid',
+            'total_hours',
+            'total_visits',
+            'priority_time_start',
+            'priority_time_end',
+            'prime_time_surcharge',
+            'min_participants',
+            'max_participants',
+            'includes_coach',
+            'court_type_restriction',
+            'discount_on_court',
+            'is_active',
+        ]
 
 
 class UserMembershipSerializer(serializers.ModelSerializer):
     membership_type_name = serializers.CharField(source='membership_type.name', read_only=True)
     type_name = serializers.CharField(source='membership_type.name', read_only=True)
+    service_type = serializers.CharField(source='membership_type.service_type', read_only=True)
+    service_type_display = serializers.CharField(
+        source='membership_type.get_service_type_display', read_only=True,
+    )
     user_name = serializers.SerializerMethodField()
-    visits_remaining = serializers.SerializerMethodField()
-    created_at = serializers.DateTimeField(read_only=True)
+    visits_remaining = serializers.IntegerField(read_only=True)
+    created_at = serializers.DateTimeField(source='start_date', read_only=True)
     is_paid = serializers.SerializerMethodField()
     payment_amount = serializers.SerializerMethodField()
+
+    # Новые поля из MembershipType для удобства фронта
+    priority_time_start = serializers.TimeField(
+        source='membership_type.priority_time_start', read_only=True,
+    )
+    priority_time_end = serializers.TimeField(
+        source='membership_type.priority_time_end', read_only=True,
+    )
+    prime_time_surcharge = serializers.DecimalField(
+        source='membership_type.prime_time_surcharge',
+        max_digits=10, decimal_places=2, read_only=True,
+    )
+    includes_coach = serializers.BooleanField(
+        source='membership_type.includes_coach', read_only=True,
+    )
+    min_participants = serializers.IntegerField(
+        source='membership_type.min_participants', read_only=True,
+    )
+    max_participants = serializers.IntegerField(
+        source='membership_type.max_participants', read_only=True,
+    )
 
     class Meta:
         model = UserMembership
@@ -24,8 +72,11 @@ class UserMembershipSerializer(serializers.ModelSerializer):
             'id',
             'user',
             'user_name',
+            'membership_type',
             'membership_type_name',
             'type_name',
+            'service_type',
+            'service_type_display',
             'start_date',
             'end_date',
             'hours_remaining',
@@ -36,15 +87,18 @@ class UserMembershipSerializer(serializers.ModelSerializer):
             'created_at',
             'is_paid',
             'payment_amount',
+            'priority_time_start',
+            'priority_time_end',
+            'prime_time_surcharge',
+            'includes_coach',
+            'min_participants',
+            'max_participants',
         ]
 
     def get_user_name(self, obj):
         u = obj.user
         full = f"{u.first_name} {u.last_name}".strip()
-        return full or u.phone_number or u.username
-
-    def get_visits_remaining(self, obj):
-        return getattr(obj, 'visits_remaining', None)
+        return full or getattr(u, 'phone_number', None) or u.username
 
     def _get_payment_transaction(self, obj):
         if not getattr(obj, '_payment_txn_cached', None) and not hasattr(obj, '_payment_txn'):
@@ -61,8 +115,3 @@ class UserMembershipSerializer(serializers.ModelSerializer):
     def get_payment_amount(self, obj):
         t = self._get_payment_transaction(obj)
         return str(t.amount) if t else '0'
-
-
-
-
-

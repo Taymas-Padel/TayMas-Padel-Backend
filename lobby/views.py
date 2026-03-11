@@ -499,7 +499,7 @@ class LobbyBookView(APIView):
                 is_frozen=False,
                 end_date__gte=timezone.now(),
                 hours_remaining__gte=hours,
-                membership_type__service_type='PADEL',
+                membership_type__service_type__in=['PADEL_HOURS', 'TRAINING_HOURS'],
             ).order_by('end_date').first()
 
             if membership:
