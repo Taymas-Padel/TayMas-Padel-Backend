@@ -20,80 +20,93 @@ hdr_json="Content-Type: application/json"
 
 echo "Добавляем услуги / инвентарь в ${API}"
 
-# 1. Аренда ракетки
+# 1. Аренда ракетки (Падел, инвентарь)
 curl -s -X POST "$API" -H "$hdr_auth" -H "$hdr_json" -d '{
   "name": "Аренда ракетки (за игру)",
+  "description": "Прокат ракетки для падела на время игры.",
   "price": 3000,
+  "group": "PADEL",
+  "category": "INVENTORY",
   "is_active": true
 }' && echo ""
 
-# 2. Мячи (упаковка)
+# 2. Мячи (упаковка) — Падел, инвентарь
 curl -s -X POST "$API" -H "$hdr_auth" -H "$hdr_json" -d '{
   "name": "Мячи (упаковка, за игру)",
+  "description": "Набор мячей для падела на одну игровую сессию.",
   "price": 3500,
+  "group": "PADEL",
+  "category": "INVENTORY",
   "is_active": true
 }' && echo ""
 
-# 3. Функциональная подготовка — индивидуально
+# 3. Функциональная подготовка — индивидуально (Падел, услуга)
 curl -s -X POST "$API" -H "$hdr_auth" -H "$hdr_json" -d '{
   "name": "Функциональная подготовка падел — индивидуальная, 1 час",
+  "description": "Индивидуальная нагрузка и ОФП под падел, 1 час.",
   "price": 15000,
+  "group": "PADEL",
+  "category": "SERVICE",
   "is_active": true
 }' && echo ""
 
-# 4. Функциональная подготовка — группа до 6
+# 4. Функциональная подготовка — группа до 6 (Падел, услуга)
 curl -s -X POST "$API" -H "$hdr_auth" -H "$hdr_json" -d '{
   "name": "Функциональная подготовка падел — группа до 6 чел, 1 час",
+  "description": "Групповое занятие по ОФП под падел до 6 человек.",
   "price": 45000,
+  "group": "PADEL",
+  "category": "SERVICE",
   "is_active": true
 }' && echo ""
 
-# 5. Турнир — участие
+# 5. Турнир — участие (Падел, событие)
 curl -s -X POST "$API" -H "$hdr_auth" -H "$hdr_json" -d '{
   "name": "Участие в турнире (1 человек)",
+  "description": "Стартовый взнос участника турнира по паделу.",
   "price": 12000,
+  "group": "PADEL",
+  "category": "EVENT",
   "is_active": true
 }' && echo ""
 
-# 6. Сквош — аренда корта 1 час
-curl -s -X POST "$API" -H "$hdr_auth" -H "$hdr_json" -d '{
-  "name": "Сквош — аренда корта 1 час",
-  "price": 10000,
-  "is_active": true
-}' && echo ""
-
-# 7. Настольный теннис — 1 час
-curl -s -X POST "$API" -H "$hdr_auth" -H "$hdr_json" -d '{
-  "name": "Настольный теннис — 1 час",
-  "price": 5000,
-  "is_active": true
-}' && echo ""
-
-# 8. Recovery — первичная консультация
+# 6. Recovery — первичная консультация (Recovery, услуга)
 curl -s -X POST "$API" -H "$hdr_auth" -H "$hdr_json" -d '{
   "name": "Recovery — первичная консультация",
+  "description": "Первичный приём специалиста Recovery.",
   "price": 10000,
+  "group": "RECOVERY",
+  "category": "SERVICE",
   "is_active": true
 }' && echo ""
 
-# 9. Recovery — диагностика (базовая)
+# 7. Recovery — диагностика (базовая) (Recovery, услуга)
 curl -s -X POST "$API" -H "$hdr_auth" -H "$hdr_json" -d '{
   "name": "Recovery — функциональная диагностика (от 15 000)",
+  "description": "Базовая функциональная диагностика, цена может варьироваться.",
   "price": 15000,
+  "group": "RECOVERY",
+  "category": "SERVICE",
   "is_active": true
 }' && echo ""
 
-# 10. Лечебный массаж — 1 час
+# 8. Лечебный массаж — 1 час (Recovery, услуга)
 curl -s -X POST "$API" -H "$hdr_auth" -H "$hdr_json" -d '{
   "name": "Лечебный массаж — 1 час",
+  "description": "Лечебный массаж, 1 час.",
   "price": 15000,
+  "group": "RECOVERY",
+  "category": "SERVICE",
   "is_active": true
 }' && echo ""
 
-# 11. Спортивный массаж — 1 час
+# 9. Спортивный массаж — 1 час (Recovery, услуга)
 curl -s -X POST "$API" -H "$hdr_auth" -H "$hdr_json" -d '{
   "name": "Спортивный массаж — 1 час",
+  "description": "Спортивный массаж для восстановления после нагрузок.",
   "price": 18000,
+  "group": "RECOVERY",
+  "category": "SERVICE",
   "is_active": true
 }' && echo ""
 
