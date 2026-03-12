@@ -53,6 +53,16 @@ class BuyMembershipView(APIView):
         mem_type = get_object_or_404(MembershipType, pk=pk, is_active=True)
         user = request.user
 
+        # Проверка лимита по количеству (для ограниченных абонементов, например VIP)
+        if mem_type.max_quantity and mem_type.max_quantity > 0:
+            from .models import UserMembership
+            issued = UserMembership.objects.filter(membership_type=mem_type).count()
+            if issued >= mem_type.max_quantity:
+                return Response(
+                    {"error": "Лимит по этому абонементу уже исчерпан."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
         end_date = timezone.now() + timedelta(days=mem_type.days_valid)
 
         user_membership = UserMembership.objects.create(
@@ -104,6 +114,16 @@ class ReceptionBuyMembershipView(APIView):
 
         user = get_object_or_404(User, pk=client_id)
         mem_type = get_object_or_404(MembershipType, pk=type_id, is_active=True)
+
+        # Проверка лимита по количеству (для ограниченных абонементов, например VIP)
+        if mem_type.max_quantity and mem_type.max_quantity > 0:
+            from .models import UserMembership
+            issued = UserMembership.objects.filter(membership_type=mem_type).count()
+            if issued >= mem_type.max_quantity:
+                return Response(
+                    {"error": "Лимит по этому абонементу уже исчерпан."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
         valid_methods = [c[0] for c in Transaction.PaymentMethod.choices]
         if payment_method not in valid_methods:

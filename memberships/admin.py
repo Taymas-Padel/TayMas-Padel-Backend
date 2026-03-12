@@ -7,7 +7,8 @@ class MembershipTypeAdmin(admin.ModelAdmin):
     list_display = (
         'name', 'service_type', 'price', 'total_hours',
         'days_valid', 'priority_time_start', 'priority_time_end',
-        'prime_time_surcharge', 'includes_coach', 'is_active',
+        'prime_time_surcharge', 'includes_coach', 'max_quantity',
+        'is_active',
     )
     list_editable = ('price', 'is_active')
     list_filter = ('service_type', 'is_active', 'includes_coach')
@@ -18,7 +19,7 @@ class MembershipTypeAdmin(admin.ModelAdmin):
             'fields': ('name', 'description', 'service_type', 'price', 'days_valid', 'is_active'),
         }),
         ('Лимиты', {
-            'fields': ('total_hours', 'total_visits'),
+            'fields': ('total_hours', 'total_visits', 'max_quantity'),
         }),
         ('Приоритетное время / Прайм-тайм', {
             'fields': (
