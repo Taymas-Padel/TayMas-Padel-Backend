@@ -5,6 +5,7 @@ from .views import (
     CourtManageView,
     CourtManageDetailView,
     CourtGalleryUploadView,
+    CourtPriceSlotsView,
 )
 
 urlpatterns = [
@@ -13,4 +14,5 @@ urlpatterns = [
     path('manage/', CourtManageView.as_view(), name='court-manage'),
     path('manage/<int:pk>/', CourtManageDetailView.as_view(), name='court-manage-detail'),
     path('manage/<int:pk>/gallery/', CourtGalleryUploadView.as_view(), name='court-manage-gallery'),
+    path('manage/<int:pk>/price-slots/', CourtPriceSlotsView.as_view(), name='court-price-slots'),
 ]

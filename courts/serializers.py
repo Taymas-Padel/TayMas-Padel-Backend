@@ -1,23 +1,34 @@
 from rest_framework import serializers
-from .models import Court, CourtImage
+from .models import Court, CourtImage, CourtPriceSlot
+
 
 class CourtImageSerializer(serializers.ModelSerializer):
     class Meta:
         model = CourtImage
         fields = ['id', 'image']
 
+
+class CourtPriceSlotSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CourtPriceSlot
+        fields = ['id', 'start_time', 'end_time', 'price_per_hour']
+
+
 class CourtSerializer(serializers.ModelSerializer):
     gallery = CourtImageSerializer(many=True, read_only=True)
+    price_slots = CourtPriceSlotSerializer(many=True, read_only=True)
+
     class Meta:
         model = Court
-        # 👇 НО ТУТ ЕГО НЕ ХВАТАЛО. Добавь 'gallery' в этот список:
         fields = [
-            'id', 
-            'name', 
-            'court_type', 
-            'description', 
-            'price_per_hour', 
-            'image', 
-            'gallery', # <--- ВОТ ЗДЕСЬ ОНО ДОЛЖНО БЫТЬ
-            'is_active'
+            'id',
+            'name',
+            'court_type',
+            'play_format',
+            'description',
+            'price_per_hour',
+            'price_slots',
+            'image',
+            'gallery',
+            'is_active',
         ]

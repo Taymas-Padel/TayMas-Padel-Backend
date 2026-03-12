@@ -3,8 +3,8 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 
-from .models import Court, CourtImage
-from .serializers import CourtSerializer, CourtImageSerializer
+from .models import Court, CourtImage, CourtPriceSlot
+from .serializers import CourtSerializer, CourtImageSerializer, CourtPriceSlotSerializer
 from users.permissions import IsAdminRole
 
 
@@ -59,3 +59,30 @@ class CourtGalleryUploadView(APIView):
             return Response({'error': 'Поле image (файл) обязательно.'}, status=400)
         obj = CourtImage.objects.create(court=court, image=image_file)
         return Response(CourtImageSerializer(obj).data, status=201)
+
+
+class CourtPriceSlotsView(APIView):
+    """
+    GET  /api/courts/manage/<id>/price-slots/ — список слотов корта (только ADMIN)
+    POST /api/courts/manage/<id>/price-slots/ — добавить слот
+    DELETE /api/courts/manage/<id>/price-slots/ — удалить все слоты корта (для пересоздания)
+    """
+    permission_classes = [IsAdminRole]
+
+    def get(self, request, pk):
+        court = get_object_or_404(Court, pk=pk)
+        slots = court.price_slots.all().order_by('start_time')
+        return Response(CourtPriceSlotSerializer(slots, many=True).data)
+
+    def post(self, request, pk):
+        court = get_object_or_404(Court, pk=pk)
+        serializer = CourtPriceSlotSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(court=court)
+            return Response(serializer.data, status=201)
+        return Response(serializer.errors, status=400)
+
+    def delete(self, request, pk):
+        court = get_object_or_404(Court, pk=pk)
+        deleted, _ = court.price_slots.all().delete()
+        return Response({'deleted': deleted})

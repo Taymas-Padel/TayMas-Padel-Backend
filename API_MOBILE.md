@@ -554,19 +554,64 @@ GET /api/courts/
 [
   {
     "id": 1,
-    "name": "Корт 1",
-    "court_type": "PADEL",
-    "description": "Основной падел-корт",
-    "price_per_hour": "5000.00",
+    "name": "Panoramic 1",
+    "court_type": "PANORAMIC",
+    "play_format": "TWO_VS_TWO",
+    "description": "Панорамный корт для игры 2x2",
+    "price_per_hour": "18000.00",
+    "price_slots": [
+      { "id": 1, "start_time": "06:00:00", "end_time": "08:00:00", "price_per_hour": "10000.00" },
+      { "id": 2, "start_time": "08:00:00", "end_time": "00:00:00", "price_per_hour": "18000.00" }
+    ],
     "image": "http://.../court1.jpg",
     "gallery": [
-      { "id": 1, "image": "http://.../gallery1.jpg" },
-      { "id": 2, "image": "http://.../gallery2.jpg" }
+      { "id": 1, "image": "http://.../gallery1.jpg" }
     ],
+    "is_active": true
+  },
+  {
+    "id": 9,
+    "name": "Single 1",
+    "court_type": "INDOOR",
+    "play_format": "ONE_VS_ONE",
+    "description": "Тренировочный корт 1x1",
+    "price_per_hour": "16000.00",
+    "price_slots": [
+      { "id": 3, "start_time": "06:00:00", "end_time": "00:00:00", "price_per_hour": "16000.00" }
+    ],
+    "image": null,
+    "gallery": [],
     "is_active": true
   }
 ]
 ```
+
+#### Поля корта
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `play_format` | string | `TWO_VS_TWO` — формат 2x2 (Panoramic корты, до 4 игроков) / `ONE_VS_ONE` — формат 1x1 (Single корт, до 2 игроков) |
+| `price_per_hour` | string | Базовая цена/час (резерв, если `price_slots` пустой) |
+| `price_slots` | array | Временные ценовые слоты. `end_time: "00:00:00"` означает полночь (конец суток) |
+
+#### Значения `play_format`
+
+| Значение | Описание | Макс. игроков |
+|----------|----------|---------------|
+| `TWO_VS_TWO` | Panoramic корты (2x2) | 4 (1 хозяин + 3 друга) |
+| `ONE_VS_ONE` | Single корт (1x1) | 2 (1 хозяин + 1 друг) |
+
+#### Логика price_slots
+
+`price_slots` — массив временных слотов с ценой. Каждый слот:
+- `start_time` — начало слота (HH:MM:SS)
+- `end_time` — конец слота. **Важно:** `"00:00:00"` = полночь (конец суток)
+- `price_per_hour` — цена за час в этом слоте
+
+**Пример расчёта** для Panoramic корта, бронирование 07:00–09:00 (2 часа):
+- 07:00–08:00 (слот 1): 1 час × 10 000 ₸ = 10 000 ₸
+- 08:00–09:00 (слот 2): 1 час × 18 000 ₸ = 18 000 ₸
+- **Итого: 28 000 ₸**
 
 ### 4.2 Court Detail
 
@@ -641,7 +686,8 @@ GET /api/bookings/available-coaches/?datetime=2026-03-28T14:00:00Z&duration=60
 
 ### 5.3 Price Preview (Before Booking)
 
-Calculate the price considering membership, coach, services.
+Calculate the exact price considering **time-based pricing slots**, membership, coach, services.
+Call this **before** creating a booking to show the user the total cost.
 
 ```
 POST /api/bookings/price-preview/
@@ -653,27 +699,32 @@ POST /api/bookings/price-preview/
 ```json
 {
   "court_id": 1,
-  "start_time": "2026-03-28T14:00:00Z",
-  "duration": 60,
-  "coach_id": 3,
-  "service_ids": [1, 2]
+  "start_time": "2026-03-28T07:00:00Z",
+  "duration": 120,
+  "coach_id": null,
+  "service_ids": [],
+  "friends_ids": [15, 22]
 }
 ```
 
 **Response 200:**
 ```json
 {
-  "total": 8000.0,
+  "total": 28000.0,
   "breakdown": {
-    "court": 0.0,
-    "coach": 5000.0,
-    "services": 3000.0
+    "court": 28000.0,
+    "coach": 0.0,
+    "services": 0.0,
+    "prime_time_surcharge": 0.0
   },
-  "membership_applied": true,
-  "hours_remaining_after": 19.0,
-  "membership_name": "Padel Pro"
+  "membership_applied": false,
+  "membership_name": null,
+  "hours_remaining_after": null,
+  "coach_covered_by_membership": false
 }
 ```
+
+> Здесь 28 000 ₸ = 07:00–08:00 (10 000) + 08:00–09:00 (18 000). Цена автоматически рассчитана по `price_slots` корта.
 
 ---
 
@@ -712,31 +763,40 @@ POST /api/bookings/create/
 | `promo_code` | string | No | Promotional code for discount |
 | `payment_method` | string | No | `KASPI` (default), `CARD`, `CASH` |
 | `services` | array | No | Extra services (racket rental etc.) |
-| `friends_ids` | array[int] | No | Friend IDs to add as participants |
+| `friends_ids` | array[int] | No | Friend IDs to add as participants (see format rules below) |
+
+**`friends_ids` rules by court play_format:**
+
+| Court `play_format` | Max friends | Total players |
+|---------------------|-------------|---------------|
+| `TWO_VS_TWO` | 3 | 4 (хозяин + 3 друга) |
+| `ONE_VS_ONE` | 1 | 2 (хозяин + 1 друг) |
+
+> Если добавить больше друзей, чем разрешено форматом корта, вернётся ошибка 400.
 
 **Response 201:**
 ```json
 {
   "id": 101,
   "court": 1,
-  "court_name": "Корт 1",
+  "court_name": "Panoramic 1",
   "user": 42,
   "client_name": "Азамат Есимханулы",
-  "start_time": "2026-03-28T14:00:00Z",
-  "end_time": "2026-03-28T15:00:00Z",
-  "duration_hours": 1.0,
-  "price": "5000.00",
+  "start_time": "2026-03-28T07:00:00Z",
+  "end_time": "2026-03-28T09:00:00Z",
+  "duration_hours": 2.0,
+  "price": "28000.00",
   "status": "PENDING",
   "is_paid": false,
-  "coach": 3,
-  "coach_name": "Алексей Тренер",
-  "services": [
-    { "service_name": "Аренда ракетки", "quantity": 1, "price_at_moment": "2000.00" }
-  ],
-  "participants_names": ["azamat", "daniyar"],
+  "coach": null,
+  "coach_name": null,
+  "services": [],
+  "participants_names": ["daniyar"],
   "created_at": "2026-03-25T10:00:00Z"
 }
 ```
+
+> **Цена 28 000 ₸** = 07:00–08:00 (1ч × 10 000) + 08:00–09:00 (1ч × 18 000) — расчёт по ценовым слотам.
 
 **Validation rules:**
 - Cannot book in the past
@@ -744,7 +804,9 @@ POST /api/bookings/create/
 - Must be within club working hours (default 7:00–23:00)
 - Court must be free for the requested slot
 - Duration: min 30, max 240 minutes
+- **`TWO_VS_TWO` court:** max 3 friends. **`ONE_VS_ONE` court:** max 1 friend
 - If user has active PADEL membership with enough hours, court fee is covered automatically
+- Price is calculated per time-price-slots (see court `price_slots`)
 
 ---
 
@@ -2616,3 +2678,187 @@ final count = await dio.get('/api/notifications/unread-count/');
 | GET | `/api/gym/personal-training/{id}/` | Yes | Get training |
 | PATCH | `/api/gym/personal-training/{id}/` | Yes | Update training |
 | DELETE | `/api/gym/personal-training/{id}/` | Yes | Delete training |
+
+---
+
+## 21. Court Play Formats & Time-Based Pricing — Flutter Guide
+
+### 21.1 Обзор
+
+В системе два типа кортов с разными форматами игры:
+
+| Тип корта | `play_format` | `court_type` | Макс. игроков | Ценообразование |
+|-----------|---------------|--------------|---------------|-----------------|
+| Panoramic (9 шт: 5 Indoor + 4 Outdoor) | `TWO_VS_TWO` | `PANORAMIC` / `OUTDOOR` | 4 | Слоты: 06:00–08:00 = 10 000 ₸/ч, 08:00–00:00 = 18 000 ₸/ч |
+| Single (1 шт: Indoor) | `ONE_VS_ONE` | `INDOOR` | 2 | Один слот: 06:00–00:00 = 16 000 ₸/ч |
+
+### 21.2 Правила бронирования по формату
+
+#### TWO_VS_TWO (Panoramic)
+- Максимум 3 друга (итого 4 игрока)
+- Если передать `friends_ids` с 4+ ID → ошибка 400
+
+#### ONE_VS_ONE (Single)
+- Максимум 1 друг (итого 2 игрока)
+- Если передать `friends_ids` с 2+ ID → ошибка 400
+
+**Ошибки валидации:**
+```json
+// Слишком много друзей для 1x1 корта
+{ "non_field_errors": ["Этот корт только для формата 1x1. Максимум 1 дополнительный игрок."] }
+
+// Слишком много друзей для 2x2 корта
+{ "non_field_errors": ["Максимум 3 дополнительных участника для формата 2x2."] }
+```
+
+### 21.3 Расчёт цены по ценовым слотам
+
+Цена рассчитывается **автоматически** на бэкенде на основе `price_slots` корта. Flutter показывает пользователю итог.
+
+#### Как Flutter должен отображать ценовые слоты
+
+При показе экрана выбора времени — отображать актуальную цену слота:
+
+```dart
+// Пример: получить цену для выбранного времени
+CourtPriceSlot? getSlotForTime(List<CourtPriceSlot> slots, TimeOfDay time) {
+  for (final slot in slots) {
+    final start = slot.startTime;  // "06:00:00"
+    final end = slot.endTime;      // "08:00:00" or "00:00:00" (midnight)
+
+    final startMinutes = _toMinutes(start);
+    final endMinutes = end == "00:00:00" ? 1440 : _toMinutes(end); // 00:00 = 1440 (midnight)
+    final currentMinutes = time.hour * 60 + time.minute;
+
+    if (currentMinutes >= startMinutes && currentMinutes < endMinutes) {
+      return slot;
+    }
+  }
+  return null;
+}
+
+int _toMinutes(String timeStr) {
+  final parts = timeStr.split(':');
+  return int.parse(parts[0]) * 60 + int.parse(parts[1]);
+}
+```
+
+#### Алгоритм расчёта итоговой цены для отображения
+
+```dart
+double calculateDisplayPrice(Court court, DateTime start, DateTime end) {
+  final slots = court.priceSlots;
+  if (slots.isEmpty) {
+    final hours = end.difference(start).inMinutes / 60.0;
+    return double.parse(court.pricePerHour) * hours;
+  }
+
+  double total = 0;
+  DateTime current = start;
+
+  while (current.isBefore(end)) {
+    final slot = getSlotForTime(slots, TimeOfDay.fromDateTime(current));
+    if (slot == null) break;
+
+    // определяем конец текущего слота
+    final endStr = slot.endTime;
+    DateTime slotEnd;
+    if (endStr == "00:00:00") {
+      slotEnd = DateTime(current.year, current.month, current.day + 1, 0, 0);
+    } else {
+      final parts = endStr.split(':');
+      slotEnd = DateTime(current.year, current.month, current.day,
+          int.parse(parts[0]), int.parse(parts[1]));
+    }
+
+    final periodEnd = slotEnd.isBefore(end) ? slotEnd : end;
+    final hoursInSlot = periodEnd.difference(current).inMinutes / 60.0;
+    total += double.parse(slot.pricePerHour) * hoursInSlot;
+    current = periodEnd;
+  }
+
+  return total;
+}
+```
+
+### 21.4 UX-рекомендации для Flutter
+
+#### Экран списка кортов
+- Показывать `play_format` бейджем: **"2x2"** или **"1x1"**
+- Если у корта несколько `price_slots` — показывать диапазон цен: `10 000 – 18 000 ₸/ч`
+- Если один слот — просто `16 000 ₸/ч`
+
+#### Экран выбора времени
+- При выборе временного слота динамически показывать актуальную цену
+- Отображать легенду слотов: "06:00–08:00: 10 000 ₸/ч | 08:00–00:00: 18 000 ₸/ч"
+
+#### Экран деталей бронирования
+- Перед созданием брони — вызвать `POST /api/bookings/price-preview/` и показать итоговую цену
+- Это важно, если бронирование пересекает два ценовых слота (например 07:00–09:00)
+
+#### Ограничение добавления друзей
+```dart
+int maxFriends(String playFormat) {
+  return playFormat == 'TWO_VS_TWO' ? 3 : 1;
+}
+```
+
+### 21.5 Полный сценарий бронирования Panoramic корта (07:00–09:00)
+
+```
+1. GET /api/courts/ → получить список кортов, найти Panoramic с play_format=TWO_VS_TWO
+2. Пользователь выбирает корт, видит слоты цен:
+   - 06:00–08:00: 10 000 ₸/ч
+   - 08:00–00:00: 18 000 ₸/ч
+3. Пользователь выбирает 07:00, duration=120 мин
+4. GET /api/bookings/check-availability/?court_id=1&date=2026-03-28 → убедиться, что слот свободен
+5. POST /api/bookings/price-preview/ → { total: 28000.0, breakdown: { court: 28000 } }
+6. Показать итог: "Стоимость: 28 000 ₸ (10 000 + 18 000)"
+7. POST /api/bookings/create/ → создать бронь
+```
+
+### 21.6 Модели данных (Dart)
+
+```dart
+class CourtPriceSlot {
+  final int id;
+  final String startTime;  // "06:00:00"
+  final String endTime;    // "08:00:00" or "00:00:00" (midnight = end of day)
+  final String pricePerHour;
+
+  CourtPriceSlot.fromJson(Map<String, dynamic> json)
+      : id = json['id'],
+        startTime = json['start_time'],
+        endTime = json['end_time'],
+        pricePerHour = json['price_per_hour'];
+}
+
+class Court {
+  final int id;
+  final String name;
+  final String courtType;   // "INDOOR", "OUTDOOR", "PANORAMIC"
+  final String playFormat;  // "TWO_VS_TWO" or "ONE_VS_ONE"
+  final String description;
+  final String pricePerHour;         // fallback price
+  final List<CourtPriceSlot> priceSlots;
+  final String? image;
+  final List<CourtImage> gallery;
+  final bool isActive;
+
+  Court.fromJson(Map<String, dynamic> json)
+      : id = json['id'],
+        name = json['name'],
+        courtType = json['court_type'],
+        playFormat = json['play_format'],
+        description = json['description'],
+        pricePerHour = json['price_per_hour'],
+        priceSlots = (json['price_slots'] as List)
+            .map((s) => CourtPriceSlot.fromJson(s))
+            .toList(),
+        image = json['image'],
+        gallery = (json['gallery'] as List)
+            .map((g) => CourtImage.fromJson(g))
+            .toList(),
+        isActive = json['is_active'];
+}
+```
