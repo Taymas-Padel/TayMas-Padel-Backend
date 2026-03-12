@@ -589,7 +589,7 @@ class BookingPricePreviewView(APIView):
             if mt.includes_coach and coach_id:
                 coach_covered = True
 
-        base_court = Decimal(str(court.price_per_hour)) * hours
+        base_court = court.get_price_for_slot(start_time, end_time)
         final_court = Decimal('0') if paid_by_membership else base_court
 
         coach_price = Decimal('0')

@@ -219,12 +219,23 @@ class CreateBookingSerializer(serializers.ModelSerializer):
 
         friends_ids = data.get('friends_ids', [])
         request = self.context.get('request')
+
+        # --- Валидация формата корта и числа игроков ---
+        if court.play_format == court.PlayFormat.ONE_VS_ONE:
+            if len(friends_ids) > 1:
+                raise serializers.ValidationError(
+                    "Этот корт только для формата 1x1. Максимум 1 дополнительный игрок."
+                )
+        else:  # TWO_VS_TWO
+            if len(friends_ids) > 3:
+                raise serializers.ValidationError(
+                    "Максимум 3 дополнительных участника для формата 2x2."
+                )
+
         if request:
             user = request.user
             if user.id in friends_ids:
                 raise serializers.ValidationError("Не нужно добавлять себя в список участников.")
-            if len(friends_ids) > 3:
-                raise serializers.ValidationError("Максимум 3 участника.")
 
             if friends_ids:
                 from django.db.models import Q as DQ
@@ -290,8 +301,8 @@ class CreateBookingSerializer(serializers.ModelSerializer):
                 validated_data['start_time'], end_time,
             )
 
-        # --- 2. Расчёт цены ---
-        base_court_price = Decimal(str(court.price_per_hour)) * hours
+        # --- 2. Расчёт цены (с учётом временных ценовых слотов) ---
+        base_court_price = court.get_price_for_slot(validated_data['start_time'], end_time)
         final_court_price = Decimal('0') if paid_by_membership else base_court_price
 
         final_coach_price = Decimal('0')

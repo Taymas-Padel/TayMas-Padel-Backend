@@ -210,6 +210,7 @@ body{font-family:'Outfit',sans-serif;background:#0a0c12;color:var(--tx);min-heig
         <button data-bt="bhist" onclick="switchBTab(this,'bhist')">История</button>
         <button data-bt="bcreate" onclick="switchBTab(this,'bcreate')">+ Создать</button>
         <button data-bt="bavail" onclick="switchBTab(this,'bavail')">Слоты</button>
+        <button data-bt="bcourts" onclick="switchBTab(this,'bcourts')">Корты</button>
       </div>
 
       <!-- Upcoming bookings -->
@@ -229,9 +230,18 @@ body{font-family:'Outfit',sans-serif;background:#0a0c12;color:var(--tx);min-heig
         <button class="b b2" onclick="initBookingForm()" style="margin-bottom:10px">🔄 Загрузить корты и тренеров</button>
 
         <div class="fg"><label>Корт</label>
-          <select id="bCourt" onchange="updateBookingTotal()">
+          <select id="bCourt" onchange="onCourtChange()">
             <option value="">— Сначала загрузите —</option>
           </select>
+        </div>
+        <!-- Court info card (play_format + price_slots) -->
+        <div id="bCourtInfo" style="display:none;background:rgba(34,211,238,.05);border:1px solid rgba(34,211,238,.2);border-radius:10px;padding:10px 12px;margin-bottom:10px;font-size:11px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+            <span id="bCourtFormatBadge" style="padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700"></span>
+            <span id="bCourtName" style="font-weight:600;color:var(--tx)"></span>
+          </div>
+          <div id="bCourtSlots" style="color:var(--dm);line-height:1.8"></div>
+          <div id="bFriendsLimit" style="margin-top:5px;color:var(--o);font-size:10px"></div>
         </div>
         <div class="fg"><label>Дата и время начала</label>
           <input type="datetime-local" id="bStart" onchange="updateBookingTotal();refillCoachesByTime();">
@@ -298,6 +308,12 @@ body{font-family:'Outfit',sans-serif;background:#0a0c12;color:var(--tx);min-heig
         <div class="fg"><label>Дата</label><input type="date" id="avDate"></div>
         <button class="b b1" onclick="checkAvail()">🔍 Проверить доступность</button>
         <div id="availRes" style="margin-top:8px"></div>
+      </div>
+
+      <!-- Courts list with play_format + price_slots -->
+      <div id="bcourts" style="display:none">
+        <button class="b b2" onclick="loadCourtsTab()" style="margin-bottom:10px">🔄 Загрузить корты</button>
+        <div id="courtsTabList"></div>
       </div>
     </div>
 
@@ -649,6 +665,36 @@ const esc=t=>{const d=document.createElement('div');d.textContent=t;return d.inn
 const uN=u=>(u.first_name&&u.last_name)?`${u.first_name} ${u.last_name}`:(u.username||'User#'+u.id);
 const uI=u=>((u.first_name||u.username||'?')[0]||'?').toUpperCase();
 const fmtMoney=n=>Number(n).toLocaleString('ru-RU')+'₸';
+
+// Расчёт цены корта по ценовым слотам (клиентская сторона)
+function calcSlotPrice(slots,startDate,durationMin){
+  if(!slots||!slots.length) return 0;
+  let total=0;
+  let cur=new Date(startDate);
+  const endDate=new Date(startDate.getTime()+durationMin*60000);
+  while(cur<endDate){
+    const hm=cur.getHours()*60+cur.getMinutes();
+    let matched=null;
+    for(const s of slots){
+      const sp=s.start_time.slice(0,5).split(':');
+      const ep=s.end_time.slice(0,5).split(':');
+      const sm=parseInt(sp[0])*60+parseInt(sp[1]);
+      const em=(ep[0]==='00'&&ep[1]==='00')?1440:parseInt(ep[0])*60+parseInt(ep[1]);
+      if(hm>=sm&&hm<em){matched=s;break;}
+    }
+    if(!matched) break;
+    const ep=matched.end_time.slice(0,5).split(':');
+    const em=(ep[0]==='00'&&ep[1]==='00')?1440:parseInt(ep[0])*60+parseInt(ep[1]);
+    const slotEndDate=new Date(cur);
+    slotEndDate.setHours(Math.floor(em/60),em%60,0,0);
+    if(slotEndDate<=cur) slotEndDate.setDate(slotEndDate.getDate()+1);
+    const periodEnd=slotEndDate<endDate?slotEndDate:endDate;
+    const hrs=(periodEnd-cur)/3600000;
+    total+=parseFloat(matched.price_per_hour)*hrs;
+    cur=periodEnd;
+  }
+  return total;
+}
 const genDev=()=>'ios-'+Math.random().toString(36).substr(2,8)+'-'+Date.now();
 
 // ---- NAV ----
@@ -945,9 +991,16 @@ async function initBookingForm(){
       const o=document.createElement('option');
       o.value=c.id;
       o.dataset.price=c.price_per_hour||0;
-      o.textContent=`${c.name} — ${fmtMoney(c.price_per_hour)}/ч`;
+      o.dataset.playFormat=c.play_format||'TWO_VS_TWO';
+      o.dataset.slots=JSON.stringify(c.price_slots||[]);
+      const fmt=c.play_format==='ONE_VS_ONE'?'1x1':'2x2';
+      const priceLabel=(c.price_slots&&c.price_slots.length>1)
+        ?`${fmtMoney(Math.min(...c.price_slots.map(s=>parseFloat(s.price_per_hour))))}–${fmtMoney(Math.max(...c.price_slots.map(s=>parseFloat(s.price_per_hour))))}/ч`
+        :`${fmtMoney(c.price_per_hour)}/ч`;
+      o.textContent=`[${fmt}] ${c.name} — ${priceLabel}`;
       sel.appendChild(o);
     });
+    $('bCourtInfo').style.display='none';
   }
 
   const coaches=rCoaches.ok?rCoaches.data:[];
@@ -1000,10 +1053,90 @@ async function initBookingForm(){
   refillCoachesByTime();
 }
 
-function limitFriends(el){
-  const checked=document.querySelectorAll('#friendsCheckboxes input[type=checkbox]:checked');
-  if(checked.length>3){ el.checked=false; alert('Максимум 3 участника'); }
+function getMaxFriends(){
+  const opt=$('bCourt').options[$('bCourt').selectedIndex];
+  return (opt&&opt.dataset.playFormat==='ONE_VS_ONE')?1:3;
+}
+
+function onCourtChange(){
+  const sel=$('bCourt');
+  const opt=sel.options[sel.selectedIndex];
+  if(!opt||!opt.value){ $('bCourtInfo').style.display='none'; updateBookingTotal(); return; }
+
+  const fmt=opt.dataset.playFormat||'TWO_VS_TWO';
+  const is1v1=fmt==='ONE_VS_ONE';
+  const slots=JSON.parse(opt.dataset.slots||'[]');
+  const maxFr=is1v1?1:3;
+
+  // badge
+  const badge=$('bCourtFormatBadge');
+  badge.textContent=is1v1?'1x1':'2x2';
+  badge.style.background=is1v1?'rgba(167,139,250,.2)':'rgba(34,211,238,.15)';
+  badge.style.color=is1v1?'var(--v)':'var(--ac)';
+  badge.style.border=is1v1?'1px solid rgba(167,139,250,.4)':'1px solid rgba(34,211,238,.3)';
+
+  $('bCourtName').textContent=opt.textContent.replace(/^\[.*?\]\s*/,'');
+  $('bFriendsLimit').textContent=`👥 Максимум ${maxFr} друг${maxFr===1?'':'а'} (${is1v1?'формат 1x1':'формат 2x2'})`;
+
+  if(slots.length){
+    $('bCourtSlots').innerHTML=slots.map(s=>{
+      const endLabel=(s.end_time==='00:00:00'||s.end_time==='00:00')?'00:00 (полночь)':s.end_time.slice(0,5);
+      return `💰 ${s.start_time.slice(0,5)}–${endLabel}: <b style="color:var(--ac)">${fmtMoney(parseFloat(s.price_per_hour))}/ч</b>`;
+    }).join('<br>');
+  } else {
+    $('bCourtSlots').innerHTML=`💰 Цена: <b style="color:var(--ac)">${fmtMoney(parseFloat(opt.dataset.price||0))}/ч</b>`;
+  }
+  $('bCourtInfo').style.display='block';
+
+  // uncheck extra friends if switching to 1x1
+  if(is1v1){
+    const checked=[...document.querySelectorAll('#friendsCheckboxes input[type=checkbox]:checked')];
+    checked.slice(maxFr).forEach(cb=>{ cb.checked=false; });
+  }
+
   updateBookingTotal();
+}
+
+function limitFriends(el){
+  const max=getMaxFriends();
+  const checked=document.querySelectorAll('#friendsCheckboxes input[type=checkbox]:checked');
+  if(checked.length>max){ el.checked=false; alert(`Максимум ${max} участник${max===1?'':'а'} для этого корта`); }
+  updateBookingTotal();
+}
+
+async function loadCourtsTab(){
+  const r=await api('GET','/api/courts/',null,false);
+  const el=$('courtsTabList');
+  if(!r.ok){ el.innerHTML='<div class="al al-e">Ошибка загрузки</div>'; return; }
+  if(!r.data.length){ el.innerHTML='<div class="al al-i">Нет активных кортов</div>'; return; }
+  el.innerHTML=r.data.map(c=>{
+    const is1v1=c.play_format==='ONE_VS_ONE';
+    const fmtColor=is1v1?'var(--v)':'var(--ac)';
+    const fmtBg=is1v1?'rgba(167,139,250,.15)':'rgba(34,211,238,.1)';
+    const fmtBdr=is1v1?'rgba(167,139,250,.35)':'rgba(34,211,238,.25)';
+    const slotsHtml=(c.price_slots&&c.price_slots.length)?c.price_slots.map(s=>{
+      const endLabel=(s.end_time==='00:00:00'||s.end_time==='00:00')?'00:00 (полночь)':s.end_time.slice(0,5);
+      return `<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--bd);font-size:11px">
+        <span style="color:var(--dm)">${s.start_time.slice(0,5)} – ${endLabel}</span>
+        <span style="font-weight:700;color:var(--ac)">${fmtMoney(parseFloat(s.price_per_hour))}/ч</span>
+      </div>`
+    }).join('')
+    :'<div style="color:var(--dm);font-size:11px">Ценовые слоты не заданы (базовая цена)</div>';
+    return `<div class="card" style="margin-bottom:10px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <div style="font-weight:700;font-size:13px">${esc(c.name)}</div>
+        <span style="padding:2px 10px;border-radius:20px;font-size:10px;font-weight:700;background:${fmtBg};color:${fmtColor};border:1px solid ${fmtBdr}">${is1v1?'1x1':'2x2'}</span>
+      </div>
+      <div style="font-size:10px;color:var(--dm);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">${c.court_type} · ID ${c.id} · Макс. игроков: ${is1v1?2:4}</div>
+      ${c.description?`<div style="font-size:11px;color:var(--dm);margin-bottom:8px">${esc(c.description)}</div>`:''}
+      <div style="font-size:10px;color:var(--dm);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Ценовые слоты</div>
+      ${slotsHtml}
+      <div style="display:flex;justify-content:space-between;margin-top:8px;font-size:11px">
+        <span style="color:var(--dm)">Базовая цена/ч</span>
+        <span style="font-weight:600">${fmtMoney(parseFloat(c.price_per_hour))}</span>
+      </div>
+    </div>`;
+  }).join('');
 }
 
 async function refillCoachesByTime(){
@@ -1038,7 +1171,12 @@ function updateBookingTotal(){
 
   if(courtSel.value){
     const opt=courtSel.options[courtSel.selectedIndex];
-    courtPrice=parseFloat(opt?.dataset?.price||0)*hrs;
+    const slots=JSON.parse(opt?.dataset?.slots||'[]');
+    if(slots.length&&stVal){
+      courtPrice=calcSlotPrice(slots,new Date(stVal),dur);
+    } else {
+      courtPrice=parseFloat(opt?.dataset?.price||0)*hrs;
+    }
     if(courtPrice>0) lines.push(`🎾 Корт ${dur} мин: ${fmtMoney(courtPrice)}`);
   }
   const coachSel=$('bCoach');
@@ -1056,6 +1194,7 @@ function updateBookingTotal(){
   const preview=$('bPricePreview');
   if(AT&&courtSel.value&&stVal){
     const serviceIds=[...document.querySelectorAll('#servicesCheckboxes input[type=checkbox]:checked')].map(cb=>parseInt(cb.dataset.svcid));
+    const friendIds=[...document.querySelectorAll('#friendsCheckboxes input[type=checkbox]:checked')].map(cb=>parseInt(cb.dataset.frid));
     fetch(B()+'/api/bookings/price-preview/',{
       method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+AT},
       body:JSON.stringify({
@@ -1064,6 +1203,7 @@ function updateBookingTotal(){
         duration:dur,
         coach_id:coachSel.value?parseInt(coachSel.value):null,
         service_ids:serviceIds,
+        friends_ids:friendIds,
       }),
     }).then(r=>r.json()).then(d=>{
       const total=d.total!=null?d.total:(courtPrice+coachPrice+servicesPrice);
@@ -1121,7 +1261,19 @@ async function loadCourts(){
   if(!r.ok)return;
   const sel=$('bCourt');
   sel.innerHTML='<option value="">Выберите корт</option>';
-  r.data.forEach(c=>{const o=document.createElement('option');o.value=c.id;o.dataset.price=c.price_per_hour||0;o.textContent=`${c.name} — ${fmtMoney(c.price_per_hour)}/ч`;sel.appendChild(o);});
+  r.data.forEach(c=>{
+    const o=document.createElement('option');
+    o.value=c.id;
+    o.dataset.price=c.price_per_hour||0;
+    o.dataset.playFormat=c.play_format||'TWO_VS_TWO';
+    o.dataset.slots=JSON.stringify(c.price_slots||[]);
+    const fmt=c.play_format==='ONE_VS_ONE'?'1x1':'2x2';
+    const priceLabel=(c.price_slots&&c.price_slots.length>1)
+      ?`${fmtMoney(Math.min(...c.price_slots.map(s=>parseFloat(s.price_per_hour))))}–${fmtMoney(Math.max(...c.price_slots.map(s=>parseFloat(s.price_per_hour))))}/ч`
+      :`${fmtMoney(c.price_per_hour)}/ч`;
+    o.textContent=`[${fmt}] ${c.name} — ${priceLabel}`;
+    sel.appendChild(o);
+  });
 }
 async function loadCourtsForAvail(){
   const r=await api('GET','/api/courts/',null,false);
