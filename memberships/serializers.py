@@ -7,6 +7,8 @@ class MembershipTypeSerializer(serializers.ModelSerializer):
     service_type_display = serializers.CharField(
         source='get_service_type_display', read_only=True,
     )
+    issued_count = serializers.IntegerField(read_only=True)
+    remaining_quantity = serializers.IntegerField(read_only=True, allow_null=True)
 
     class Meta:
         model = MembershipType
@@ -28,6 +30,9 @@ class MembershipTypeSerializer(serializers.ModelSerializer):
             'includes_coach',
             'court_type_restriction',
             'discount_on_court',
+             'max_quantity',
+             'issued_count',
+             'remaining_quantity',
             'is_active',
         ]
 

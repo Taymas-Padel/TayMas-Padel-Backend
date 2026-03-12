@@ -25,6 +25,8 @@ class MembershipType(models.Model):
         ('INDOOR', 'Indoor'),
         ('OUTDOOR', 'Outdoor'),
         ('PANORAMIC', 'Panoramic'),
+        ('SQUASH', 'Squash'),
+        ('PING_PONG', 'Ping-pong'),
     ]
 
     name = models.CharField(max_length=150, verbose_name="Название")
@@ -100,6 +102,14 @@ class MembershipType(models.Model):
         help_text="Скидка которую даёт этот абонемент на обычную аренду",
     )
 
+    # --- ЛИМИТ КОЛИЧЕСТВА ЭКЗЕМПЛЯРОВ ---
+    max_quantity = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        verbose_name="Макс. количество проданных экземпляров",
+        help_text="Если пусто или 0 — без лимита по количеству.",
+    )
+
     is_active = models.BooleanField(default=True, verbose_name="В продаже")
 
     class Meta:
@@ -109,6 +119,25 @@ class MembershipType(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.get_service_type_display()})"
+
+    @property
+    def issued_count(self):
+        """
+        Общее количество выданных абонементов этого типа (все статусы).
+        Используется для расчёта остатка при ограниченном тираже (VIP и т.п.).
+        """
+        return self.usermembership_set.count()
+
+    @property
+    def remaining_quantity(self):
+        """
+        Сколько экземпляров ещё можно продать.
+        None означает отсутствие лимита.
+        """
+        if not self.max_quantity or self.max_quantity <= 0:
+            return None
+        remaining = self.max_quantity - self.issued_count
+        return max(remaining, 0)
 
     # ------------------------------------------------------------------
     #  Бизнес-логика: рассчёт доплаты за прайм-тайм

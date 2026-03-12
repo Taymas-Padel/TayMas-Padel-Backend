@@ -8,6 +8,8 @@ class Court(models.Model):
         INDOOR = 'INDOOR', _('Indoor (Крытый)')
         OUTDOOR = 'OUTDOOR', _('Outdoor (Открытый)')
         PANORAMIC = 'PANORAMIC', _('Panoramic (Панорамный)')
+        SQUASH = 'SQUASH', _('Squash')
+        PING_PONG = 'PING_PONG', _('Ping-pong (Настольный теннис)')
 
     class PlayFormat(models.TextChoices):
         TWO_VS_TWO = 'TWO_VS_TWO', _('2x2 (Двое на двое)')
