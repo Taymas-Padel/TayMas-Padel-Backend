@@ -12,5 +12,6 @@ class ServiceSerializer(serializers.ModelSerializer):
             'price',
             'group',
             'category',
+            'image',
             'is_active',
         ]

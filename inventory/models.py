@@ -36,6 +36,14 @@ class Service(models.Model):
         help_text="Инвентарь, услуга, еда, напиток, турнир и т.п.",
     )
 
+    image = models.ImageField(
+        upload_to='inventory/',
+        null=True,
+        blank=True,
+        verbose_name="Фото",
+        help_text="Опционально. Отображается в карточке услуги / позиции.",
+    )
+
     is_active = models.BooleanField(default=True, verbose_name="Доступно для выбора")
 
     def __str__(self):
