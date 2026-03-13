@@ -979,7 +979,8 @@ async function initBookingForm(){
   const [rCourts, rCoaches, rServices, rFriends] = await Promise.all([
     api('GET','/api/courts/',null,false),
     api('GET','/api/auth/coaches/',null,false),
-    api('GET','/api/inventory/services/',null,false),
+    // для формы бронирования подгружаем только падел-инвентарь (ракетки, мячи и т.п.)
+    api('GET','/api/inventory/services/?group=PADEL&category=INVENTORY',null,false),
     AT ? api('GET','/api/friends/') : Promise.resolve({ok:false,data:[]}),
   ]);
 
@@ -1025,8 +1026,12 @@ async function initBookingForm(){
         <input type="checkbox" data-svcid="${s.id}" data-svcprice="${s.price}" value="${s.id}"
           onchange="updateBookingTotal()"
           style="width:16px;height:16px;accent-color:var(--ac)">
-        <span style="flex:1">${esc(s.name)}</span>
-        <span style="font-weight:600;color:var(--ac)">${fmtMoney(s.price)}</span>
+        ${s.image?`<img src="${s.image}" alt="" style="width:32px;height:32px;object-fit:cover;border-radius:6px;flex-shrink:0">`:''}
+        <div style="flex:1;display:flex;flex-direction:column;gap:2px">
+          <span style="font-size:12px">${esc(s.name)}</span>
+          ${s.description?`<span style="font-size:10px;color:var(--dm)">${esc(s.description)}</span>`:''}
+        </div>
+        <span style="font-weight:600;color:var(--ac);font-size:12px">${fmtMoney(s.price)}</span>
       </label>`).join('');
   } else {
     sBox.innerHTML='<span style="color:var(--dm);font-size:11px">Услуги не найдены</span>';
@@ -2213,7 +2218,7 @@ function fillLobbyServiceSel(){
   const sel = $('lobbyExtraSvc');
   if(!sel) return;
   sel.innerHTML = _lobbyServices.length
-    ? _lobbyServices.map(s=>`<option value="${s.id}">${esc(s.name)} — ${fmtMoney(s.price)}</option>`).join('')
+    ? _lobbyServices.map(s=>`<option value="${s.id}">[${s.group}/${s.category}] ${esc(s.name)} — ${fmtMoney(s.price)}</option>`).join('')
     : '<option value="">Услуг нет</option>';
 }
 
