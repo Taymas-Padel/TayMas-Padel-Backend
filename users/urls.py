@@ -15,6 +15,10 @@ from .views import (
     PublicUserProfileView,
     AccountDeleteView,
     MyLeagueView,
+    StaffListCreateView,
+    StaffDetailView,
+    StaffSetPasswordView,
+    StaffToggleActiveView,
 )
 
 urlpatterns = [
@@ -48,4 +52,11 @@ urlpatterns = [
     # === Мобилка — персональный кабинет ===
     path('me/stats/', MyStatsView.as_view(), name='my-stats'),
     path('home/', HomeDashboardView.as_view(), name='home-dashboard'),
+
+    # === Staff Management (CRM — ADMIN only) ===
+    path('staff/', StaffListCreateView.as_view(), name='staff-list'),
+    path('staff/<int:pk>/', StaffDetailView.as_view(), name='staff-detail'),
+    path('staff/<int:pk>/set-password/', StaffSetPasswordView.as_view(), name='staff-set-password'),
+    path('staff/<int:pk>/activate/', StaffToggleActiveView.as_view(), {'action': 'activate'}, name='staff-activate'),
+    path('staff/<int:pk>/deactivate/', StaffToggleActiveView.as_view(), {'action': 'deactivate'}, name='staff-deactivate'),
 ]
