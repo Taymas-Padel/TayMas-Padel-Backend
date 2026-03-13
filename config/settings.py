@@ -72,6 +72,7 @@ INSTALLED_APPS = [
     'payments.apps.PaymentsConfig',
     'leads.apps.LeadsConfig',
     'chat.apps.ChatConfig',
+    'tournaments.apps.TournamentsConfig',
 ]
 
 # Настройки DRF

@@ -95,6 +95,9 @@ urlpatterns = [
     # Чат (личные сообщения между друзьями)
     path('api/chat/', include('chat.urls')),
 
+    # Турниры
+    path('api/tournaments/', include('tournaments.urls')),
+
     path('', home, name='home'),
 ]
 
