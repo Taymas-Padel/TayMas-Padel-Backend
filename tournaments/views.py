@@ -7,6 +7,7 @@ from django.utils import timezone
 from django.db.models import Q
 
 from users.permissions import IsAdminRole, IsReceptionist
+from finance.models import Transaction
 from .models import Tournament, TournamentTeam, TournamentMatch
 from .serializers import (
     TournamentListSerializer,
@@ -240,6 +241,15 @@ class ConfirmTeamPaymentView(APIView):
         team.paid_by = request.user
         team.payment_method = serializer.validated_data['payment_method']
         team.save()
+
+        Transaction.objects.create(
+            user=team.player1,
+            amount=tournament.entry_fee,
+            transaction_type=Transaction.TransactionType.TOURNAMENT_FEE,
+            payment_method=team.payment_method,
+            tournament_team=team,
+            description=f"Взнос за турнир «{tournament.name}» — команда {team.display_name}",
+        )
 
         return Response(TournamentTeamDetailSerializer(team).data)
 

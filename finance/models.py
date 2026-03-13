@@ -7,6 +7,7 @@ class Transaction(models.Model):
         BOOKING_PAYMENT = 'BOOKING', 'Оплата бронирования'
         MEMBERSHIP_PURCHASE = 'MEMBERSHIP', 'Покупка абонемента'
         REFUND = 'REFUND', 'Возврат средств'
+        TOURNAMENT_FEE = 'TOURNAMENT_FEE', 'Взнос за турнир'
         SALARY = 'SALARY', 'Выплата зарплаты'
         OTHER = 'OTHER', 'Прочее'
 
@@ -38,6 +39,16 @@ class Transaction(models.Model):
         verbose_name="Связанная бронь"
     )
     
+    # Ссылка на команду турнира (если это взнос за турнир)
+    tournament_team = models.ForeignKey(
+        'tournaments.TournamentTeam',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='transactions',
+        verbose_name="Команда турнира"
+    )
+
     # Ссылка на абонемент (если это покупка абонемента)
     user_membership = models.ForeignKey(
         'memberships.UserMembership', 
