@@ -176,3 +176,113 @@ class PublicUserProfileSerializer(serializers.ModelSerializer):
         return Booking.objects.filter(
             Q(user=obj) | Q(participants=obj)
         ).exclude(status='CANCELED').distinct().count()
+
+
+# =============================================
+# Staff Management (CRM — ADMIN only)
+# =============================================
+
+STAFF_ROLES = [
+    User.Role.SUPER_ADMIN,
+    User.Role.RECEPTIONIST,
+    User.Role.SALES_MANAGER,
+    User.Role.COACH_PADEL,
+    User.Role.COACH_FITNESS,
+]
+
+
+class StaffSerializer(serializers.ModelSerializer):
+    """Полные данные сотрудника для CRM."""
+    full_name = serializers.SerializerMethodField()
+    role_display = serializers.CharField(source='get_role_display', read_only=True)
+
+    class Meta:
+        model = User
+        fields = (
+            'id', 'username', 'first_name', 'last_name', 'full_name',
+            'phone_number', 'email', 'role', 'role_display',
+            'price_per_hour', 'is_active', 'avatar',
+            'created_at', 'updated_at',
+        )
+        read_only_fields = ('id', 'username', 'created_at', 'updated_at', 'full_name', 'role_display')
+
+    def get_full_name(self, obj):
+        return f"{obj.first_name} {obj.last_name}".strip() or obj.username
+
+
+class StaffCreateSerializer(serializers.ModelSerializer):
+    """Создание нового сотрудника (ADMIN only)."""
+    password = serializers.CharField(write_only=True, min_length=8)
+    password_confirm = serializers.CharField(write_only=True)
+
+    class Meta:
+        model = User
+        fields = (
+            'username', 'first_name', 'last_name',
+            'phone_number', 'email', 'role',
+            'price_per_hour', 'password', 'password_confirm',
+        )
+
+    def validate_role(self, value):
+        if value == User.Role.CLIENT:
+            raise serializers.ValidationError("Нельзя создать сотрудника с ролью CLIENT.")
+        return value
+
+    def validate_username(self, value):
+        if User.objects.filter(username=value).exists():
+            raise serializers.ValidationError("Пользователь с таким username уже существует.")
+        return value
+
+    def validate_phone_number(self, value):
+        if value and User.objects.filter(phone_number=value).exists():
+            raise serializers.ValidationError("Пользователь с таким номером уже существует.")
+        return value
+
+    def validate(self, data):
+        if data['password'] != data['password_confirm']:
+            raise serializers.ValidationError({"password_confirm": "Пароли не совпадают."})
+        return data
+
+    def create(self, validated_data):
+        validated_data.pop('password_confirm')
+        password = validated_data.pop('password')
+        user = User(**validated_data)
+        user.set_password(password)
+        user.save()
+        return user
+
+
+class StaffUpdateSerializer(serializers.ModelSerializer):
+    """Обновление данных сотрудника (ADMIN only)."""
+
+    class Meta:
+        model = User
+        fields = (
+            'first_name', 'last_name', 'phone_number',
+            'email', 'role', 'price_per_hour', 'is_active',
+        )
+
+    def validate_role(self, value):
+        if value == User.Role.CLIENT:
+            raise serializers.ValidationError("Нельзя назначить роль CLIENT сотруднику.")
+        return value
+
+    def validate_phone_number(self, value):
+        if value:
+            qs = User.objects.filter(phone_number=value)
+            if self.instance:
+                qs = qs.exclude(pk=self.instance.pk)
+            if qs.exists():
+                raise serializers.ValidationError("Этот номер уже занят другим пользователем.")
+        return value
+
+
+class StaffSetPasswordSerializer(serializers.Serializer):
+    """Смена пароля сотрудника (ADMIN only)."""
+    new_password = serializers.CharField(min_length=8)
+    new_password_confirm = serializers.CharField()
+
+    def validate(self, data):
+        if data['new_password'] != data['new_password_confirm']:
+            raise serializers.ValidationError({"new_password_confirm": "Пароли не совпадают."})
+        return data

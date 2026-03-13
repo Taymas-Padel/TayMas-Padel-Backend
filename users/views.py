@@ -25,9 +25,14 @@ from .serializers import (
     ReceptionistUserSerializer,
     CoachListSerializer,
     PublicUserProfileSerializer,
+    StaffSerializer,
+    StaffCreateSerializer,
+    StaffUpdateSerializer,
+    StaffSetPasswordSerializer,
+    STAFF_ROLES,
     _get_league,
 )
-from .permissions import IsReceptionist
+from .permissions import IsReceptionist, IsAdminRole
 
 logger = logging.getLogger(__name__)
 
@@ -848,3 +853,143 @@ class MyLeagueView(APIView):
             "progress_to_next": progress_pct,
             "elo_needed": (next_league['min_elo'] - elo) if next_league else 0,
         })
+
+
+# =============================================
+# STAFF MANAGEMENT (CRM — ADMIN only)
+# =============================================
+
+class StaffListCreateView(APIView):
+    """
+    GET  /api/auth/staff/          — список всех сотрудников
+    POST /api/auth/staff/          — создать нового сотрудника
+    Auth: ADMIN
+    """
+    permission_classes = [IsAdminRole]
+
+    def get(self, request):
+        qs = User.objects.filter(role__in=STAFF_ROLES).order_by('role', 'first_name', 'last_name')
+
+        search = request.query_params.get('search', '').strip()
+        if search:
+            qs = qs.filter(
+                Q(first_name__icontains=search) |
+                Q(last_name__icontains=search) |
+                Q(username__icontains=search) |
+                Q(phone_number__icontains=search)
+            )
+
+        role = request.query_params.get('role', '').upper()
+        if role:
+            qs = qs.filter(role=role)
+
+        is_active = request.query_params.get('is_active')
+        if is_active is not None:
+            qs = qs.filter(is_active=(is_active.lower() == 'true'))
+
+        serializer = StaffSerializer(qs, many=True)
+        return Response(serializer.data)
+
+    def post(self, request):
+        serializer = StaffCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+        logger.info(f"Staff created: {user.username} (role={user.role}) by {request.user.username}")
+        return Response(StaffSerializer(user).data, status=201)
+
+
+class StaffDetailView(APIView):
+    """
+    GET   /api/auth/staff/<id>/   — детали сотрудника
+    PATCH /api/auth/staff/<id>/   — обновить (роль, имя, телефон, цена, активность)
+    DELETE /api/auth/staff/<id>/  — удалить аккаунт (осторожно!)
+    Auth: ADMIN
+    """
+    permission_classes = [IsAdminRole]
+
+    def _get_staff(self, pk):
+        user = get_object_or_404(User, pk=pk)
+        if user.role not in STAFF_ROLES:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("Этот пользователь не является сотрудником.")
+        return user
+
+    def get(self, request, pk):
+        user = self._get_staff(pk)
+        return Response(StaffSerializer(user).data)
+
+    def patch(self, request, pk):
+        user = self._get_staff(pk)
+        # Нельзя менять роль другого ADMIN (только себя)
+        if user.role == User.Role.SUPER_ADMIN and user.pk != request.user.pk:
+            return Response(
+                {'detail': 'Нельзя изменять данные другого администратора.'},
+                status=403
+            )
+        serializer = StaffUpdateSerializer(user, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        logger.info(f"Staff updated: {user.username} by {request.user.username}")
+        return Response(StaffSerializer(user).data)
+
+    def delete(self, request, pk):
+        user = self._get_staff(pk)
+        if user.pk == request.user.pk:
+            return Response({'detail': 'Нельзя удалить собственный аккаунт.'}, status=400)
+        if user.role == User.Role.SUPER_ADMIN:
+            return Response({'detail': 'Нельзя удалить аккаунт администратора.'}, status=403)
+        username = user.username
+        user.delete()
+        logger.info(f"Staff deleted: {username} by {request.user.username}")
+        return Response({'detail': f'Аккаунт {username} удалён.'}, status=204)
+
+
+class StaffSetPasswordView(APIView):
+    """
+    POST /api/auth/staff/<id>/set-password/
+    Сменить пароль сотрудника. Auth: ADMIN
+    """
+    permission_classes = [IsAdminRole]
+
+    def post(self, request, pk):
+        user = get_object_or_404(User, pk=pk)
+        if user.role not in STAFF_ROLES:
+            return Response({'detail': 'Этот пользователь не является сотрудником.'}, status=400)
+        if user.role == User.Role.SUPER_ADMIN and user.pk != request.user.pk:
+            return Response({'detail': 'Нельзя менять пароль другого администратора.'}, status=403)
+
+        serializer = StaffSetPasswordSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user.set_password(serializer.validated_data['new_password'])
+        user.save(update_fields=['password'])
+        logger.info(f"Password changed for staff {user.username} by {request.user.username}")
+        return Response({'detail': f'Пароль для {user.username} успешно изменён.'})
+
+
+class StaffToggleActiveView(APIView):
+    """
+    POST /api/auth/staff/<id>/activate/    — активировать
+    POST /api/auth/staff/<id>/deactivate/  — деактивировать
+    Auth: ADMIN
+    """
+    permission_classes = [IsAdminRole]
+
+    def post(self, request, pk, action):
+        user = get_object_or_404(User, pk=pk)
+        if user.role not in STAFF_ROLES:
+            return Response({'detail': 'Этот пользователь не является сотрудником.'}, status=400)
+        if user.pk == request.user.pk:
+            return Response({'detail': 'Нельзя изменить статус собственного аккаунта.'}, status=400)
+        if user.role == User.Role.SUPER_ADMIN:
+            return Response({'detail': 'Нельзя деактивировать другого администратора.'}, status=403)
+
+        if action == 'activate':
+            user.is_active = True
+            msg = f'Аккаунт {user.username} активирован.'
+        else:
+            user.is_active = False
+            msg = f'Аккаунт {user.username} деактивирован.'
+
+        user.save(update_fields=['is_active'])
+        logger.info(f"Staff {action}: {user.username} by {request.user.username}")
+        return Response({'detail': msg, 'is_active': user.is_active})
