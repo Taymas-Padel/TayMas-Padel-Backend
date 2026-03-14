@@ -258,6 +258,16 @@ class LobbyProposeTimeView(APIView):
         except Court.DoesNotExist:
             return Response({"court": ["Корт не найден."]}, status=400)
 
+        # Корт должен соответствовать формату лобби: 1×1 — только ONE_VS_ONE, 2×2 — только TWO_VS_TWO
+        if lobby.game_format == 'SINGLE' and court.play_format != Court.PlayFormat.ONE_VS_ONE:
+            return Response({
+                "court": ["Для лобби 1×1 выберите корт с форматом 1×1 (один на один)."]
+            }, status=400)
+        if lobby.game_format == 'DOUBLE' and court.play_format != Court.PlayFormat.TWO_VS_TWO:
+            return Response({
+                "court": ["Для лобби 2×2 выберите корт с форматом 2×2 (двое на двое)."]
+            }, status=400)
+
         # Парсим время
         from django.utils.dateparse import parse_datetime
         scheduled_time = parse_datetime(scheduled_time_str)
@@ -519,11 +529,16 @@ class LobbyBookView(APIView):
         if start_time < timezone.now():
             return Response({"detail": "Нельзя создать бронь на прошедшее время."}, status=400)
 
-        # Расчёт стоимости корта и доли каждого
+        # Расчёт стоимости корта и тренера, доли каждого
         court_price_per_hour = Decimal(str(court.price_per_hour))
         court_total = court_price_per_hour * hours
+        coach_total = Decimal('0')
+        if lobby.coach and getattr(lobby.coach, 'price_per_hour', None) is not None:
+            coach_total = Decimal(str(lobby.coach.price_per_hour)) * hours
+        total_booking = court_total + coach_total
         n = len(participants)
-        base_share = (court_total / n).quantize(Decimal('0.01')) if n else court_total
+        base_share = (total_booking / n).quantize(Decimal('0.01')) if n else total_booking
+        coach_share_per_player = (coach_total / n).quantize(Decimal('0.01')) if n and coach_total else Decimal('0')
 
         membership_summary = {}
         participant_shares = {}
@@ -539,8 +554,9 @@ class LobbyBookView(APIView):
             ).order_by('end_date').first()
 
             if membership:
+                # Абонемент покрывает корт; доля тренера остаётся
                 participant_shares[p.user_id] = {
-                    'court_share': Decimal('0'),
+                    'court_share': coach_share_per_player,
                     'membership_used': True,
                 }
                 membership_summary[p.user_id] = membership
@@ -565,7 +581,7 @@ class LobbyBookView(APIView):
                 user=request.user,
                 start_time=start_time,
                 end_time=end_time,
-                price=court_total,
+                price=total_booking,
                 status='PENDING',
                 is_paid=False,
                 coach=lobby.coach,
@@ -602,6 +618,8 @@ class LobbyBookView(APIView):
             "booking_id": booking.id,
             "booking_status": booking.status,
             "court_total": str(court_total),
+            "coach_total": str(coach_total),
+            "total": str(total_booking),
             "base_court_share": str(base_share),
             "players": [],
             "note": "Каждый участник добавляет личные услуги (/my-extras/) и оплачивает свою долю (/pay-share/).",

@@ -225,16 +225,16 @@ class CreateBookingSerializer(serializers.ModelSerializer):
         friends_ids = data.get('friends_ids', [])
         request = self.context.get('request')
 
-        # --- Валидация формата корта и числа игроков ---
+        # --- Формат корта и точное число участников: 1×1 = 1 друг, 2×2 = 3 друга ---
         if court.play_format == court.PlayFormat.ONE_VS_ONE:
-            if len(friends_ids) > 1:
+            if len(friends_ids) != 1:
                 raise serializers.ValidationError(
-                    "Этот корт только для формата 1x1. Максимум 1 дополнительный игрок."
+                    "Корт 1×1: укажите ровно одного участника (вы + 1 друг)."
                 )
         else:  # TWO_VS_TWO
-            if len(friends_ids) > 3:
+            if len(friends_ids) != 3:
                 raise serializers.ValidationError(
-                    "Максимум 3 дополнительных участника для формата 2x2."
+                    "Корт 2×2: укажите ровно трёх участников (вы + 3 друга)."
                 )
 
         if request:

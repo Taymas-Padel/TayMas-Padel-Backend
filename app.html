@@ -1146,7 +1146,9 @@ function onCourtChange(){
   badge.style.border=is1v1?'1px solid rgba(167,139,250,.4)':'1px solid rgba(34,211,238,.3)';
 
   $('bCourtName').textContent=opt.textContent.replace(/^\[.*?\]\s*/,'');
-  $('bFriendsLimit').textContent=`👥 Максимум ${maxFr} друг${maxFr===1?'':'а'} (${is1v1?'формат 1x1':'формат 2x2'})`;
+  $('bFriendsLimit').textContent=is1v1
+    ? '👥 Корт 1×1: выберите ровно 1 друга (вы + он = 2 игрока)'
+    : '👥 Корт 2×2: выберите ровно 3 друзей (вы + они = 4 игрока)';
 
   if(slots.length){
     $('bCourtSlots').innerHTML=slots.map(s=>{
@@ -1170,7 +1172,7 @@ function onCourtChange(){
 function limitFriends(el){
   const max=getMaxFriends();
   const checked=document.querySelectorAll('#friendsCheckboxes input[type=checkbox]:checked');
-  if(checked.length>max){ el.checked=false; alert(`Максимум ${max} участник${max===1?'':'а'} для этого корта`); }
+  if(checked.length>max){ el.checked=false; alert(`Для этого корта нужно ровно ${max} участник${max===1?'':'а'}.`); }
   updateBookingTotal();
 }
 
@@ -1375,11 +1377,17 @@ async function createBooking(){
     body.services=svcChecked.map(cb=>({service_id:parseInt(cb.dataset.svcid),quantity:1}));
   }
 
-  // Selected friends
   const frChecked=[...document.querySelectorAll('#friendsCheckboxes input[type=checkbox]:checked')];
-  if(frChecked.length){
-    body.friends_ids=frChecked.map(cb=>parseInt(cb.dataset.frid));
+  const friendIds=frChecked.map(cb=>parseInt(cb.dataset.frid));
+  const opt=$('bCourt').options[$('bCourt').selectedIndex];
+  const is1v1=opt&&opt.dataset.playFormat==='ONE_VS_ONE';
+  if(is1v1&&friendIds.length!==1){
+    showErr('createRes','Корт 1×1: выберите ровно одного друга.'); return;
   }
+  if(!is1v1&&friendIds.length!==3){
+    showErr('createRes','Корт 2×2: выберите ровно трёх друзей.'); return;
+  }
+  body.friends_ids=friendIds;
 
   const r=await api('POST','/api/bookings/create/',body);
   if(r.ok){
@@ -2227,7 +2235,7 @@ async function renderLobbyDetail(id){
         <div id="propRes" style="margin-top:6px"></div>
       </div>
     `;
-    setTimeout(()=>loadCourtsIntoSelect('propCourt'), 0);
+    setTimeout(()=>loadCourtsIntoSelect('propCourt', lb.game_format), 0);
   }
 
   // ── Назначить команды (создатель) ──
@@ -2501,15 +2509,18 @@ async function removeLobbyExtra(lobbyId, extraId){
   else alert('❌ ' + (r.data.detail || JSON.stringify(r.data)));
 }
 
-// Загрузить корты в select (используется в форме предложений)
-async function loadCourtsIntoSelect(selId){
+// Загрузить корты в select. playFormat: 'SINGLE' → только 1×1, 'DOUBLE' → только 2×2 (для лобби).
+async function loadCourtsIntoSelect(selId, playFormat){
   const sel = $(selId);
   if(!sel) return;
-  const r = await api('GET', '/api/courts/', null, false);
+  let url = '/api/courts/';
+  if(playFormat==='SINGLE') url += '?play_format=ONE_VS_ONE';
+  else if(playFormat==='DOUBLE') url += '?play_format=TWO_VS_TWO';
+  const r = await api('GET', url, null, false);
   if(r.ok && r.data.length){
     sel.innerHTML = r.data.map(c=>`<option value="${c.id}">${esc(c.name)} — ${fmtMoney(c.price_per_hour)}/ч</option>`).join('');
   } else {
-    sel.innerHTML = '<option value="">Корты не найдены</option>';
+    sel.innerHTML = playFormat ? '<option value="">Нет кортов для этого формата</option>' : '<option value="">Корты не найдены</option>';
   }
 }
 
