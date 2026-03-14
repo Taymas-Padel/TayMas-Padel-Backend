@@ -42,6 +42,17 @@ class Lobby(models.Model):
         verbose_name="Корт (после согласования)"
     )
     scheduled_time = models.DateTimeField(null=True, blank=True, verbose_name="Время игры (после согласования)")
+
+    # Тренер (опционально): при создании брони из лобби он попадёт в бронь и в расписание тренера
+    coach = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='lobbies_as_coach',
+        verbose_name="Тренер",
+        help_text="При создании брони из лобби тренер будет назначен в бронь и увидит её в расписании.",
+    )
     duration_minutes = models.IntegerField(default=90, verbose_name="Длительность (мин)")
 
     booking = models.ForeignKey(

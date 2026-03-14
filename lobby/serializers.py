@@ -108,6 +108,7 @@ class LobbySerializer(serializers.ModelSerializer):
     paid_count = serializers.SerializerMethodField()
     estimated_share = serializers.SerializerMethodField()
     elo_label = serializers.SerializerMethodField()
+    coach_name = serializers.SerializerMethodField()
 
     class Meta:
         model = Lobby
@@ -116,12 +117,19 @@ class LobbySerializer(serializers.ModelSerializer):
             'elo_min', 'elo_max', 'elo_label',
             'status', 'court', 'court_name', 'court_price',
             'scheduled_time', 'duration_minutes', 'comment',
+            'coach', 'coach_name',
             'players_count', 'max_players', 'estimated_share',
             'booking_id', 'booking_status', 'booking_price', 'paid_count',
             'participants', 'proposals', 'created_at',
         ]
         read_only_fields = ['creator', 'status', 'booking', 'court', 'scheduled_time',
                             'duration_minutes', 'created_at']
+
+    def get_coach_name(self, obj):
+        if not obj.coach:
+            return None
+        full = f"{obj.coach.first_name} {obj.coach.last_name}".strip()
+        return full or obj.coach.username
 
     def get_creator_name(self, obj):
         full = f"{obj.creator.first_name} {obj.creator.last_name}".strip()
@@ -151,3 +159,10 @@ class LobbySerializer(serializers.ModelSerializer):
         court_total = Decimal(str(obj.court.price_per_hour)) * hours
         share = (court_total / n).quantize(Decimal('0.01'))
         return str(share)
+
+
+class LobbyPatchSerializer(serializers.ModelSerializer):
+    """Только coach и comment — для PATCH создателем до создания брони."""
+    class Meta:
+        model = Lobby
+        fields = ['coach', 'comment']

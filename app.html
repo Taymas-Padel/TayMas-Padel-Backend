@@ -634,6 +634,48 @@ body{font-family:'Outfit',sans-serif;background:#0a0c12;color:var(--tx);min-heig
       </div>
     </div>
 
+    <!-- TOURNAMENTS (мобильный API тест) -->
+    <div id="p-tournaments" class="pg">
+      <div class="sec-title">🏆 Турниры</div>
+      <div class="stb">
+        <button class="on" data-tt="tlist" onclick="switchTTTab(this,'tlist')">Список</button>
+        <button data-tt="treg" onclick="switchTTTab(this,'treg')">Регистрация</button>
+        <button data-tt="tmy" onclick="switchTTTab(this,'tmy')">Мои матчи</button>
+        <button data-tt="tbr" onclick="switchTTTab(this,'tbr')">Сетка</button>
+      </div>
+
+      <!-- Список турниров -->
+      <div id="tlist">
+        <div class="sec-sub">GET /api/tournaments/?status=REGISTRATION</div>
+        <button class="b b2" onclick="loadTournaments()" style="margin-bottom:8px">🔄 Загрузить турниры</button>
+        <div id="tList"></div>
+      </div>
+
+      <!-- Регистрация в турнир -->
+      <div id="treg" style="display:none">
+        <div class="sec-sub">POST /api/tournaments/&lt;id&gt;/teams/ — регистрация команды</div>
+        <div class="fg"><label>ID турнира</label><input type="number" id="tRegId" placeholder="1"></div>
+        <div class="fg"><label>ID напарника (опционально для парного формата)</label><input type="number" id="tRegP2" placeholder="ID друга"></div>
+        <div class="fg"><label>Название команды (опционально)</label><input type="text" id="tRegName" placeholder="Dream Team"></div>
+        <button class="b b1" onclick="registerForTournament()" style="margin-bottom:8px">✅ Зарегистрироваться</button>
+        <div id="tRegRes"></div>
+      </div>
+
+      <!-- Мои матчи в турнире -->
+      <div id="tmy" style="display:none">
+        <div class="fg"><label>ID турнира</label><input type="number" id="tMyId" placeholder="1"></div>
+        <button class="b b2" onclick="loadMyTournamentMatches()" style="margin-bottom:8px">🔄 Загрузить мои матчи</button>
+        <div id="tMyMatches"></div>
+      </div>
+
+      <!-- Сетка турнира -->
+      <div id="tbr" style="display:none">
+        <div class="fg"><label>ID турнира</label><input type="number" id="tBrId" placeholder="1"></div>
+        <button class="b b2" onclick="loadTournamentBracket()" style="margin-bottom:8px">🔄 Загрузить сетку</button>
+        <div id="tBracket"></div>
+      </div>
+    </div>
+
   </div>
 
   <!-- Bottom nav -->
@@ -643,6 +685,7 @@ body{font-family:'Outfit',sans-serif;background:#0a0c12;color:var(--tx);min-heig
     <button id="btnCoachNav" style="display:none" onclick="nav('coach')"><span class="ic">👨‍🏫</span>Тренер</button>
     <button onclick="nav('lobby')"><span class="ic">🤝</span>Лобби</button>
     <button onclick="nav('membership')"><span class="ic">🎫</span>Абонемент</button>
+    <button onclick="nav('tournaments')"><span class="ic">🏆</span>Турниры</button>
     <button onclick="nav('gym')"><span class="ic">🏋️</span>Зал</button>
     <button onclick="nav('friends')"><span class="ic">👥</span>Друзья</button>
     <button onclick="nav('chat')"><span class="ic">💬</span>Чат<span class="bcnt hidden" id="chatBadge" style="background:var(--r);color:#fff;padding:0 4px;border-radius:8px;margin-left:2px;font-size:8px;font-weight:700">0</span></button>
@@ -754,6 +797,11 @@ function switchNTab(btn,id,cat){
   $('newsDetail').style.display='none';
   $('newsList').style.display='block';
   loadNews(cat);
+}
+function switchTTTab(btn,id){
+  document.querySelectorAll('[data-tt]').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  ['tlist','treg','tmy','tbr'].forEach(x=>{ const e=$(x); if(e) e.style.display=x===id?'block':'none'; });
 }
 function switchLobbyTab(btn,id){
   document.querySelectorAll('[data-lb]').forEach(b=>b.classList.remove('on'));
@@ -1678,6 +1726,110 @@ function openNews(id,title,content,cat,date){
   $('newsDetailContent').innerHTML=`<div class="cat ${cat==='EVENT'?'ev':cat==='PROMO'?'pr':cat==='ANNOUNCEMENT'?'an':''}" style="margin-bottom:8px">${esc(cat)}</div><div class="sec-title">${esc(title)}</div><div class="sec-sub" style="margin-top:4px">${esc(date)}</div><div class="hr"></div><div style="font-size:13px;line-height:1.7">${esc(content)}</div>`;
 }
 function backNews(){$('newsDetail').style.display='none';$('newsList').style.display='block';}
+
+// ============ TOURNAMENTS (API playground) ============
+async function loadTournaments(){
+  const r=await api('GET','/api/tournaments/?status=REGISTRATION',null,false);
+  const el=$('tList');
+  if(!r.ok){el.innerHTML=`<div class="al al-e">${esc(JSON.stringify(r.data))}</div>`;return;}
+  if(!r.data.length){el.innerHTML='<div class="al al-w">Нет турниров</div>';return;}
+  el.innerHTML=r.data.map(t=>`
+    <div class="card">
+      <div class="cl">${esc(t.name)}</div>
+      <div class="cv">
+        Статус: ${t.status} · Формат: ${t.format}<br>
+        Взнос: ${t.is_paid?fmtMoney(t.entry_fee):'Бесплатно'}<br>
+        Команды: ${t.teams_count} / ${t.max_teams||'∞'}
+      </div>
+      <button class="bsm b2" onclick="loadTournamentDetail(${t.id})">Детали</button>
+    </div>
+  `).join('');
+}
+async function loadTournamentDetail(id){
+  const r=await api('GET',`/api/tournaments/${id}/`,null,false);
+  if(!r.ok){alert('Ошибка: '+(r.data.detail||JSON.stringify(r.data)));return;}
+  const t=r.data;
+  $('tList').insertAdjacentHTML('afterbegin',`
+    <div class="al al-i">
+      <strong>${esc(t.name)}</strong><br>
+      Статус: ${t.status} · Формат: ${t.format}<br>
+      Взнос: ${t.is_paid?fmtMoney(t.entry_fee):'Бесплатно'}<br>
+      Команды: ${t.teams_count} / ${t.max_teams||'∞'}<br>
+      Призы: ${esc(t.prize_info||'—')}
+    </div>
+  `);
+}
+async function loadMyTournamentMatches(){
+  if(!AT)return alert('Войдите');
+  const tid=parseInt($('tMyId').value||'0');
+  if(!tid)return alert('Укажите ID турнира');
+  const r=await api('GET',`/api/tournaments/${tid}/my-matches/`,null,true);
+  const el=$('tMyMatches');
+  if(!r.ok){el.innerHTML=`<div class="al al-e">${esc(JSON.stringify(r.data))}</div>`;return;}
+  if(!r.data.length){el.innerHTML='<div class="al al-w">Матчей не найдено</div>';return;}
+  el.innerHTML=r.data.map(m=>`
+    <div class="card">
+      <div class="cl">${esc(m.round_name||('Раунд '+m.round_number))}</div>
+      <div class="cv">
+        ${m.court_name?'Корт: '+esc(m.court_name)+'<br>':''}
+        Статус: ${m.status}<br>
+        ${m.scheduled_at?'Время: '+new Date(m.scheduled_at).toLocaleString('ru-RU')+'<br>':''}
+        Счёт: ${esc(m.score_team1||'')} : ${esc(m.score_team2||'')}
+      </div>
+    </div>
+  `).join('');
+}
+async function loadTournamentBracket(){
+  const tid=parseInt($('tBrId').value||'0');
+  if(!tid)return alert('Укажите ID турнира');
+  const r=await api('GET',`/api/tournaments/${tid}/bracket/`,null,false);
+  const el=$('tBracket');
+  if(!r.ok){el.innerHTML=`<div class="al al-e">${esc(JSON.stringify(r.data))}</div>`;return;}
+  const br=r.data;
+  if(!br.total_rounds){el.innerHTML='<div class="al al-w">Сетка ещё не сгенерирована</div>';return;}
+  el.innerHTML=br.rounds.map(rnd=>`
+    <div style="margin-bottom:10px">
+      <div style="font-weight:600;margin-bottom:4px">${esc(rnd.round_name)}</div>
+      ${rnd.matches.map(m=>`
+        <div class="card" style="margin-bottom:4px">
+          <div class="cl">Матч #${m.match_number}</div>
+          <div class="cv">
+            ${(m.team1_info&&m.team1_info.display_name)?esc(m.team1_info.display_name):'TBD'}
+            &nbsp;vs&nbsp;
+            ${(m.team2_info&&m.team2_info.display_name)?esc(m.team2_info.display_name):'TBD'}<br>
+            ${m.court_name?'Корт: '+esc(m.court_name)+'<br>':''}
+            Статус: ${m.status}
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `).join('');
+}
+
+async function registerForTournament(){
+  if(!AT) return alert('Войдите сначала');
+  const tid=parseInt($('tRegId').value||'0');
+  if(!tid) return alert('Укажите ID турнира');
+  const p2Raw=$('tRegP2').value.trim();
+  const payload={
+    player1_id: UID,
+  };
+  if(p2Raw){
+    const p2=parseInt(p2Raw);
+    if(!p2){ alert('ID напарника должен быть числом'); return; }
+    payload.player2_id=p2;
+  }
+  const name=$('tRegName').value.trim();
+  if(name) payload.team_name=name;
+  const el=$('tRegRes');
+  el.innerHTML='';
+  const r=await api('POST',`/api/tournaments/${tid}/teams/`,payload,true);
+  if(r.ok){
+    el.innerHTML=`<div class="al al-s">✅ Заявка отправлена. Статус: ${esc(r.data.status)}</div>`;
+  }else{
+    el.innerHTML=`<div class="al al-e">❌ ${esc(r.data.detail||r.data.non_field_errors?.join(', ')||JSON.stringify(r.data))}</div>`;
+  }
+}
 
 // ============ PROFILE / STATS ============
 async function loadStats(){
