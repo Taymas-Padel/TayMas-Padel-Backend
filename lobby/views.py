@@ -8,7 +8,12 @@ from datetime import timedelta
 from decimal import Decimal
 
 from .models import Lobby, LobbyParticipant, LobbyParticipantExtra, LobbyTimeProposal
-from .serializers import LobbySerializer, LobbyParticipantExtraSerializer, LobbyTimeProposalSerializer
+from .serializers import (
+    LobbySerializer,
+    LobbyPatchSerializer,
+    LobbyParticipantExtraSerializer,
+    LobbyTimeProposalSerializer,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -65,7 +70,8 @@ class LobbyListCreateView(generics.ListCreateAPIView):
         if elo_max is None:
             elo_max = request.user.rating_elo + 200
 
-        lobby = serializer.save(creator=request.user, elo_min=elo_min, elo_max=elo_max)
+        coach = serializer.validated_data.get('coach')
+        lobby = serializer.save(creator=request.user, elo_min=elo_min, elo_max=elo_max, coach=coach)
         # Создатель — первый участник, команда A
         LobbyParticipant.objects.create(lobby=lobby, user=request.user, team='A')
         lobby.update_status()
@@ -76,16 +82,35 @@ class LobbyListCreateView(generics.ListCreateAPIView):
 # 2. Детали
 # ---------------------------------------------------------------------------
 
-class LobbyDetailView(generics.RetrieveAPIView):
-    """GET /api/lobby/<id>/"""
-    serializer_class = LobbySerializer
+class LobbyDetailView(generics.RetrieveUpdateAPIView):
+    """
+    GET  /api/lobby/<id>/ — детали лобби.
+    PATCH /api/lobby/<id>/ — обновить тренера или комментарий (только создатель, пока статус не BOOKED/PAID).
+    """
     permission_classes = [permissions.IsAuthenticated]
     queryset = Lobby.objects.all()
+    http_method_names = ['get', 'patch', 'head', 'options']
+
+    def get_serializer_class(self):
+        if self.request.method == 'PATCH':
+            return LobbyPatchSerializer
+        return LobbySerializer
 
     def get_serializer_context(self):
         ctx = super().get_serializer_context()
         ctx['request'] = self.request
         return ctx
+
+    def patch(self, request, *args, **kwargs):
+        lobby = self.get_object()
+        if lobby.creator != request.user:
+            return Response({"detail": "Только создатель лобби может изменить настройки."}, status=403)
+        if lobby.status in ['BOOKED', 'PAID']:
+            return Response(
+                {"detail": "После создания брони нельзя менять тренера или комментарий."},
+                status=400,
+            )
+        return super().patch(request, *args, **kwargs)
 
 
 # ---------------------------------------------------------------------------
@@ -532,6 +557,7 @@ class LobbyBookView(APIView):
                 price=court_total,
                 status='PENDING',
                 is_paid=False,
+                coach=lobby.coach,
             )
 
             # Добавляем ВСЕХ участников (включая создателя) для наглядности
