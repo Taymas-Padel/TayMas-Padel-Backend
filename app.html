@@ -2062,22 +2062,25 @@ function lobbyCard(lb){
 }
 
 async function loadLobbies(all=false){
-  const statusF = $('lbStatusF')?.value || '';
-  const formatF = $('lbFormatF')?.value || '';
-  const coachF = $('lbCoachF')?.value || '';
-  let q = '?';
-  if(statusF) q += `status=${encodeURIComponent(statusF)}&`;
-  if(formatF) q += `format=${encodeURIComponent(formatF)}&`;
-  if(coachF !== '') q += `has_coach=${coachF === '1' ? 'true' : 'false'}&`;
+  const statusF = ($('lbStatusF')&&$('lbStatusF').value) ? $('lbStatusF').value.trim() : '';
+  const formatF = ($('lbFormatF')&&$('lbFormatF').value) ? $('lbFormatF').value.trim() : '';
+  const coachF = ($('lbCoachF')&&$('lbCoachF').value) ? $('lbCoachF').value.trim() : '';
+  const params = new URLSearchParams();
+  if(statusF) params.set('status', statusF);
+  if(formatF) params.set('format', formatF);
+  if(coachF !== '') params.set('has_coach', coachF === '1' ? 'true' : 'false');
   if(!all && AT && UID){
     const myElo = window._myElo || 800;
-    q += `elo=${myElo}&`;
+    params.set('elo', String(myElo));
   }
-  const r = await api('GET', `/api/lobby/${q}`, null, !!AT);
+  // Всегда путь /api/lobby/, фильтры только в query (иначе бэкенд вернёт 404)
+  const path = '/api/lobby/' + (params.toString() ? '?' + params.toString() : '');
+  const r = await api('GET', path, null, !!AT);
   if(!r.ok){ $('lobbyList').innerHTML=`<div class="al al-e">${esc(JSON.stringify(r.data))}</div>`; return; }
-  $('lobbyList').innerHTML = r.data.length
-    ? r.data.map(lobbyCard).join('')
-    : '<div class="al al-w">Нет лобби по вашему ELO. Нажмите «Все» для просмотра всех.</div>';
+  const list = Array.isArray(r.data) ? r.data : (r.data.results || []);
+  $('lobbyList').innerHTML = list.length
+    ? list.map(lobbyCard).join('')
+    : '<div class="al al-w">Нет лобби по выбранным фильтрам. Попробуйте «Все» или другие условия.</div>';
 }
 
 async function loadMyLobbies(){

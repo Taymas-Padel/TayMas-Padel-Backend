@@ -1,7 +1,8 @@
 from rest_framework import generics, permissions, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from django.shortcuts import get_object_or_404
+from django.shortcuts import get_object_or_404, redirect
+from django.http import HttpResponseRedirect
 from django.db import transaction as db_transaction
 from django.utils import timezone
 from datetime import timedelta
@@ -88,6 +89,22 @@ class LobbyListCreateView(generics.ListCreateAPIView):
         LobbyParticipant.objects.create(lobby=lobby, user=request.user, team='A')
         lobby.update_status()
         return Response(LobbySerializer(lobby, context={'request': request}).data, status=201)
+
+
+class LobbyListFormatRedirectView(APIView):
+    """
+    GET /api/lobby/SINGLE/ или /api/lobby/DOUBLE/ — редирект на /api/lobby/?format=SINGLE|DOUBLE.
+    Нужно на случай, если клиент по ошибке передаёт формат в path вместо query.
+    """
+    permission_classes = [permissions.AllowAny]
+    http_method_names = ['get', 'head', 'options']
+
+    def get(self, request, fmt):
+        fmt_upper = (fmt or '').strip().upper()
+        if fmt_upper not in ('SINGLE', 'DOUBLE'):
+            return Response({"detail": "Страница не найдена."}, status=404)
+        redirect_url = request.build_absolute_uri('/api/lobby/') + '?format=' + fmt_upper
+        return HttpResponseRedirect(redirect_url)
 
 
 # ---------------------------------------------------------------------------
