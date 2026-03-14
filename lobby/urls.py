@@ -1,6 +1,7 @@
 from django.urls import path
 from .views import (
     LobbyListCreateView,
+    LobbyListFormatRedirectView,
     LobbyDetailView,
     LobbyJoinView,
     LobbyLeaveView,
@@ -38,4 +39,6 @@ urlpatterns = [
     path('<int:pk>/my-extras/<int:extra_id>/', LobbyMyExtrasView.as_view(), name='lobby-my-extras-delete'),
     path('<int:pk>/pay-share/', LobbyPayShareView.as_view(), name='lobby-pay-share'),
     path('<int:pk>/payment-status/', LobbyPaymentStatusView.as_view(), name='lobby-payment-status'),
+    # Если клиент ошибочно отправил формат в path (напр. /api/lobby/SINGLE/) — редирект на список с ?format=
+    path('<str:fmt>/', LobbyListFormatRedirectView.as_view(), name='lobby-list-format-redirect'),
 ]
