@@ -123,7 +123,7 @@ class LobbySerializer(serializers.ModelSerializer):
             'elo_min', 'elo_max', 'elo_label',
             'status', 'court', 'court_name', 'court_price',
             'scheduled_time', 'duration_minutes', 'comment',
-            'coach', 'coach_name',
+            'wants_coach', 'coach', 'coach_name',
             'players_count', 'max_players', 'estimated_share',
             'booking_id', 'booking_status', 'booking_price', 'paid_count',
             'participants', 'proposals', 'created_at',

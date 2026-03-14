@@ -429,11 +429,12 @@ body{font-family:'Outfit',sans-serif;background:#0a0c12;color:var(--tx);min-heig
           </div>
           <div id="lbEloHint" style="font-size:10px;color:var(--dm);margin-top:3px">Заполнится автоматически: ваш ELO ±200</div>
         </div>
-        <div class="fg"><label>Тренер (необязательно)</label>
-          <select id="lbCoach" style="width:100%;padding:8px;background:var(--s2);border:1px solid var(--bd);border-radius:8px;color:var(--tx)">
-            <option value="">Без тренера</option>
-          </select>
-          <div class="hint" style="font-size:10px;color:var(--dm);margin-top:3px">Сохранится в лобби и попадёт в бронь → тренер увидит матч в расписании</div>
+        <div class="fg" style="margin-bottom:8px">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px">
+            <input type="checkbox" id="lbWantsCoach" style="width:18px;height:18px;accent-color:var(--ac)">
+            <span>👨‍🏫 Игра с тренером</span>
+          </label>
+          <div class="hint" style="font-size:10px;color:var(--dm);margin-top:3px;margin-left:26px">Конкретного тренера выберете после согласования даты — по доступности на слот. По этой галочке можно фильтровать лобби «с тренером» / «без».</div>
         </div>
         <div class="fg"><label>Комментарий (необязательно)</label>
           <input type="text" id="lbComment" placeholder="Играю по вечерам, предпочтительно 2-3 корт…">
@@ -2046,6 +2047,7 @@ function lobbyCard(lb){
       ${lb.court_name ? `🎾 ${esc(lb.court_name)} · 📅 ${dt} · ⏱ ${lb.duration_minutes} мин<br>` : `📅 <span style="color:var(--o)">Время не согласовано</span><br>`}
       👥 ${(lb.participants||[]).map(p=>`<span style="color:${p.team==='A'?'var(--ac)':p.team==='B'?'var(--v)':'var(--dm)'}">${esc(p.user_name)}${p.team?'('+p.team+')':''}</span>`).join(' · ')}
       ${lb.estimated_share?`<br>💰 ~${fmtMoney(lb.estimated_share)}/чел. (корт)`:''}
+      ${lb.coach_name ? `<br>👨‍🏫 ${esc(lb.coach_name)}` : lb.wants_coach ? '<br>👨‍🏫 С тренером (выбор после времени)' : ''}
       ${lb.comment?`<br>💬 ${esc(lb.comment)}`:''}
     </div>
     ${payBar}
@@ -2093,17 +2095,6 @@ async function initLobbyForm(){
   if(eloMin && !eloMin.value) eloMin.value = Math.max(0, myElo - 200);
   if(eloMax && !eloMax.value) eloMax.value = myElo + 200;
   if(hint) hint.textContent = `Ваш ELO: ${myElo}. Диапазон ±200 подставлен автоматически.`;
-  const coachSel = $('lbCoach');
-  if(coachSel && coachSel.options.length <= 1){
-    const r = await api('GET', '/api/auth/coaches/', null, false);
-    coachSel.innerHTML = '<option value="">Без тренера</option>';
-    if(r.ok && r.data && r.data.length) r.data.forEach(c=>{
-      const o = document.createElement('option');
-      o.value = c.id;
-      o.textContent = (c.full_name||(c.first_name+' '+(c.last_name||'')).trim())||'Тренер #'+c.id;
-      coachSel.appendChild(o);
-    });
-  }
 }
 
 async function createLobby(){
@@ -2120,9 +2111,8 @@ async function createLobby(){
     elo_min: eloMin,
     elo_max: eloMax,
     comment: $('lbComment').value.trim(),
+    wants_coach: !!$('lbWantsCoach')?.checked,
   };
-  const coachId = $('lbCoach').value.trim();
-  if(coachId) body.coach = parseInt(coachId, 10);
   const r = await api('POST', '/api/lobby/', body);
   const el = $('createLobbyRes');
   if(r.ok){
@@ -2408,15 +2398,19 @@ async function renderLobbyDetail(id){
       </div>
     </div>
 
-    ${isCreator && !['BOOKED','PAID'].includes(lb.status) ? `
+    ${isCreator && lb.wants_coach && !['BOOKED','PAID'].includes(lb.status) && lb.status === 'READY' && lb.scheduled_time ? `
     <div class="bk" style="margin-top:10px;padding:10px">
-      <div class="sec-title" style="font-size:11px;margin-bottom:6px">👨‍🏫 Тренер (попадёт в бронь и в расписание тренера)</div>
+      <div class="sec-title" style="font-size:11px;margin-bottom:6px">👨‍🏫 Тренер на выбранный слот (только свободные)</div>
+      <div class="sec-sub" style="font-size:10px;color:var(--dm);margin-bottom:6px">Время согласовано — ниже тренеры, свободные в это время.</div>
       <select id="lobbyDetailCoach" style="width:100%;padding:8px;background:var(--s2);border:1px solid var(--bd);border-radius:8px;color:var(--tx);margin-bottom:6px">
         <option value="">Без тренера</option>
       </select>
       <button class="b b2 bsm" onclick="patchLobbyCoach(${lb.id})">Сохранить тренера</button>
       <div id="lobbyCoachRes" style="margin-top:6px;font-size:11px"></div>
     </div>
+    ` : ''}
+    ${isCreator && lb.wants_coach && !['BOOKED','PAID'].includes(lb.status) && lb.status !== 'READY' ? `
+    <div class="al al-i" style="font-size:10px;color:var(--dm);padding:6px;background:var(--s2);border-radius:8px;margin-top:8px">👨‍🏫 Тренера выберите после согласования времени и корта — появятся только свободные на слот.</div>
     ` : ''}
 
     <!-- Прогресс шагов -->
@@ -2455,16 +2449,24 @@ async function renderLobbyDetail(id){
       ${isCreator && !['BOOKED','PAID'].includes(lb.status) ? `<button class="bsm br" onclick="closeLobby(${lb.id})">Закрыть лобби</button>` : ''}
     </div>
   `;
-  if(isCreator && !['BOOKED','PAID'].includes(lb.status)){
+  if(isCreator && lb.wants_coach && lb.status === 'READY' && lb.scheduled_time){
     const sel = document.getElementById('lobbyDetailCoach');
-    if(sel) fillLobbyDetailCoachSelect(sel, lb.coach);
+    if(sel) fillLobbyDetailCoachSelect(sel, lb.coach, lb.scheduled_time, lb.duration_minutes || 90);
   }
 }
 
-async function fillLobbyDetailCoachSelect(sel, currentCoachId){
-  const r = await api('GET', '/api/auth/coaches/', null, false);
+async function fillLobbyDetailCoachSelect(sel, currentCoachId, scheduledTimeIso, durationMinutes){
+  sel.innerHTML = '<option value="">Загрузка…</option>';
+  if(!scheduledTimeIso || !durationMinutes){
+    sel.innerHTML = '<option value="">Без тренера</option>';
+    if(currentCoachId) sel.value = String(currentCoachId);
+    return;
+  }
+  const iso = new Date(scheduledTimeIso).toISOString();
+  const r = await api('GET', `/api/bookings/available-coaches/?datetime=${encodeURIComponent(iso)}&duration=${durationMinutes}`, null, false);
   sel.innerHTML = '<option value="">Без тренера</option>';
-  if(r.ok && r.data && r.data.length) r.data.forEach(c=>{
+  const list = r.ok && r.data && r.data.length ? r.data : [];
+  list.forEach(c=>{
     const o = document.createElement('option');
     o.value = c.id;
     o.textContent = (c.full_name||(c.first_name+' '+(c.last_name||'')).trim())||'Тренер #'+c.id;

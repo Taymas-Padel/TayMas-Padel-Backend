@@ -57,10 +57,11 @@ class LobbyListCreateView(generics.ListCreateAPIView):
             elo = self.request.user.rating_elo
             qs = qs.filter(elo_min__lte=elo, elo_max__gte=elo)
         if has_coach_f is not None and has_coach_f != '':
+            from django.db.models import Q
             if str(has_coach_f).lower() in ('true', '1', 'yes'):
-                qs = qs.filter(coach__isnull=False)
+                qs = qs.filter(Q(coach__isnull=False) | Q(wants_coach=True))
             elif str(has_coach_f).lower() in ('false', '0', 'no'):
-                qs = qs.filter(coach__isnull=True)
+                qs = qs.filter(coach__isnull=True, wants_coach=False)
         if coach_id_f:
             try:
                 qs = qs.filter(coach_id=int(coach_id_f))
@@ -81,8 +82,8 @@ class LobbyListCreateView(generics.ListCreateAPIView):
         if elo_max is None:
             elo_max = request.user.rating_elo + 200
 
-        coach = serializer.validated_data.get('coach')
-        lobby = serializer.save(creator=request.user, elo_min=elo_min, elo_max=elo_max, coach=coach)
+        wants_coach = serializer.validated_data.get('wants_coach', False)
+        lobby = serializer.save(creator=request.user, elo_min=elo_min, elo_max=elo_max, wants_coach=wants_coach)
         # Создатель — первый участник, команда A
         LobbyParticipant.objects.create(lobby=lobby, user=request.user, team='A')
         lobby.update_status()
