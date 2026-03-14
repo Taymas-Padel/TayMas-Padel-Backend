@@ -22,9 +22,10 @@ from .serializers import (
 
 class LobbyListCreateView(generics.ListCreateAPIView):
     """
-    GET  /api/lobby/?status=OPEN&format=DOUBLE&elo=1200
+    GET  /api/lobby/?status=OPEN&format=DOUBLE&elo=1200&has_coach=true&coach=<id>
+         Фильтры: status, format, elo, has_coach (true/false), coach (id тренера).
     POST /api/lobby/ — создать лобби (без корта и времени).
-         Тело: title, game_format, elo_min, elo_max, comment
+         Тело: title, game_format, elo_min, elo_max, comment, coach (опц.)
     """
     serializer_class = LobbySerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -38,8 +39,9 @@ class LobbyListCreateView(generics.ListCreateAPIView):
         qs = Lobby.objects.exclude(status='CLOSED').order_by('-created_at')
         status_f = self.request.query_params.get('status')
         format_f = self.request.query_params.get('format')
-        # ELO-фильтрация: показываем лобби, в которые вписывается текущий пользователь
         elo_f = self.request.query_params.get('elo')
+        has_coach_f = self.request.query_params.get('has_coach')
+        coach_id_f = self.request.query_params.get('coach')
 
         if status_f:
             qs = qs.filter(status=status_f.upper())
@@ -52,9 +54,18 @@ class LobbyListCreateView(generics.ListCreateAPIView):
             except ValueError:
                 pass
         elif self.request.user.is_authenticated:
-            # По умолчанию — фильтруем по ELO текущего пользователя
             elo = self.request.user.rating_elo
             qs = qs.filter(elo_min__lte=elo, elo_max__gte=elo)
+        if has_coach_f is not None and has_coach_f != '':
+            if str(has_coach_f).lower() in ('true', '1', 'yes'):
+                qs = qs.filter(coach__isnull=False)
+            elif str(has_coach_f).lower() in ('false', '0', 'no'):
+                qs = qs.filter(coach__isnull=True)
+        if coach_id_f:
+            try:
+                qs = qs.filter(coach_id=int(coach_id_f))
+            except ValueError:
+                pass
         return qs
 
     def create(self, request, *args, **kwargs):

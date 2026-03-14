@@ -68,11 +68,16 @@ class BookingSerializer(serializers.ModelSerializer):
         return self._user_display(obj.user)
 
     def get_players_for_match(self, obj):
+        # Один и тот же человек не должен попадать дважды (лобби: user=создатель, participants включают создателя)
         out = []
+        seen_ids = set()
         if obj.user:
             out.append({"id": obj.user.id, "name": self._user_display(obj.user)})
+            seen_ids.add(obj.user.id)
         for p in obj.participants.all():
-            out.append({"id": p.id, "name": self._user_display(p)})
+            if p.id not in seen_ids:
+                out.append({"id": p.id, "name": self._user_display(p)})
+                seen_ids.add(p.id)
         return out
 
     def get_coach_name(self, obj):

@@ -388,6 +388,11 @@ body{font-family:'Outfit',sans-serif;background:#0a0c12;color:var(--tx);min-heig
             <option value="DOUBLE">2×2</option>
             <option value="SINGLE">1×1</option>
           </select>
+          <select id="lbCoachF" style="flex:1;min-width:90px;padding:6px;background:var(--s2);border:1px solid var(--bd);border-radius:8px;color:var(--tx);font-size:10px">
+            <option value="">Тренер</option>
+            <option value="1">С тренером</option>
+            <option value="0">Без тренера</option>
+          </select>
           <button class="b b2 bsm" onclick="loadLobbies()" title="Обновить">🔄</button>
           <button class="bsm b1" onclick="loadLobbies(true)" title="Все лобби">Все</button>
         </div>
@@ -423,6 +428,12 @@ body{font-family:'Outfit',sans-serif;background:#0a0c12;color:var(--tx);min-heig
             <input type="number" id="lbEloMax" placeholder="до" style="flex:1;padding:8px;background:var(--s2);border:1px solid var(--bd);border-radius:8px;color:var(--tx)">
           </div>
           <div id="lbEloHint" style="font-size:10px;color:var(--dm);margin-top:3px">Заполнится автоматически: ваш ELO ±200</div>
+        </div>
+        <div class="fg"><label>Тренер (необязательно)</label>
+          <select id="lbCoach" style="width:100%;padding:8px;background:var(--s2);border:1px solid var(--bd);border-radius:8px;color:var(--tx)">
+            <option value="">Без тренера</option>
+          </select>
+          <div class="hint" style="font-size:10px;color:var(--dm);margin-top:3px">Сохранится в лобби и попадёт в бронь → тренер увидит матч в расписании</div>
         </div>
         <div class="fg"><label>Комментарий (необязательно)</label>
           <input type="text" id="lbComment" placeholder="Играю по вечерам, предпочтительно 2-3 корт…">
@@ -598,7 +609,13 @@ body{font-family:'Outfit',sans-serif;background:#0a0c12;color:var(--tx);min-heig
           <button data-ct="matches" onclick="switchCoachTab(this,'matches')">Матчи / Счёт</button>
         </div>
         <div id="coachSchedule">
-          <button class="b b2" onclick="loadCoachSchedule()" style="margin-bottom:8px">🔄 Расписание</button>
+          <div class="al al-i" style="font-size:10px;color:var(--dm);margin-bottom:8px;padding:6px;background:var(--s2);border-radius:8px">
+            📋 Все брони, где вы тренер (в т.ч. из лобби). Расписание по дням — ниже.
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
+            <span style="font-size:11px;color:var(--tx);font-weight:600" id="coachSchedulePeriod">Период: загрузка…</span>
+            <button class="b b2 bsm" onclick="loadCoachSchedule()">🔄 Обновить</button>
+          </div>
           <div id="coachScheduleList"></div>
         </div>
         <div id="coachMatches" style="display:none">
@@ -1387,19 +1404,58 @@ function coachBkCard(b){
   const st=b.status==='CONFIRMED'?'bs-c':b.status==='PENDING'?'bs-p':'bs-x';
   const loc=new Date(b.start_time).toLocaleString('ru',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
   const locE=new Date(b.end_time).toLocaleTimeString('ru',{hour:'2-digit',minute:'2-digit'});
-  return `<div class="bk">
+  return `<div class="bk" style="margin-bottom:8px">
     <div class="bh"><div class="bn">🎾 ${esc(b.court_name||'Корт')}</div><span class="bs ${st}">${b.status}</span></div>
-    <div class="bi">👤 Клиент: ${esc(b.client_name||'#'+b.user)}<br>⏰ ${loc}–${locE}<br>💰 ${fmtMoney(b.price)}</div>
+    <div class="bi">👤 ${esc(b.client_name||'#'+b.user)} · ⏰ ${loc}–${locE}<br>💰 ${fmtMoney(b.price)}</div>
     ${b.status!=='CANCELED'&&new Date(b.start_time)>new Date()?`<button class="bsm br" style="margin-top:6px" onclick="cancelBooking(${b.id});loadCoachSchedule();">Отменить</button>`:''}
   </div>`;
 }
+function formatDayHeader(isoDate){
+  const d=new Date(isoDate+'T12:00:00');
+  const dayName=d.toLocaleDateString('ru',{weekday:'long'});
+  const dayNum=d.getDate();
+  const month=d.toLocaleDateString('ru',{month:'long'});
+  return dayName.charAt(0).toUpperCase()+dayName.slice(1)+', '+dayNum+' '+month;
+}
 async function loadCoachSchedule(){
   if(!AT||!isCoach())return;
-  const r=await api('GET','/api/bookings/coach/schedule/');
   const el=$('coachScheduleList');
+  const periodEl=$('coachSchedulePeriod');
+  if(el) el.innerHTML='<div class="al al-i" style="color:var(--dm)">Загрузка…</div>';
+  const today=new Date();
+  const fromStr=today.toISOString().slice(0,10);
+  const end=new Date(today);
+  end.setDate(end.getDate()+13);
+  const toStr=end.toISOString().slice(0,10);
+  const r=await api('GET',`/api/bookings/coach/schedule/grid/?from=${fromStr}&to=${toStr}`);
+  if(periodEl) periodEl.textContent=`Период: ${fromStr} — ${toStr}`;
   if(!el)return;
   if(!r.ok){ showErr('coachScheduleList',r.data); return; }
-  el.innerHTML=r.data.length?r.data.map(coachBkCard).join(''):'<div class="al al-w">Нет броней в выбранном периоде</div>';
+  const schedule=r.data.schedule||{};
+  const dates=Object.keys(schedule).sort();
+  if(dates.length===0){ el.innerHTML='<div class="al al-w">Нет данных за период.</div>'; return; }
+  let html='';
+  let totalBookings=0;
+  for(const date of dates){
+    const list=schedule[date]||[];
+    totalBookings+=list.length;
+    const dayLabel=formatDayHeader(date);
+    const isToday=date===fromStr;
+    html+=`<div style="margin-bottom:16px;border-left:3px solid ${isToday?'var(--ac)':'var(--bd)'};padding-left:10px">`;
+    html+=`<div style="font-size:12px;font-weight:700;color:var(--tx);margin-bottom:6px;text-transform:capitalize">${esc(dayLabel)}${isToday?' <span style="color:var(--ac);font-weight:600">· сегодня</span>':''}</div>`;
+    if(list.length===0){
+      html+=`<div style="font-size:11px;color:var(--dm);padding:6px 0">Нет занятий</div>`;
+    } else {
+      list.sort((a,b)=>new Date(a.start_time)-new Date(b.start_time));
+      list.forEach(b=>{ html+=coachBkCard(b); });
+    }
+    html+=`</div>`;
+  }
+  if(totalBookings===0){
+    el.innerHTML='<div class="al al-w">В этом периоде нет броней. Время брони должно попадать в диапазон (с сегодня по +14 дней).</div>';
+  } else {
+    el.innerHTML=html;
+  }
 }
 let _coachBookingsForMatch = [];
 
@@ -1985,10 +2041,11 @@ function lobbyCard(lb){
 async function loadLobbies(all=false){
   const statusF = $('lbStatusF')?.value || '';
   const formatF = $('lbFormatF')?.value || '';
+  const coachF = $('lbCoachF')?.value || '';
   let q = '?';
-  if(statusF) q += `status=${statusF}&`;
-  if(formatF) q += `format=${formatF}&`;
-  // ELO фильтрация: если авторизован и не «Все», передаём elo
+  if(statusF) q += `status=${encodeURIComponent(statusF)}&`;
+  if(formatF) q += `format=${encodeURIComponent(formatF)}&`;
+  if(coachF !== '') q += `has_coach=${coachF === '1' ? 'true' : 'false'}&`;
   if(!all && AT && UID){
     const myElo = window._myElo || 800;
     q += `elo=${myElo}&`;
@@ -2008,7 +2065,6 @@ async function loadMyLobbies(){
 }
 
 async function initLobbyForm(){
-  // Заполняем ELO диапазон по умолчанию (elo ±200)
   const myElo = window._myElo || 800;
   const eloMin = $('lbEloMin');
   const eloMax = $('lbEloMax');
@@ -2016,6 +2072,17 @@ async function initLobbyForm(){
   if(eloMin && !eloMin.value) eloMin.value = Math.max(0, myElo - 200);
   if(eloMax && !eloMax.value) eloMax.value = myElo + 200;
   if(hint) hint.textContent = `Ваш ELO: ${myElo}. Диапазон ±200 подставлен автоматически.`;
+  const coachSel = $('lbCoach');
+  if(coachSel && coachSel.options.length <= 1){
+    const r = await api('GET', '/api/auth/coaches/', null, false);
+    coachSel.innerHTML = '<option value="">Без тренера</option>';
+    if(r.ok && r.data && r.data.length) r.data.forEach(c=>{
+      const o = document.createElement('option');
+      o.value = c.id;
+      o.textContent = (c.full_name||(c.first_name+' '+(c.last_name||'')).trim())||'Тренер #'+c.id;
+      coachSel.appendChild(o);
+    });
+  }
 }
 
 async function createLobby(){
@@ -2033,6 +2100,8 @@ async function createLobby(){
     elo_max: eloMax,
     comment: $('lbComment').value.trim(),
   };
+  const coachId = $('lbCoach').value.trim();
+  if(coachId) body.coach = parseInt(coachId, 10);
   const r = await api('POST', '/api/lobby/', body);
   const el = $('createLobbyRes');
   if(r.ok){
@@ -2313,9 +2382,21 @@ async function renderLobbyDetail(id){
       <div class="bi">
         🎾 <b>${esc(lb.court_name||'—')}</b>${lb.court_price?' · '+fmtMoney(lb.court_price)+'/ч':''}<br>
         📅 ${dt} · ⏱ ${lb.duration_minutes} мин
+        ${lb.coach_name ? `<br>👨‍🏫 Тренер: <b>${esc(lb.coach_name)}</b>` : '<br>👨‍🏫 Тренер не выбран'}
         ${lb.booking_id?`<br>📋 Бронь <b>#${lb.booking_id}</b> · ${esc(lb.booking_status||'')} · Корт: ${lb.booking_price?fmtMoney(lb.booking_price):'—'}`:''}
       </div>
     </div>
+
+    ${isCreator && !['BOOKED','PAID'].includes(lb.status) ? `
+    <div class="bk" style="margin-top:10px;padding:10px">
+      <div class="sec-title" style="font-size:11px;margin-bottom:6px">👨‍🏫 Тренер (попадёт в бронь и в расписание тренера)</div>
+      <select id="lobbyDetailCoach" style="width:100%;padding:8px;background:var(--s2);border:1px solid var(--bd);border-radius:8px;color:var(--tx);margin-bottom:6px">
+        <option value="">Без тренера</option>
+      </select>
+      <button class="b b2 bsm" onclick="patchLobbyCoach(${lb.id})">Сохранить тренера</button>
+      <div id="lobbyCoachRes" style="margin-top:6px;font-size:11px"></div>
+    </div>
+    ` : ''}
 
     <!-- Прогресс шагов -->
     ${lobbyStepIndicator(lb, isCreator)}
@@ -2353,6 +2434,32 @@ async function renderLobbyDetail(id){
       ${isCreator && !['BOOKED','PAID'].includes(lb.status) ? `<button class="bsm br" onclick="closeLobby(${lb.id})">Закрыть лобби</button>` : ''}
     </div>
   `;
+  if(isCreator && !['BOOKED','PAID'].includes(lb.status)){
+    const sel = document.getElementById('lobbyDetailCoach');
+    if(sel) fillLobbyDetailCoachSelect(sel, lb.coach);
+  }
+}
+
+async function fillLobbyDetailCoachSelect(sel, currentCoachId){
+  const r = await api('GET', '/api/auth/coaches/', null, false);
+  sel.innerHTML = '<option value="">Без тренера</option>';
+  if(r.ok && r.data && r.data.length) r.data.forEach(c=>{
+    const o = document.createElement('option');
+    o.value = c.id;
+    o.textContent = (c.full_name||(c.first_name+' '+(c.last_name||'')).trim())||'Тренер #'+c.id;
+    sel.appendChild(o);
+  });
+  if(currentCoachId) sel.value = String(currentCoachId);
+}
+
+async function patchLobbyCoach(lobbyId){
+  const resEl = document.getElementById('lobbyCoachRes');
+  const sel = document.getElementById('lobbyDetailCoach');
+  const v = sel ? sel.value.trim() : '';
+  const body = v ? { coach: parseInt(v, 10) } : { coach: null };
+  const r = await api('PATCH', '/api/lobby/'+lobbyId+'/', body);
+  if(resEl) resEl.textContent = r.ok ? '✅ Тренер сохранён' : (r.error || r.detail || 'Ошибка');
+  if(r.ok) renderLobbyDetail(lobbyId);
 }
 
 // Загрузить список услуг для добавления

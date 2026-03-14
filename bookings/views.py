@@ -173,6 +173,70 @@ class CoachScheduleView(generics.ListAPIView):
         )
 
 
+class CoachScheduleGridView(APIView):
+    """
+    GET /api/bookings/coach/schedule/grid/?from=YYYY-MM-DD&to=YYYY-MM-DD
+    Расписание тренера по дням (сетка): для каждого дня в диапазоне — список броней.
+    Удобно для отображения календаря/недели в мобилке тренера.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        if user.role not in ['COACH_PADEL', 'COACH_FITNESS', 'ADMIN']:
+            return Response({"detail": "Доступ только для тренера или администратора."}, status=403)
+
+        from_date = request.query_params.get('from')
+        to_date = request.query_params.get('to')
+        now = timezone.now()
+        today = now.date()
+        if from_date:
+            try:
+                start = datetime.strptime(from_date, '%Y-%m-%d').date()
+            except ValueError:
+                start = today
+        else:
+            start = today
+        if to_date:
+            try:
+                end = datetime.strptime(to_date, '%Y-%m-%d').date()
+            except ValueError:
+                end = start + timedelta(days=13)
+        else:
+            end = start + timedelta(days=13)
+
+        if start > end:
+            start, end = end, start
+
+        qs = Booking.objects.filter(
+            coach=user,
+            start_time__date__gte=start,
+            start_time__date__lte=end,
+        ).select_related('court', 'user').order_by('start_time')
+
+        # Группируем по дате (YYYY-MM-DD)
+        by_date = {}
+        for b in qs:
+            d = b.start_time.date().isoformat()
+            if d not in by_date:
+                by_date[d] = []
+            by_date[d].append(BookingSerializer(b, context={'request': request}).data)
+
+        # Все дни диапазона — чтобы мобилка могла нарисовать пустые дни
+        schedule = {}
+        d = start
+        while d <= end:
+            key = d.isoformat()
+            schedule[key] = by_date.get(key, [])
+            d += timedelta(days=1)
+
+        return Response({
+            "from": start.isoformat(),
+            "to": end.isoformat(),
+            "schedule": schedule,
+        })
+
+
 class BookingDetailView(generics.RetrieveAPIView):
     """GET /api/bookings/<id>/ — детали конкретной брони."""
     serializer_class = BookingSerializer
