@@ -620,13 +620,14 @@ body{font-family:'Outfit',sans-serif;background:#0a0c12;color:var(--tx);min-heig
         </div>
         <div id="coachMatches" style="display:none">
           <div class="sec-title" style="font-size:13px;margin-bottom:6px">Ввести результат матча по брони</div>
-          <div class="sec-sub">Выберите бронь, где вы были тренером → распределите игроков по командам → укажите счёт и победителя.</div>
+          <div class="sec-sub">Выберите бронь → распределите игроков по командам A/B → укажите счёт и победителя. ELO начислится автоматически.</div>
+          <div id="coachMatchAdminHint" class="al al-i hidden" style="font-size:10px;color:var(--dm);margin-bottom:8px;padding:6px;background:var(--s2);border-radius:8px">Как админ вы можете ввести результат и для броней без тренера (лобби): нажмите «Загрузить» — в списке появятся и ваши брони, и завершённые без тренера.</div>
           <div class="fg"><label>Выберите бронь</label>
             <select id="matchBooking" onchange="onMatchBookingSelect()">
               <option value="">— Загрузите брони ниже —</option>
             </select>
           </div>
-          <button class="b b2" onclick="loadCoachBookingsForMatch()" style="margin-bottom:10px">🔄 Загрузить мои брони</button>
+          <button class="b b2" onclick="loadCoachBookingsForMatch()" style="margin-bottom:10px">🔄 Загрузить брони (для ввода результата)</button>
           <div id="matchBookingInfo" class="card hidden" style="margin-bottom:10px"><div class="cl">Корт и дата</div><div class="cv" id="matchBookingInfoText"></div></div>
           <div id="matchPlayersBox" class="hidden">
             <div class="fg"><label>Распределите игроков по командам (выберите A или B для каждого)</label>
@@ -784,6 +785,8 @@ function switchCoachTab(btn,id){
   document.querySelectorAll('[data-ct]').forEach(b=>b.classList.toggle('on',b.dataset.ct===id));
   $('coachSchedule').style.display=id==='schedule'?'block':'none';
   $('coachMatches').style.display=id==='matches'?'block':'none';
+  const hint=$('coachMatchAdminHint');
+  if(hint) hint.classList.toggle('hidden', ROLE!=='ADMIN');
   if(id==='matches'){ loadCoachMatches(); loadCoachBookingsForMatch(); }
 }
 
@@ -1479,12 +1482,22 @@ async function loadCoachBookingsForMatch(){
   if(!sel)return;
   if(!r.ok){ sel.innerHTML='<option value="">Ошибка загрузки</option>'; return; }
   _coachBookingsForMatch=r.data||[];
+  if(ROLE==='ADMIN'){
+    const rNoCoach=await api('GET',`/api/bookings/completed-without-coach/?from=${fromStr}&to=${toStr}`);
+    if(rNoCoach.ok&&rNoCoach.data&&rNoCoach.data.length){
+      rNoCoach.data.forEach(b=>{
+        if(!_coachBookingsForMatch.some(x=>x.id===b.id)) _coachBookingsForMatch.push(b);
+      });
+      _coachBookingsForMatch.sort((a,b)=>new Date(b.start_time)-new Date(a.start_time));
+    }
+  }
   sel.innerHTML='<option value="">— Выберите бронь —</option>';
   _coachBookingsForMatch.forEach(b=>{
     const dt=new Date(b.start_time).toLocaleString('ru',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+    const noCoach=!b.coach;
     const opt=document.createElement('option');
     opt.value=b.id;
-    opt.textContent=`${b.court_name||'Корт'} · ${dt} · ${esc(b.client_name||'Клиент')}`;
+    opt.textContent=noCoach ? `[Без тренера] ${b.court_name||'Корт'} · ${dt} · ${esc(b.client_name||'Клиент')}` : `${b.court_name||'Корт'} · ${dt} · ${esc(b.client_name||'Клиент')}`;
     sel.appendChild(opt);
   });
   onMatchBookingSelect();
@@ -1532,7 +1545,7 @@ async function loadCoachMatches(){
 }
 
 async function createMatchFromBooking(){
-  if(!AT||!isCoach())return alert('Доступно только тренерам');
+  if(!AT||!isCoach())return alert('Доступно тренерам и администратору');
   const sel=$('matchBooking');
   if(!sel||!sel.value)return alert('Выберите бронь');
   const b=_coachBookingsForMatch.find(x=>String(x.id)===String(sel.value));

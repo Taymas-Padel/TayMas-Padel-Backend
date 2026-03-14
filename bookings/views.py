@@ -237,6 +237,40 @@ class CoachScheduleGridView(APIView):
         })
 
 
+class CompletedWithoutCoachView(generics.ListAPIView):
+    """
+    GET /api/bookings/completed-without-coach/?from=YYYY-MM-DD&to=YYYY-MM-DD
+    Для ADMIN: завершённые брони без тренера (лобби и др.) — чтобы админ мог ввести результат матча и начислить ELO.
+    """
+    serializer_class = BookingSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        if self.request.user.role != 'ADMIN':
+            return Booking.objects.none()
+        now = timezone.now()
+        qs = Booking.objects.filter(
+            coach__isnull=True,
+            end_time__lt=now,
+            status__in=[Booking.Status.CONFIRMED, Booking.Status.COMPLETED],
+        ).select_related('court', 'user').order_by('-start_time')
+        from_date = self.request.query_params.get('from')
+        to_date = self.request.query_params.get('to')
+        if from_date:
+            try:
+                start = datetime.strptime(from_date, '%Y-%m-%d').date()
+                qs = qs.filter(start_time__date__gte=start)
+            except ValueError:
+                pass
+        if to_date:
+            try:
+                end = datetime.strptime(to_date, '%Y-%m-%d').date()
+                qs = qs.filter(start_time__date__lte=end)
+            except ValueError:
+                pass
+        return qs
+
+
 class BookingDetailView(generics.RetrieveAPIView):
     """GET /api/bookings/<id>/ — детали конкретной брони."""
     serializer_class = BookingSerializer
