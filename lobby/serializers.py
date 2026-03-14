@@ -80,11 +80,17 @@ class LobbyTimeProposalSerializer(serializers.ModelSerializer):
         return False
 
     def get_estimated_share(self, obj):
-        """Предварительная доля корта на одного игрока."""
+        """Предварительная доля корта (+ тренер при наличии) на одного игрока."""
         n = obj.lobby.current_players_count() or obj.lobby.max_players()
+        if not n:
+            return None
         hours = Decimal(str(obj.duration_minutes / 60))
         court_total = Decimal(str(obj.court.price_per_hour)) * hours
-        share = (court_total / n).quantize(Decimal('0.01'))
+        coach_total = Decimal('0')
+        if obj.lobby.coach and getattr(obj.lobby.coach, 'price_per_hour', None) is not None:
+            coach_total = Decimal(str(obj.lobby.coach.price_per_hour)) * hours
+        total = court_total + coach_total
+        share = (total / n).quantize(Decimal('0.01'))
         return str(share)
 
 
@@ -151,13 +157,19 @@ class LobbySerializer(serializers.ModelSerializer):
         return f"{obj.elo_min}–{obj.elo_max} ELO"
 
     def get_estimated_share(self, obj):
-        """Предварительная стоимость доли корта (после согласования)."""
+        """Предварительная стоимость доли корта + тренер (после согласования)."""
         if not obj.court or not obj.duration_minutes:
             return None
         n = obj.current_players_count() or obj.max_players()
+        if not n:
+            return None
         hours = Decimal(str(obj.duration_minutes / 60))
         court_total = Decimal(str(obj.court.price_per_hour)) * hours
-        share = (court_total / n).quantize(Decimal('0.01'))
+        coach_total = Decimal('0')
+        if obj.coach and getattr(obj.coach, 'price_per_hour', None) is not None:
+            coach_total = Decimal(str(obj.coach.price_per_hour)) * hours
+        total = court_total + coach_total
+        share = (total / n).quantize(Decimal('0.01'))
         return str(share)
 
 

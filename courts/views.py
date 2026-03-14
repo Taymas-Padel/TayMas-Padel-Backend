@@ -10,11 +10,18 @@ from users.permissions import IsAdminRole
 
 class CourtListAPIView(generics.ListAPIView):
     """
-    GET /api/courts/ — список активных кортов (доступно всем).
+    GET /api/courts/ — список активных кортов.
+    Параметр ?play_format=ONE_VS_ONE или TWO_VS_TWO — только корты данного формата (для лобби 1×1/2×2 и брони).
     """
-    queryset = Court.objects.filter(is_active=True)
     serializer_class = CourtSerializer
     permission_classes = [permissions.AllowAny]
+
+    def get_queryset(self):
+        qs = Court.objects.filter(is_active=True)
+        pf = self.request.query_params.get('play_format')
+        if pf and pf in (Court.PlayFormat.ONE_VS_ONE, Court.PlayFormat.TWO_VS_TWO):
+            qs = qs.filter(play_format=pf)
+        return qs
 
 
 class CourtDetailAPIView(generics.RetrieveAPIView):
