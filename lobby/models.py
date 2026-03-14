@@ -43,7 +43,9 @@ class Lobby(models.Model):
     )
     scheduled_time = models.DateTimeField(null=True, blank=True, verbose_name="Время игры (после согласования)")
 
-    # Тренер (опционально): при создании брони из лобби он попадёт в бронь и в расписание тренера
+    # Планируем с тренером? (галочка при создании; для фильтра «с тренером»/«без»)
+    wants_coach = models.BooleanField(default=False, verbose_name="Планируем с тренером")
+    # Тренер (выбирается после согласования времени — по доступности на слот)
     coach = models.ForeignKey(
         User,
         on_delete=models.SET_NULL,
