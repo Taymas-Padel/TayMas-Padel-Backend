@@ -2184,7 +2184,7 @@ async function renderLobbyDetail(id){
       : `<span style="font-size:9px;color:var(--dm)">без команды</span>`;
     const courtBit = p.membership_used
       ? `<span style="color:var(--g);font-size:9px">🎫 абонемент</span>`
-      : (p.court_share ? `<span style="color:var(--dm);font-size:9px">корт ${fmtMoney(p.court_share)}</span>` : '');
+      : (p.court_share ? `<span style="color:var(--dm);font-size:9px">доля ${fmtMoney(p.court_share)}</span>` : '');
     const extrasBit = p.extras_total && p.extras_total !== '0.00'
       ? `<span style="color:var(--v);font-size:9px">+${fmtMoney(p.extras_total)} услуги</span>` : '';
     const paidBadge = p.is_paid
@@ -2289,9 +2289,11 @@ async function renderLobbyDetail(id){
         <div class="sec-title" style="font-size:12px;margin-bottom:6px">🎾 Создать бронь</div>
         <div class="al al-i" style="font-size:10px">
           Корт: <b>${lb.court_name||'—'}</b> · ${lb.court_price?fmtMoney(lb.court_price)+'/ч':'—'}<br>
-          Предв. доля <b>корта</b> на игрока: <b style="color:var(--ac)">${est?fmtMoney(est):'...'}</b><br>
-          🎫 Если у игрока есть PADEL-абонемент — его доля корта = <b>0₸</b>, часы спишутся автоматически.<br>
-          После создания каждый добавит личные услуги и оплатит свою итоговую сумму.
+          Доля каждого считается <b>как при обычной брони</b>:<br>
+          · цена корта по слотам (не только /ч), прайм-тайм при абонементе<br>
+          · 🎫 PADEL/TRAINING абонемент — корт 0₸ (часы спишутся); при абонементе «с тренером» — тренер тоже 0₸<br>
+          · скидка по абонементу на корт, если часы не покрывают слот<br>
+          · у кого нет абонемента — платит свою долю (корт+тренер). Итого брони = сумма долей всех.
         </div>
         <button class="b b1" onclick="bookLobby(${lb.id})">✅ Создать бронь →</button>
         <div id="bookLobbyRes" style="margin-top:6px"></div>
@@ -2323,7 +2325,7 @@ async function renderLobbyDetail(id){
       <div class="hr"></div>
       <div class="sec-title" style="font-size:12px;margin-bottom:6px">🛍 Ваши услуги и инвентарь</div>
       <div class="al al-i" style="font-size:10px">
-        Корт: ${me.membership_used ? '<span style="color:var(--g)">🎫 покрыт абонементом (0₸)</span>' : `<b>${fmtMoney(me.court_share)}</b>`}<br>
+        Доля (корт+тренер+прайм): ${me.membership_used ? '<span style="color:var(--g)">🎫 покрыт абонементом (0₸)</span>' : `<b>${fmtMoney(me.court_share)}</b>`}<br>
         Услуги: <b style="color:var(--v)">${fmtMoney(me.extras_total||'0')}</b><br>
         Итого к оплате: <b style="color:var(--ac)">${fmtMoney(me.total_to_pay||me.court_share||'0')}</b>
       </div>
@@ -2351,7 +2353,7 @@ async function renderLobbyDetail(id){
       <div class="hr"></div>
       <div class="sec-title" style="font-size:12px;margin-bottom:6px">💳 Оплата вашей доли</div>
       <div class="g2">
-        <div class="stat"><div class="sv cv-o">${fmtMoney(me.court_share||'0')}</div><div class="sl">${me.membership_used?'🎫 Абонемент':'Корт'}</div></div>
+        <div class="stat"><div class="sv cv-o">${fmtMoney(me.court_share||'0')}</div><div class="sl">${me.membership_used?'🎫 Абонемент':'Доля слот'}</div></div>
         <div class="stat"><div class="sv cv-v">${fmtMoney(me.extras_total||'0')}</div><div class="sl">Услуги</div></div>
       </div>
       <div class="mem" style="text-align:center;padding:10px">
@@ -2618,16 +2620,20 @@ async function bookLobby(id){
   const el = $('bookLobbyRes');
   if(r.ok){
     const players = r.data.players || [];
-    const rows = players.map(p=>`
-      <div style="display:flex;justify-content:space-between;font-size:11px;padding:3px 0;border-bottom:1px solid var(--bd)">
-        <span>${esc(p.user_name)} (${p.team})</span>
-        <span>${p.membership_used?'🎫 абонемент':`<b>${fmtMoney(p.court_share)}</b>`}</span>
-      </div>`).join('');
+    const rows = players.map(p=>{
+      const payLabel = p.is_paid ? '<span style="color:var(--g)">✓ оплачено</span>' : (p.membership_used && parseFloat(p.court_share)==0 ? '<span style="color:var(--g)">🎫 0₸</span>' : `<b>${fmtMoney(p.court_share)}</b>`);
+      return `<div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;padding:3px 0;border-bottom:1px solid var(--bd)">
+        <span>${esc(p.user_name)} <span style="color:var(--dm);font-size:9px">(${p.team})</span></span>
+        <span>${payLabel}</span>
+      </div>`;
+    }).join('');
+    const total = r.data.total != null ? fmtMoney(r.data.total) : (r.data.court_total != null && r.data.coach_total != null ? fmtMoney(parseFloat(r.data.court_total)+parseFloat(r.data.coach_total)) : '—');
     el.innerHTML = `<div class="al al-s">
       ✅ Бронь #${r.data.booking_id} создана!<br>
-      Стоимость корта: ${fmtMoney(r.data.court_total)}<br>
+      Корт: ${r.data.court_total != null ? fmtMoney(r.data.court_total) : '—'} · Тренер: ${r.data.coach_total != null ? fmtMoney(r.data.coach_total) : '0'}<br>
+      <b>Итого брони: ${total}</b> (сумма долей участников)<br>
       ${rows}
-      <div style="margin-top:6px;font-size:10px">Теперь каждый добавляет личные услуги и оплачивает.</div>
+      <div style="margin-top:6px;font-size:10px">Каждый добавляет личные услуги (при необходимости) и оплачивает свою долю.</div>
     </div>`;
     setTimeout(()=>renderLobbyDetail(id), 1500);
   } else {
