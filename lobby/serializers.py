@@ -88,7 +88,8 @@ class LobbyTimeProposalSerializer(serializers.ModelSerializer):
         court_total = Decimal(str(obj.court.price_per_hour)) * hours
         coach_total = Decimal('0')
         if obj.lobby.coach and getattr(obj.lobby.coach, 'price_per_hour', None) is not None:
-            coach_total = Decimal(str(obj.lobby.coach.price_per_hour)) * hours
+            coach_rate = obj.lobby.coach.get_coach_price_per_hour(n)
+            coach_total = Decimal(str(coach_rate)) * hours
         total = court_total + coach_total
         share = (total / n).quantize(Decimal('0.01'))
         return str(share)
@@ -167,7 +168,8 @@ class LobbySerializer(serializers.ModelSerializer):
         court_total = Decimal(str(obj.court.price_per_hour)) * hours
         coach_total = Decimal('0')
         if obj.coach and getattr(obj.coach, 'price_per_hour', None) is not None:
-            coach_total = Decimal(str(obj.coach.price_per_hour)) * hours
+            coach_rate = obj.coach.get_coach_price_per_hour(n)
+            coach_total = Decimal(str(coach_rate)) * hours
         total = court_total + coach_total
         share = (total / n).quantize(Decimal('0.01'))
         return str(share)

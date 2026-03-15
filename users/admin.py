@@ -135,9 +135,10 @@ class CustomUserAdmin(UserAdmin):
             'fields': ('phone_number', 'username', 'first_name', 'last_name', 'avatar')
         }),
         ('Роль и параметры', {
-            'fields': ('role', 'price_per_hour', 'rating_elo'),
+            'fields': ('role', 'price_per_hour', 'coach_price_1_2', 'coach_price_3_4', 'rating_elo'),
             'description': 'RECEPTIONIST = ресепшн (вход в CRM по паролю). '
-                           'CLIENT/COACH = вход через SMS в приложении.',
+                           'CLIENT/COACH = вход через SMS в приложении. '
+                           'Для тренера: price_per_hour — по умолчанию; coach_price_1_2 / coach_price_3_4 — тариф за час (1–2 и 3–4 игрока).',
         }),
         ('Безопасность', {
             'fields': ('is_qr_blocked', 'last_device_id', 'is_active', 'is_staff', 'is_superuser')

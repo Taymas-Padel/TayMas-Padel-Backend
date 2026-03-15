@@ -113,7 +113,11 @@ class CoachListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ('id', 'full_name', 'role', 'coach_price', 'phone_number', 'avatar')
+        fields = (
+            'id', 'full_name', 'role', 'coach_price',
+            'coach_price_1_2', 'coach_price_3_4',
+            'phone_number', 'avatar',
+        )
 
     def get_full_name(self, obj):
         full = f"{obj.first_name or ''} {obj.last_name or ''}".strip()
@@ -201,7 +205,8 @@ class StaffSerializer(serializers.ModelSerializer):
         fields = (
             'id', 'username', 'first_name', 'last_name', 'full_name',
             'phone_number', 'email', 'role', 'role_display',
-            'price_per_hour', 'is_active', 'avatar',
+            'price_per_hour', 'coach_price_1_2', 'coach_price_3_4',
+            'is_active', 'avatar',
             'created_at', 'updated_at',
         )
         read_only_fields = ('id', 'username', 'created_at', 'updated_at', 'full_name', 'role_display')
@@ -220,7 +225,8 @@ class StaffCreateSerializer(serializers.ModelSerializer):
         fields = (
             'username', 'first_name', 'last_name',
             'phone_number', 'email', 'role',
-            'price_per_hour', 'password', 'password_confirm',
+            'price_per_hour', 'coach_price_1_2', 'coach_price_3_4',
+            'password', 'password_confirm',
         )
 
     def validate_role(self, value):
@@ -259,7 +265,8 @@ class StaffUpdateSerializer(serializers.ModelSerializer):
         model = User
         fields = (
             'first_name', 'last_name', 'phone_number',
-            'email', 'role', 'price_per_hour', 'is_active',
+            'email', 'role', 'price_per_hour', 'coach_price_1_2', 'coach_price_3_4',
+            'is_active',
         )
 
     def validate_role(self, value):

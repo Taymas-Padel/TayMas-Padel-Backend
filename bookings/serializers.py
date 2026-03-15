@@ -312,7 +312,9 @@ class CreateBookingSerializer(serializers.ModelSerializer):
 
         final_coach_price = Decimal('0')
         if coach and not coach_covered:
-            final_coach_price = Decimal(str(coach.price_per_hour)) * hours
+            participant_count = 1 + len(friends_ids)
+            coach_rate = coach.get_coach_price_per_hour(participant_count)
+            final_coach_price = Decimal(str(coach_rate)) * hours
 
         services_price = Decimal('0')
         services_to_create = []
