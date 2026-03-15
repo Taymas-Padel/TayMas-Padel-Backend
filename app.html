@@ -255,8 +255,14 @@ body{font-family:'Outfit',sans-serif;background:#0a0c12;color:var(--tx);min-heig
         </div>
 
         <div class="fg"><label>Тренер (необязательно)</label>
-          <select id="bCoach" onchange="updateBookingTotal()">
+          <select id="bCoach" onchange="updateBookingTotal(); toggleCoachExpected();">
             <option value="">Без тренера</option>
+          </select>
+        </div>
+        <div class="fg" id="bCoachExpectedWrap" style="display:none"><label>Сколько человек будет на тренировке?</label>
+          <select id="bCoachExpected" onchange="updateBookingTotal()">
+            <option value="2">1–2 человека</option>
+            <option value="4">3–4 человека</option>
           </select>
         </div>
 
@@ -1170,6 +1176,7 @@ function onCourtChange(){
     checked.slice(maxFr).forEach(cb=>{ cb.checked=false; });
   }
 
+  toggleCoachExpected();
   updateBookingTotal();
 }
 
@@ -1178,6 +1185,11 @@ function limitFriends(el){
   const checked=document.querySelectorAll('#friendsCheckboxes input[type=checkbox]:checked');
   if(checked.length>max){ el.checked=false; alert(`Для этого корта можно добавить не более ${max} друг${max===1?'а':'ей'}.`); }
   updateBookingTotal();
+}
+function toggleCoachExpected(){
+  const wrap=$('bCoachExpectedWrap');
+  if(!wrap)return;
+  wrap.style.display=$('bCoach')&&$('bCoach').value?'block':'none';
 }
 
 async function loadCourtsTab(){
@@ -1234,6 +1246,7 @@ async function refillCoachesByTime(){
     cSel.appendChild(o);
   });
   if(currentVal&&list.some(c=>String(c.id)===String(currentVal))) cSel.value=currentVal;
+  toggleCoachExpected();
 }
 
 function updateBookingTotal(){
@@ -1271,16 +1284,18 @@ function updateBookingTotal(){
   if(AT&&courtSel.value&&stVal){
     const serviceIds=[...document.querySelectorAll('#servicesCheckboxes input[type=checkbox]:checked')].map(cb=>parseInt(cb.dataset.svcid));
     const friendIds=[...document.querySelectorAll('#friendsCheckboxes input[type=checkbox]:checked')].map(cb=>parseInt(cb.dataset.frid));
+    const bodyPreview={
+      court_id:parseInt(courtSel.value),
+      start_time:new Date(stVal).toISOString(),
+      duration:dur,
+      coach_id:coachSel.value?parseInt(coachSel.value):null,
+      service_ids:serviceIds,
+      friends_ids:friendIds,
+    };
+    if(coachSel.value&&$('bCoachExpected')) bodyPreview.coach_expected_participants=parseInt($('bCoachExpected').value)||2;
     fetch(B()+'/api/bookings/price-preview/',{
       method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+AT},
-      body:JSON.stringify({
-        court_id:parseInt(courtSel.value),
-        start_time:new Date(stVal).toISOString(),
-        duration:dur,
-        coach_id:coachSel.value?parseInt(coachSel.value):null,
-        service_ids:serviceIds,
-        friends_ids:friendIds,
-      }),
+      body:JSON.stringify(bodyPreview),
     }).then(r=>r.json()).then(d=>{
       const total=d.total!=null?d.total:(courtPrice+coachPrice+servicesPrice);
       preview.style.display='block';
@@ -1384,6 +1399,7 @@ async function createBooking(){
   const frChecked=[...document.querySelectorAll('#friendsCheckboxes input[type=checkbox]:checked')];
   const friendIds=frChecked.map(cb=>parseInt(cb.dataset.frid));
   body.friends_ids=friendIds;
+  if(coachVal&&$('bCoachExpected')) body.coach_expected_participants=parseInt($('bCoachExpected').value)||2;
 
   const r=await api('POST','/api/bookings/create/',body);
   if(r.ok){

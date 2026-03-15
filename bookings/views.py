@@ -647,6 +647,7 @@ class BookingPricePreviewView(APIView):
         coach_id = request.data.get('coach_id')
         service_ids = request.data.get('service_ids') or []
         friends_ids = request.data.get('friends_ids') or []
+        coach_expected_participants = request.data.get('coach_expected_participants')
 
         if not court_id or not start_time_str:
             return Response(
@@ -697,7 +698,10 @@ class BookingPricePreviewView(APIView):
                 role__in=['COACH_PADEL', 'COACH_FITNESS'],
             ).first()
             if coach and getattr(coach, 'price_per_hour', None) is not None:
-                coach_rate = coach.get_coach_price_per_hour(participant_count)
+                coach_participant_count = participant_count
+                if coach_expected_participants is not None and 1 <= coach_expected_participants <= 4:
+                    coach_participant_count = coach_expected_participants
+                coach_rate = coach.get_coach_price_per_hour(coach_participant_count)
                 coach_price = Decimal(str(coach_rate)) * hours
 
         services_price = Decimal('0')

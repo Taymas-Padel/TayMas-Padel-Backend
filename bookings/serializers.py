@@ -155,6 +155,10 @@ class CreateBookingSerializer(serializers.ModelSerializer):
     friends_ids = serializers.ListField(
         child=serializers.IntegerField(), required=False, write_only=True,
     )
+    # Сколько человек будет на тренировке (для расчёта цены тренера: 1–2 или 3–4). Если не передано — считается по 1 + друзья.
+    coach_expected_participants = serializers.IntegerField(
+        min_value=1, max_value=4, required=False, write_only=True, allow_null=True,
+    )
     participants_names = serializers.SlugRelatedField(
         many=True, read_only=True, slug_field='username', source='participants',
     )
@@ -165,7 +169,7 @@ class CreateBookingSerializer(serializers.ModelSerializer):
             'id', 'court', 'start_time', 'duration',
             'services', 'coach', 'price', 'status',
             'promo_code', 'payment_method',
-            'friends_ids', 'participants_names',
+            'friends_ids', 'coach_expected_participants', 'participants_names',
         ]
         read_only_fields = ['id', 'price', 'status']
 
@@ -257,6 +261,7 @@ class CreateBookingSerializer(serializers.ModelSerializer):
         validated_data.pop('duration')
         end_time = validated_data.pop('_end_time')
         friends_ids = validated_data.pop('friends_ids', [])
+        coach_expected_participants = validated_data.pop('coach_expected_participants', None)
         promo_code_str = validated_data.pop('promo_code', None)
         payment_method = validated_data.pop('payment_method', Transaction.PaymentMethod.KASPI)
 
@@ -302,8 +307,10 @@ class CreateBookingSerializer(serializers.ModelSerializer):
 
         final_coach_price = Decimal('0')
         if coach and not coach_covered:
+            # Для цены тренера: явное «сколько будет человек» или 1 + друзья
             participant_count = 1 + len(friends_ids)
-            coach_rate = coach.get_coach_price_per_hour(participant_count)
+            coach_participant_count = coach_expected_participants if coach_expected_participants is not None else participant_count
+            coach_rate = coach.get_coach_price_per_hour(coach_participant_count)
             final_coach_price = Decimal(str(coach_rate)) * hours
 
         services_price = Decimal('0')
