@@ -919,15 +919,23 @@ GET /api/auth/coaches/
   {
     "id": 3,
     "full_name": "Алексей Тренер",
-    "first_name": "Алексей",
-    "last_name": "Тренер",
     "role": "COACH_PADEL",
     "coach_price": 5000.0,
-    "rating_elo": 1500,
+    "coach_price_1_2": 24000,
+    "coach_price_3_4": 36000,
+    "phone_number": "+77001112233",
     "avatar": null
   }
 ]
 ```
+
+| Поле | Описание |
+|------|----------|
+| `coach_price` | Цена за час по умолчанию (из `price_per_hour`) |
+| `coach_price_1_2` | Цена за час при 1–2 игроках (тариф по документу); может быть `null` |
+| `coach_price_3_4` | Цена за час при 3–4 игроках; может быть `null` |
+
+Для превью стоимости тренера: при 1–2 игроках использовать `coach_price_1_2 ?? coach_price`, при 3–4 — `coach_price_3_4 ?? coach_price`. Подробнее: **`docs/FRONTEND_COACH_PRICE_1_2_3_4.md`**.
 
 ### 10.2 Фильтр по роли
 

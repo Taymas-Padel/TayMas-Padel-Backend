@@ -132,7 +132,9 @@ POST /api/auth/staff/
 | `phone_number` | string | ❌ | Уникальный номер телефона |
 | `email` | string | ❌ | Email |
 | `role` | string | ✅ | Роль (см. таблицу выше, не CLIENT) |
-| `price_per_hour` | decimal | ❌ | Ставка тренера ₸/час (для тренеров) |
+| `price_per_hour` | decimal | ❌ | Ставка тренера ₸/час по умолчанию (для тренеров) |
+| `coach_price_1_2` | decimal \| null | ❌ | Цена тренера ₸/час при 1–2 игроках |
+| `coach_price_3_4` | decimal \| null | ❌ | Цена тренера ₸/час при 3–4 игроках |
 | `password` | string | ✅ | Минимум 8 символов |
 | `password_confirm` | string | ✅ | Должно совпасть с password |
 
@@ -174,7 +176,7 @@ GET /api/auth/staff/<id>/
 
 **Auth:** ADMIN
 
-**Response 200:** объект сотрудника (см. формат выше).
+**Response 200:** объект сотрудника. Для тренеров дополнительно возвращаются `coach_price_1_2` и `coach_price_3_4` (number или null). Подробный бриф для фронта: **`docs/FRONTEND_COACH_PRICE_1_2_3_4.md`**.
 
 ---
 
@@ -208,7 +210,9 @@ PATCH /api/auth/staff/<id>/
 | `phone_number` | Изменить телефон |
 | `email` | Изменить email |
 | `role` | Изменить роль (не CLIENT) |
-| `price_per_hour` | Ставка тренера ₸/час |
+| `price_per_hour` | Ставка тренера ₸/час по умолчанию |
+| `coach_price_1_2` | Цена тренера ₸/час при 1–2 игроках (null = сбросить) |
+| `coach_price_3_4` | Цена тренера ₸/час при 3–4 игроках (null = сбросить) |
 | `is_active` | Активен ли аккаунт |
 
 **Response 200:** обновлённый объект сотрудника.
