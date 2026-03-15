@@ -55,7 +55,6 @@ class BuyMembershipView(APIView):
 
         # Проверка лимита по количеству (для ограниченных абонементов, например VIP)
         if mem_type.max_quantity and mem_type.max_quantity > 0:
-            from .models import UserMembership
             issued = UserMembership.objects.filter(membership_type=mem_type).count()
             if issued >= mem_type.max_quantity:
                 return Response(
@@ -117,7 +116,6 @@ class ReceptionBuyMembershipView(APIView):
 
         # Проверка лимита по количеству (для ограниченных абонементов, например VIP)
         if mem_type.max_quantity and mem_type.max_quantity > 0:
-            from .models import UserMembership
             issued = UserMembership.objects.filter(membership_type=mem_type).count()
             if issued >= mem_type.max_quantity:
                 return Response(
