@@ -4,6 +4,7 @@ from datetime import timedelta
 from django.db import transaction as db_transaction
 
 from .models import Booking, BookingService
+from .utils import compute_participant_share
 from django.contrib.auth import get_user_model
 from inventory.models import Service
 from finance.models import Transaction
@@ -102,39 +103,6 @@ class BookingServiceInputSerializer(serializers.Serializer):
             raise serializers.ValidationError({"service_id": "Обязательное поле."})
         data['service_id'] = int(sid)
         return data
-
-
-def _find_best_membership(user, hours, court=None, participant_count=1,
-                          need_coach=False):
-    """
-    Подбирает лучший абонемент для брони.
-    Приоритет: TRAINING_HOURS (если нужен тренер) > PADEL_HOURS > ничего.
-    """
-    base_qs = UserMembership.objects.filter(
-        user=user,
-        is_active=True,
-        is_frozen=False,
-        end_date__gte=timezone.now(),
-        hours_remaining__gte=hours,
-    ).select_related('membership_type').order_by('end_date')
-
-    if need_coach:
-        training = base_qs.filter(
-            membership_type__service_type='TRAINING_HOURS',
-            membership_type__includes_coach=True,
-        )
-        for m in training:
-            if m.can_cover_booking(hours, court, participant_count):
-                return m
-
-    padel = base_qs.filter(
-        membership_type__service_type='PADEL_HOURS',
-    )
-    for m in padel:
-        if m.can_cover_booking(hours, court, participant_count):
-            return m
-
-    return None
 
 
 class CreateBookingSerializer(serializers.ModelSerializer):
@@ -271,47 +239,40 @@ class CreateBookingSerializer(serializers.ModelSerializer):
 
         hours = Decimal(str((end_time - validated_data['start_time']).total_seconds() / 3600))
         participant_count = 1 + len(friends_ids)
-
-        # --- 1. Подбор абонемента ---
-        active_membership = _find_best_membership(
-            user=user,
-            hours=hours,
-            court=court,
-            participant_count=participant_count,
-            need_coach=bool(coach),
+        coach_participant_count = (
+            coach_expected_participants if coach_expected_participants is not None else participant_count
         )
 
-        paid_by_membership = bool(active_membership)
-        coach_covered = False
-        prime_surcharge = Decimal('0')
-        prime_hours = Decimal('0')
-
-        if active_membership:
-            active_membership.hours_remaining -= hours
-            if active_membership.hours_remaining <= 0:
-                active_membership.is_active = False
-            active_membership.save()
-
-            mt = active_membership.membership_type
-
-            if mt.includes_coach and coach:
-                coach_covered = True
-
-            prime_surcharge, prime_hours = mt.calc_prime_surcharge(
-                validated_data['start_time'], end_time,
-            )
-
-        # --- 2. Расчёт цены (с учётом временных ценовых слотов) ---
-        base_court_price = court.get_price_for_slot(validated_data['start_time'], end_time)
-        final_court_price = Decimal('0') if paid_by_membership else base_court_price
-
-        final_coach_price = Decimal('0')
-        if coach and not coach_covered:
-            # Для цены тренера: явное «сколько будет человек» или 1 + друзья
-            participant_count = 1 + len(friends_ids)
-            coach_participant_count = coach_expected_participants if coach_expected_participants is not None else participant_count
+        # --- 1. Цена корта и тренера (общие за слот) ---
+        court_total = court.get_price_for_slot(validated_data['start_time'], end_time)
+        coach_total = Decimal('0')
+        if coach:
             coach_rate = coach.get_coach_price_per_hour(coach_participant_count)
-            final_coach_price = Decimal(str(coach_rate)) * hours
+            coach_total = Decimal(str(coach_rate)) * hours
+
+        # --- 2. Доля одного участника (абонемент, прайм, скидка) ---
+        share_result = compute_participant_share(
+            user=user,
+            court=court,
+            start_time=validated_data['start_time'],
+            end_time=end_time,
+            coach=coach,
+            court_total=court_total,
+            coach_total=coach_total,
+            share_n=1,
+        )
+        active_membership = share_result['membership']
+        paid_by_membership = share_result['membership_used']
+        final_court_price = share_result['court_share']
+        final_coach_price = share_result['coach_share']
+        prime_surcharge = share_result['prime_surcharge']
+        prime_hours = share_result.get('prime_hours', Decimal('0'))
+        coach_covered = (
+            paid_by_membership
+            and active_membership
+            and active_membership.membership_type.includes_coach
+            and coach
+        )
 
         services_price = Decimal('0')
         services_to_create = []
@@ -327,24 +288,9 @@ class CreateBookingSerializer(serializers.ModelSerializer):
                 'service': svc, 'quantity': qty, 'price_at_moment': svc.price,
             })
 
-        total_price = final_court_price + final_coach_price + services_price + prime_surcharge
+        total_price = share_result['total'] + services_price
 
-        # --- 3. Лояльность (скидка через абонемент) ---
-        discount_loyalty = Decimal('0')
-        if not paid_by_membership and final_court_price > 0:
-            gym_mem = UserMembership.objects.filter(
-                user=user,
-                is_active=True,
-                is_frozen=False,
-                end_date__gte=timezone.now(),
-                membership_type__discount_on_court__gt=0,
-            ).order_by('-membership_type__discount_on_court').first()
-            if gym_mem:
-                pct = gym_mem.membership_type.discount_on_court
-                discount_loyalty = final_court_price * (Decimal(str(pct)) / Decimal('100'))
-                total_price -= discount_loyalty
-
-        # --- 4. Промокод ---
+        # --- 3. Промокод ---
         discount_promo = Decimal('0')
         promo_title = ''
         if promo_code_str:
@@ -365,12 +311,18 @@ class CreateBookingSerializer(serializers.ModelSerializer):
             except Promotion.DoesNotExist:
                 pass
 
-        total_discount = discount_loyalty + discount_promo
+        total_discount = share_result['discount_court'] + discount_promo
 
         # --- 5. Создаём бронь ---
         initial_status = 'CONFIRMED' if (total_price == 0 and paid_by_membership) else 'PENDING'
 
         with db_transaction.atomic():
+            if active_membership:
+                active_membership.hours_remaining -= hours
+                if active_membership.hours_remaining <= 0:
+                    active_membership.is_active = False
+                active_membership.save()
+
             booking = Booking.objects.create(
                 end_time=end_time,
                 price=total_price,
