@@ -618,11 +618,16 @@ class LobbyBookView(APIView):
                 data = participant_shares[p.user_id]
                 p.court_share = data['court_share']
                 p.membership_used = data['membership_used']
+                p.booking_membership = data.get('membership') if data['membership_used'] else None
+                p.hours_used = data.get('hours') if data['membership_used'] else None
                 p.share_amount = data['court_share']
                 if data['court_share'] == 0 and data['membership_used']:
                     p.is_paid = True
                     p.paid_at = timezone.now()
-                p.save(update_fields=['court_share', 'membership_used', 'share_amount', 'is_paid', 'paid_at'])
+                p.save(update_fields=[
+                    'court_share', 'membership_used', 'booking_membership', 'hours_used',
+                    'share_amount', 'is_paid', 'paid_at',
+                ])
 
             all_paid_share = all(
                 participant_shares[p.user_id]['court_share'] == 0 and participant_shares[p.user_id]['membership_used']
@@ -662,6 +667,94 @@ class LobbyBookView(APIView):
             })
 
         return Response(result)
+
+
+# ---------------------------------------------------------------------------
+# 9.1. Отмена брони лобби (возврат денег и часов каждому участнику)
+# ---------------------------------------------------------------------------
+
+class LobbyCancelBookingView(APIView):
+    """
+    POST /api/lobby/<id>/cancel-booking/
+    Отмена брони лобби: каждому участнику возвращаются потраченные деньги (REFUND)
+    и часы абонемента (если использовал). Доступно создателю лобби или персоналу.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, pk):
+        from core.models import ClubSetting
+        from finance.models import Transaction
+
+        lobby = get_object_or_404(
+            Lobby.objects.select_related('booking', 'court'),
+            pk=pk,
+        )
+        user = request.user
+        now = timezone.now()
+
+        is_staff = getattr(user, 'role', None) in ('ADMIN', 'RECEPTIONIST')
+        if lobby.creator_id != user.id and not is_staff:
+            return Response({"detail": "Отменить бронь может только создатель лобби или персонал."}, status=403)
+
+        if not lobby.booking_id:
+            return Response({"detail": "У лобби нет брони."}, status=400)
+        if lobby.status not in ('BOOKED', 'PAID'):
+            return Response({"detail": "Отмена возможна только для лобби со статусом BOOKED или PAID."}, status=400)
+
+        booking = lobby.booking
+        if booking.start_time <= now:
+            return Response({"detail": "Нельзя отменить прошедшую бронь."}, status=400)
+
+        setting = ClubSetting.objects.filter(key='CANCELLATION_HOURS').first()
+        limit_hours = int(setting.value) if setting else 24
+        hours_left = (booking.start_time - now).total_seconds() / 3600
+        if hours_left < limit_hours and not is_staff:
+            return Response(
+                {"detail": f"Отмена доступна только за {limit_hours} ч до начала."},
+                status=400,
+            )
+
+        participants = list(
+            lobby.participants.select_related('user', 'booking_membership').prefetch_related('extras').all()
+        )
+
+        refunds = []
+        hours_returned = {}
+
+        with db_transaction.atomic():
+            for p in participants:
+                # Деньги: доля (корт+тренер+прайм) + доп. услуги
+                amount_refund = p.court_share + p.extras_total()
+                if amount_refund > 0:
+                    Transaction.objects.create(
+                        user=p.user,
+                        booking=booking,
+                        amount=-amount_refund,
+                        transaction_type=Transaction.TransactionType.REFUND,
+                        payment_method=Transaction.PaymentMethod.UNKNOWN,
+                        description=f"Возврат по отмене лобби #{lobby.id} ({lobby.title})",
+                    )
+                    refunds.append({"user_id": p.user_id, "amount": str(amount_refund)})
+
+                # Часы абонемента
+                if p.membership_used and p.booking_membership_id and p.hours_used is not None:
+                    m = p.booking_membership
+                    m.hours_remaining += p.hours_used
+                    if m.hours_remaining > 0:
+                        m.is_active = True
+                    m.save(update_fields=['hours_remaining', 'is_active'])
+                    hours_returned[p.user_id] = float(p.hours_used)
+
+            booking.status = 'CANCELED'
+            booking.save(update_fields=['status'])
+            lobby.status = Lobby.Status.CANCELED
+            lobby.save(update_fields=['status'])
+
+        return Response({
+            "status": "Бронь лобби отменена.",
+            "refunds": refunds,
+            "hours_returned": hours_returned,
+        })
 
 
 # ---------------------------------------------------------------------------
