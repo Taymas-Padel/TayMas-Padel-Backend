@@ -544,6 +544,18 @@ class LobbyBookView(APIView):
                 "detail": "Корт уже занят в это время. Вернитесь к согласованию — выберите другое время."
             }, status=400)
 
+        # Проверка: тренер свободен (если выбран)
+        if lobby.coach and Booking.objects.filter(
+            coach=lobby.coach,
+            status__in=['CONFIRMED', 'PENDING'],
+            start_time__lt=end_time,
+            end_time__gt=start_time,
+        ).exists():
+            coach_name = lobby.coach.first_name or lobby.coach.username
+            return Response({
+                "detail": f"Тренер {coach_name} уже занят в это время. Выберите другого тренера или другое время."
+            }, status=400)
+
         if start_time < timezone.now():
             return Response({"detail": "Нельзя создать бронь на прошедшее время."}, status=400)
 
@@ -810,13 +822,14 @@ class LobbyPayShareView(APIView):
         extras_total = participant.extras_total()
 
         with db_transaction.atomic():
-            # Оплата доли корта через PaymentService
-            if not participant.membership_used and participant.court_share > 0:
+            # Оплата доли за слот (корт + тренер + прайм) — списываем при любой сумме > 0
+            # (в т.ч. когда абонемент покрыл корт/тренера, но осталась доплата за прайм-тайм)
+            if participant.court_share > 0:
                 result = PaymentService.charge(
                     user=request.user,
                     amount=participant.court_share,
                     description=(
-                        f"[ЛОББИ #{lobby.id}] Доля корта — {p_name}{team_label} | "
+                        f"[ЛОББИ #{lobby.id}] Доля (корт+тренер+прайм) — {p_name}{team_label} | "
                         f"{court_name} | {dt_str} | бронь #{lobby.booking_id}"
                     ),
                     payment_method=payment_method,
@@ -826,7 +839,7 @@ class LobbyPayShareView(APIView):
                     lobby=lobby,
                 )
                 if not result.success:
-                    return Response({"detail": f"Ошибка оплаты корта: {result.error}"}, status=400)
+                    return Response({"detail": f"Ошибка оплаты: {result.error}"}, status=400)
 
             # Оплата личных услуг
             if extras_total > 0:
