@@ -233,19 +233,25 @@
 
 | Метод | URL | Описание |
 |-------|-----|----------|
-| GET | `lobby/?elo=<число>` | Список лобби. По умолчанию фильтр ±200 ELO текущего юзера. `?elo=all` — без фильтра |
-| POST | `lobby/` | Создать лобби. Body: `title`, `game_format` (SINGLE/DOUBLE), `elo_min?`, `elo_max?`, `comment?` |
+| GET | `lobby/?status=&format=&elo=&has_coach=&coach=` | Список лобби. Фильтры: `status`, `format` (SINGLE/DOUBLE), `elo` (число или ±200 от ELO юзера), `has_coach` (true/false), `coach` (id тренера). Без auth — только GET. |
+| POST | `lobby/` | Создать лобби. Body: `title`, `game_format` (SINGLE/DOUBLE), `elo_min?`, `elo_max?`, `comment?`, `wants_coach?` (bool). Опционально: `coach` (id тренера). |
 | GET | `lobby/my/` | Мои лобби (где я создатель или участник) |
-| GET | `lobby/<id>/` | Детали лобби (с предложениями времени и участниками) |
+| GET | `lobby/<id>/` | Детали лобби (participants, proposals, coach, court, scheduled_time и т.д.) |
+| PATCH | `lobby/<id>/` | Обновить тренера или комментарий. Body: `coach` (id или null), `comment`. Только создатель, пока статус не BOOKED/PAID. |
 | POST | `lobby/<id>/join/` | Вступить в лобби (проверяется ELO) |
 | POST | `lobby/<id>/leave/` | Покинуть лобби |
-| POST | `lobby/<id>/assign-teams/` | Распределить по командам. Body: `{"teams": {"<user_id>": "A", ...}}` (только создатель) |
-| **POST** | **`lobby/<id>/proposals/`** | **Предложить корт и время** (только когда статус NEGOTIATING). Body: `court`, `scheduled_time` (ISO), `duration_minutes` |
+| POST | `lobby/<id>/close/` | Закрыть лобби (только создатель, пока бронь не создана) |
+| **POST** | **`lobby/<id>/proposals/`** | Предложить корт и время (статус NEGOTIATING). Body: `court`, `scheduled_time` (ISO), `duration_minutes` |
 | GET | `lobby/<id>/proposals/` | Список предложений времени/корта |
-| **POST** | **`lobby/<id>/proposals/<pid>/vote/`** | **Проголосовать за предложение** (только статус NEGOTIATING). Если все проголосовали — принимается автоматически |
-| **POST** | **`lobby/<id>/proposals/<pid>/accept/`** | **Принять предложение** (только создатель, статус NEGOTIATING) |
-| POST | `lobby/<id>/book/` | Создать бронь (только статус READY, команды назначены) |
-| POST | `lobby/<id>/pay/` | Оплатить свою долю. Body: `payment_method` (CASH/CARD/ONLINE). Опционально: `use_membership` (bool) |
+| **POST** | **`lobby/<id>/proposals/<pid>/vote/`** | Проголосовать за предложение. Если все проголосовали — принимается автоматически, статус → READY. |
+| **POST** | **`lobby/<id>/proposals/<pid>/accept/`** | Принять предложение (только создатель, статус NEGOTIATING) → READY. |
+| POST | `lobby/<id>/assign-teams/` | Распределить по командам. Body: `{"teams": {"<user_id>": "A"|"B", ...}}` (только создатель). |
+| POST | `lobby/<id>/book/` | Создать бронь (только READY, команды назначены). Абонемент учитывается автоматически. |
+| GET | `lobby/<id>/my-extras/` | Мои доп. услуги и сумма к оплате (статус BOOKED). |
+| POST | `lobby/<id>/my-extras/` | Добавить услуги. Body: `services: [{ service_id, quantity }]`. |
+| DELETE | `lobby/<id>/my-extras/<extra_id>/` | Удалить одну доп. услугу. |
+| POST | `lobby/<id>/pay-share/` | Оплатить свою долю. Body: `payment_method` (KASPI / CARD / CASH). Когда все оплатили — статус лобби PAID, бронь CONFIRMED. |
+| GET | `lobby/<id>/payment-status/` | Статус оплат всех участников (для создателя/участников). |
 
 ### Создание лобби (body)
 ```json
@@ -254,9 +260,11 @@
   "game_format": "DOUBLE",
   "elo_min": 1000,
   "elo_max": 1400,
-  "comment": "Новички приветствуются"
+  "comment": "Новички приветствуются",
+  "wants_coach": true
 }
 ```
+- **wants_coach** (bool, опционально) — «Игра с тренером»; по нему фильтруют список (`has_coach=true`). Конкретного тренера можно выбрать после согласования времени через **PATCH** `lobby/<id>/` с полем `coach` (id или null). Свободных тренеров на слот: **GET** `bookings/available-coaches/?datetime=ISO&duration=минут`.
 
 ### Предложение времени/корта (body)
 ```json
@@ -274,10 +282,13 @@
   "status": "NEGOTIATING",
   "elo_min": 1000,
   "elo_max": 1400,
-  "elo_label": "ELO 1000–1400",
+  "elo_label": "1000–1400 ELO",
+  "wants_coach": true,
+  "coach": 5,
+  "coach_name": "Алексей Тренер",
   "court": null,
   "scheduled_time": null,
-  "current_players_count": 4,
+  "players_count": 4,
   "max_players": 4,
   "participants": [...],
   "proposals": [

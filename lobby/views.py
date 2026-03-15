@@ -504,7 +504,7 @@ class LobbyBookView(APIView):
 
     def post(self, request, pk):
         from bookings.models import Booking
-        from memberships.models import UserMembership
+        from bookings.utils import compute_participant_share
 
         lobby = get_object_or_404(Lobby, pk=pk)
 
@@ -547,50 +547,43 @@ class LobbyBookView(APIView):
         if start_time < timezone.now():
             return Response({"detail": "Нельзя создать бронь на прошедшее время."}, status=400)
 
-        # Расчёт стоимости корта и тренера, доли каждого
-        court_price_per_hour = Decimal(str(court.price_per_hour))
-        court_total = court_price_per_hour * hours
+        # Общая стоимость корта и тренера за слот (как в обычной брони)
         n = len(participants)
+        court_total = court.get_price_for_slot(start_time, end_time)
         coach_total = Decimal('0')
-        if lobby.coach and getattr(lobby.coach, 'price_per_hour', None) is not None:
+        if lobby.coach:
             coach_rate = lobby.coach.get_coach_price_per_hour(n)
             coach_total = Decimal(str(coach_rate)) * hours
-        total_booking = court_total + coach_total
-        base_share = (total_booking / n).quantize(Decimal('0.01')) if n else total_booking
-        coach_share_per_player = (coach_total / n).quantize(Decimal('0.01')) if n and coach_total else Decimal('0')
 
-        membership_summary = {}
+        # Доля каждого участника по той же логике, что и обычная бронь
         participant_shares = {}
-
         for p in participants:
-            membership = UserMembership.objects.filter(
+            share_result = compute_participant_share(
                 user=p.user,
-                is_active=True,
-                is_frozen=False,
-                end_date__gte=timezone.now(),
-                hours_remaining__gte=hours,
-                membership_type__service_type__in=['PADEL_HOURS', 'TRAINING_HOURS'],
-            ).order_by('end_date').first()
+                court=court,
+                start_time=start_time,
+                end_time=end_time,
+                coach=lobby.coach,
+                court_total=court_total,
+                coach_total=coach_total,
+                share_n=n,
+            )
+            participant_shares[p.user_id] = {
+                'court_share': share_result['total'],
+                'membership_used': share_result['membership_used'],
+                'membership': share_result['membership'],
+                'hours': share_result['hours'],
+            }
 
-            if membership:
-                # Абонемент покрывает корт; доля тренера остаётся
-                participant_shares[p.user_id] = {
-                    'court_share': coach_share_per_player,
-                    'membership_used': True,
-                }
-                membership_summary[p.user_id] = membership
-            else:
-                participant_shares[p.user_id] = {
-                    'court_share': base_share,
-                    'membership_used': False,
-                }
+        total_booking = sum(d['court_share'] for d in participant_shares.values())
 
         with db_transaction.atomic():
             # Списываем часы абонемента
-            for uid, data in participant_shares.items():
-                if data['membership_used']:
-                    m = membership_summary[uid]
-                    m.hours_remaining -= hours
+            for p in participants:
+                data = participant_shares[p.user_id]
+                if data['membership_used'] and data['membership']:
+                    m = data['membership']
+                    m.hours_remaining -= data['hours']
                     if m.hours_remaining <= 0:
                         m.is_active = False
                     m.save(update_fields=['hours_remaining', 'is_active'])
@@ -606,7 +599,6 @@ class LobbyBookView(APIView):
                 coach=lobby.coach,
             )
 
-            # Добавляем ВСЕХ участников (включая создателя) для наглядности
             for p in participants:
                 booking.participants.add(p.user)
 
@@ -615,13 +607,16 @@ class LobbyBookView(APIView):
                 p.court_share = data['court_share']
                 p.membership_used = data['membership_used']
                 p.share_amount = data['court_share']
-                if data['membership_used']:
+                if data['court_share'] == 0 and data['membership_used']:
                     p.is_paid = True
                     p.paid_at = timezone.now()
                 p.save(update_fields=['court_share', 'membership_used', 'share_amount', 'is_paid', 'paid_at'])
 
-            all_by_membership = all(v['membership_used'] for v in participant_shares.values())
-            if all_by_membership:
+            all_paid_share = all(
+                participant_shares[p.user_id]['court_share'] == 0 and participant_shares[p.user_id]['membership_used']
+                for p in participants
+            )
+            if all_paid_share:
                 booking.is_paid = True
                 booking.status = 'CONFIRMED'
                 booking.save(update_fields=['is_paid', 'status'])
@@ -639,7 +634,6 @@ class LobbyBookView(APIView):
             "court_total": str(court_total),
             "coach_total": str(coach_total),
             "total": str(total_booking),
-            "base_court_share": str(base_share),
             "players": [],
             "note": "Каждый участник добавляет личные услуги (/my-extras/) и оплачивает свою долю (/pay-share/).",
         }
@@ -652,7 +646,7 @@ class LobbyBookView(APIView):
                 "team": p.team,
                 "court_share": str(d['court_share']),
                 "membership_used": d['membership_used'],
-                "is_paid": d['membership_used'],
+                "is_paid": d['court_share'] == 0 and d['membership_used'],
             })
 
         return Response(result)
