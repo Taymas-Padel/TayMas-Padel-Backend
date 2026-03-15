@@ -18,6 +18,7 @@ class Lobby(models.Model):
         READY        = 'READY',        'Время согласовано — ждём бронь'
         BOOKED       = 'BOOKED',       'Бронь создана — ждём оплату'
         PAID         = 'PAID',         'Все оплатили — бронь подтверждена'
+        CANCELED     = 'CANCELED',     'Бронь отменена'
         CLOSED       = 'CLOSED',       'Закрыто'
 
     creator = models.ForeignKey(
@@ -73,7 +74,7 @@ class Lobby(models.Model):
     def update_status(self):
         count = self.current_players_count()
         max_p = self.max_players()
-        if self.status in ['BOOKED', 'PAID', 'CLOSED', 'READY', 'NEGOTIATING']:
+        if self.status in ['BOOKED', 'PAID', 'CLOSED', 'CANCELED', 'READY', 'NEGOTIATING']:
             return
         if count >= max_p:
             self.status = 'NEGOTIATING'
@@ -126,6 +127,15 @@ class LobbyParticipant(models.Model):
 
     court_share = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0'))
     membership_used = models.BooleanField(default=False, verbose_name="Абонемент использован")
+    # Какой абонемент и сколько часов списано — для возврата при отмене
+    booking_membership = models.ForeignKey(
+        'memberships.UserMembership', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='lobby_participant_uses', verbose_name="Абонемент на бронь"
+    )
+    hours_used = models.DecimalField(
+        max_digits=6, decimal_places=2, null=True, blank=True,
+        verbose_name="Списано часов с абонемента"
+    )
     share_amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     is_paid = models.BooleanField(default=False, verbose_name="Оплачено")
     paid_at = models.DateTimeField(null=True, blank=True)

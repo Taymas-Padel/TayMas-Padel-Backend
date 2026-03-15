@@ -7,6 +7,7 @@ from .views import (
     LobbyLeaveView,
     LobbyAssignTeamsView,
     LobbyBookView,
+    LobbyCancelBookingView,
     LobbyMyExtrasView,
     LobbyPayShareView,
     LobbyPaymentStatusView,
@@ -33,6 +34,7 @@ urlpatterns = [
     # Команды и бронь
     path('<int:pk>/assign-teams/', LobbyAssignTeamsView.as_view(), name='lobby-assign-teams'),
     path('<int:pk>/book/', LobbyBookView.as_view(), name='lobby-book'),
+    path('<int:pk>/cancel-booking/', LobbyCancelBookingView.as_view(), name='lobby-cancel-booking'),
 
     # Личные услуги и оплата
     path('<int:pk>/my-extras/', LobbyMyExtrasView.as_view(), name='lobby-my-extras'),
