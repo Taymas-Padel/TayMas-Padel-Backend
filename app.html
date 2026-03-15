@@ -1151,8 +1151,8 @@ function onCourtChange(){
 
   $('bCourtName').textContent=opt.textContent.replace(/^\[.*?\]\s*/,'');
   $('bFriendsLimit').textContent=is1v1
-    ? '👥 Корт 1×1: выберите ровно 1 друга (вы + он = 2 игрока)'
-    : '👥 Корт 2×2: выберите ровно 3 друзей (вы + они = 4 игрока)';
+    ? '👥 Участники (по желанию): корт 1×1 — макс. 1 друг'
+    : '👥 Участники (по желанию): корт 2×2 — макс. 3 друзей';
 
   if(slots.length){
     $('bCourtSlots').innerHTML=slots.map(s=>{
@@ -1176,7 +1176,7 @@ function onCourtChange(){
 function limitFriends(el){
   const max=getMaxFriends();
   const checked=document.querySelectorAll('#friendsCheckboxes input[type=checkbox]:checked');
-  if(checked.length>max){ el.checked=false; alert(`Для этого корта нужно ровно ${max} участник${max===1?'':'а'}.`); }
+  if(checked.length>max){ el.checked=false; alert(`Для этого корта можно добавить не более ${max} друг${max===1?'а':'ей'}.`); }
   updateBookingTotal();
 }
 
@@ -1383,14 +1383,6 @@ async function createBooking(){
 
   const frChecked=[...document.querySelectorAll('#friendsCheckboxes input[type=checkbox]:checked')];
   const friendIds=frChecked.map(cb=>parseInt(cb.dataset.frid));
-  const opt=$('bCourt').options[$('bCourt').selectedIndex];
-  const is1v1=opt&&opt.dataset.playFormat==='ONE_VS_ONE';
-  if(is1v1&&friendIds.length!==1){
-    showErr('createRes','Корт 1×1: выберите ровно одного друга.'); return;
-  }
-  if(!is1v1&&friendIds.length!==3){
-    showErr('createRes','Корт 2×2: выберите ровно трёх друзей.'); return;
-  }
   body.friends_ids=friendIds;
 
   const r=await api('POST','/api/bookings/create/',body);
