@@ -22,7 +22,22 @@ class User(AbstractUser):
         max_digits=10,
         decimal_places=2,
         default=0.00,
-        verbose_name="Цена за час (для тренера)"
+        verbose_name="Цена за час (для тренера, по умолчанию)"
+    )
+    # Тариф по числу игроков: 1–2 и 3–4 (по документации «Падел-тренировки с тренером»)
+    coach_price_1_2 = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name="Цена тренера за час (1–2 игрока)"
+    )
+    coach_price_3_4 = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name="Цена тренера за час (3–4 игрока)"
     )
     phone_number = models.CharField(
         max_length=20,
@@ -53,6 +68,17 @@ class User(AbstractUser):
     # Трекинг времени
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата создания")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="Дата обновления")
+
+    def get_coach_price_per_hour(self, participant_count):
+        """
+        Цена тренера за час в зависимости от числа игроков (1–2 или 3–4).
+        Если заданы coach_price_1_2 / coach_price_3_4 — используем их, иначе price_per_hour.
+        """
+        if participant_count <= 2 and self.coach_price_1_2 is not None:
+            return self.coach_price_1_2
+        if participant_count >= 3 and self.coach_price_3_4 is not None:
+            return self.coach_price_3_4
+        return self.price_per_hour or 0
 
     # ---- Флаг: профиль заполнен? ----
     @property

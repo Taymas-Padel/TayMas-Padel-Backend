@@ -550,11 +550,12 @@ class LobbyBookView(APIView):
         # Расчёт стоимости корта и тренера, доли каждого
         court_price_per_hour = Decimal(str(court.price_per_hour))
         court_total = court_price_per_hour * hours
+        n = len(participants)
         coach_total = Decimal('0')
         if lobby.coach and getattr(lobby.coach, 'price_per_hour', None) is not None:
-            coach_total = Decimal(str(lobby.coach.price_per_hour)) * hours
+            coach_rate = lobby.coach.get_coach_price_per_hour(n)
+            coach_total = Decimal(str(coach_rate)) * hours
         total_booking = court_total + coach_total
-        n = len(participants)
         base_share = (total_booking / n).quantize(Decimal('0.01')) if n else total_booking
         coach_share_per_player = (coach_total / n).quantize(Decimal('0.01')) if n and coach_total else Decimal('0')
 

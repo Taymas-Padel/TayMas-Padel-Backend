@@ -696,8 +696,9 @@ class BookingPricePreviewView(APIView):
                 id=coach_id,
                 role__in=['COACH_PADEL', 'COACH_FITNESS'],
             ).first()
-            if coach and getattr(coach, 'price_per_hour', None):
-                coach_price = Decimal(str(coach.price_per_hour)) * hours
+            if coach and getattr(coach, 'price_per_hour', None) is not None:
+                coach_rate = coach.get_coach_price_per_hour(participant_count)
+                coach_price = Decimal(str(coach_rate)) * hours
 
         services_price = Decimal('0')
         for sid in service_ids:
