@@ -4,7 +4,6 @@ from django.utils.translation import gettext_lazy as _
 
 User = get_user_model()
 
-
 class Conversation(models.Model):
     """
     Диалог между двумя пользователями (1-на-1).
