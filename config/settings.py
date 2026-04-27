@@ -38,6 +38,7 @@ USE_X_FORWARDED_HOST = True
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 INSTALLED_APPS = [
+    'daphne',
     'admin_interface',
     'colorfield',
     'django.contrib.admin',
@@ -46,6 +47,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'channels',
     'rest_framework_simplejwt.token_blacklist', # <--- Обязательно добавь это
 
     # Сторонние библиотеки
@@ -169,6 +171,18 @@ SWAGGER_SETTINGS = {
     }
 }
 
+# Django Channels
+ASGI_APPLICATION = 'config.asgi.application'
+
+# Настройка Redis как Channel Layer
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": [("127.0.0.1", 6379)],
+        },
+    },
+}
 
 WSGI_APPLICATION = 'config.wsgi.application'
 
