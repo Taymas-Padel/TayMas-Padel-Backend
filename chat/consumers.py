@@ -13,16 +13,13 @@ logger = logging.getLogger(__name__)
 
 class ChatConsumer(AsyncJsonWebsocketConsumer):
     """
-    WebSocket consumer для realtime чата.
+    WebSocket consumer для realtime чата (Контракт v1).
     
     URL: ws://host/ws/chat/<conversation_id>/?token=<jwt>
-    
-    События:
-    - message.new: отправить сообщение
-    - message.read: отметить сообщения прочитанными
-    - typing.start: начать печатать
-    - typing.stop: прекратить печатать
     """
+    
+    # Фиксируем версию протокола для этого консьюмера
+    PROTOCOL_VERSION = 1
 
     async def connect(self):
         """Подключение к WebSocket."""
@@ -41,7 +38,6 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
         # 2. Проверяем права доступа (юзер участник диалога?)
         is_member = await self._check_conversation_membership(self.conversation_id, self.user)
         if not is_member:
-            # Безопасный лог: пишем ID юзера и ID комнаты, никаких секретов
             logger.warning(
                 f"Connection rejected (4003): User {self.user.id} tried to access foreign conversation {self.conversation_id}."
             )
@@ -62,49 +58,91 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
             logger.info(f"User {self.user.id} disconnected from chat {self.conversation_id}, code={close_code}")
 
     async def receive_json(self, content, **kwargs):
-        """Получение JSON от клиента."""
+        """Получение JSON от клиента и строгая валидация v1."""
         try:
-            event_type = content.get('type')
+            # 1. Проверяем версию протокола
+            version = content.get('v')
+            if version != self.PROTOCOL_VERSION:
+                await self._send_error("bad_format", f"Неподдерживаемая версия. Ожидается v={self.PROTOCOL_VERSION}")
+                return
 
-            if event_type == 'message.new':
-                await self._handle_message_new(content)
+            # 2. Проверяем обязательные поля
+            event_type = content.get('type')
+            payload = content.get('payload')
+
+            if not event_type or not isinstance(event_type, str):
+                await self._send_error("bad_format", "Поле 'type' обязательно и должно быть строкой.")
+                return
+                
+            if payload is None or not isinstance(payload, dict):
+                await self._send_error("bad_format", "Поле 'payload' обязательно и должно быть объектом.")
+                return
+
+            # 3. Маршрутизация событий
+            if event_type == 'message.send':
+                await self._handle_message_send(payload)
             elif event_type == 'message.read':
-                await self._handle_message_read(content)
+                await self._handle_message_read(payload)
             elif event_type == 'typing.start':
-                await self._handle_typing_start(content)
+                await self._handle_typing_start(payload)
             elif event_type == 'typing.stop':
-                await self._handle_typing_stop(content)
+                await self._handle_typing_stop(payload)
             else:
-                logger.warning(f"Unknown event type: {event_type}")
+                await self._send_error("unknown_event", f"Неизвестный тип события: {event_type}")
+
         except Exception as e:
             logger.error(f"Error processing message: {e}")
-            await self.send_json({'type': 'error', 'error': str(e)}, close=False)
+            await self._send_error("server_error", "Внутренняя ошибка сервера при обработке события")
 
-    # ─── Обработчики событий ───────────────────────────────────────
+    # ─── Единые методы для отправки (v1) ───────────────────────────
 
-    async def _handle_message_new(self, content):
-        """Обработка события message.new — новое сообщение."""
-        text = (content.get('text') or '').strip()
+    async def _send_event(self, event_type: str, payload: dict):
+        """Обертка для отправки любых сообщений в формате v1."""
+        await self.send_json({
+            "v": self.PROTOCOL_VERSION,
+            "type": event_type,
+            "payload": payload
+        })
+
+    async def _send_error(self, code: str, message: str):
+        """Единый формат отправки ошибок (Acceptance Criteria)."""
+        await self._send_event("error", {
+            "code": code,
+            "message": message
+        })
+
+    # ─── Обработчики событий (от клиента) ──────────────────────────
+
+    async def _handle_message_send(self, payload):
+        """Обработка события message.send (бывшее message.new)."""
+        text = (payload.get('text') or '').strip()
+        request_id = payload.get('request_id')  # Достаем ID от фронтенда
         
         if not text:
-            await self.send_json({'type': 'error', 'error': 'Текст пуст'})
+            await self._send_error("validation_error", "Текст сообщения пуст")
             return
         
         if len(text) > 4000:
-            await self.send_json({'type': 'error', 'error': 'Текст слишком длинный (макс 4000)'})
+            await self._send_error("validation_error", "Текст слишком длинный (макс 4000)")
             return
 
-        # Сохранить сообщение в БД (sync_to_async)
         try:
             msg = await self._save_message(self.conversation_id, self.user, text)
             
-            # Разослать всем в комнате
+            # 1. Отправляем ACK (подтверждение) только отправителю
+            if request_id:
+                await self._send_event("ack", {
+                    "request_id": request_id,
+                    "message_id": msg.id,
+                    "status": "ok"
+                })
+
+            # 2. Рассылаем message.new всем в комнате
             await self.channel_layer.group_send(
                 self.room_group_name,
                 {
-                    'type': 'chat.message',
+                    'type': 'chat.message_new',
                     'message_id': msg.id,
-                    'conversation_id': msg.conversation_id,
                     'sender_id': msg.sender_id,
                     'text': msg.text,
                     'created_at': msg.created_at.isoformat(),
@@ -112,20 +150,16 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
             )
         except Exception as e:
             logger.error(f"Error saving message: {e}")
-            await self.send_json({'type': 'error', 'error': 'Ошибка сохранения'})
+            await self._send_error("server_error", "Ошибка сохранения сообщения")
 
-    async def _handle_message_read(self, content):
-        """Обработка события message.read — отметить прочитанными."""
+    async def _handle_message_read(self, payload):
+        """Обработка события message.read."""
         try:
-            # Отметить сообщения собеседника как прочитанные
             count = await self._mark_messages_read(self.conversation_id, self.user)
-            
-            # Разослать событие
             await self.channel_layer.group_send(
                 self.room_group_name,
                 {
                     'type': 'chat.message_read',
-                    'conversation_id': self.conversation_id,
                     'read_by_id': self.user.id,
                     'marked_count': count,
                 }
@@ -133,73 +167,66 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
         except Exception as e:
             logger.error(f"Error marking read: {e}")
 
-    async def _handle_typing_start(self, content):
-        """Обработка события typing.start — начало печати."""
+    async def _handle_typing_start(self, payload):
+        """Обработка события typing.start."""
         await self.channel_layer.group_send(
             self.room_group_name,
             {
                 'type': 'chat.typing_start',
-                'conversation_id': self.conversation_id,
                 'user_id': self.user.id,
                 'user_name': f"{self.user.first_name} {self.user.last_name}".strip() or self.user.username,
             }
         )
 
-    async def _handle_typing_stop(self, content):
-        """Обработка события typing.stop — конец печати."""
+    async def _handle_typing_stop(self, payload):
+        """Обработка события typing.stop."""
         await self.channel_layer.group_send(
             self.room_group_name,
             {
                 'type': 'chat.typing_stop',
-                'conversation_id': self.conversation_id,
                 'user_id': self.user.id,
             }
         )
 
-    # ─── Получатели событий (type.handler) ──────────────────────────
+    # ─── Получатели событий из Redis (type.handler) ─────────────────
 
-    async def chat_message(self, event):
-        """Получатель события chat.message."""
-        await self.send_json({
-            'type': 'message.new',
-            'message_id': event['message_id'],
-            'conversation_id': event['conversation_id'],
-            'sender_id': event['sender_id'],
-            'text': event['text'],
-            'created_at': event['created_at'],
+    async def chat_message_new(self, event):
+        """Получатель события chat.message_new из Redis."""
+        await self._send_event("message.new", {
+            "message_id": event['message_id'],
+            "conversation_id": self.conversation_id,
+            "sender_id": event['sender_id'],
+            "text": event['text'],
+            "created_at": event['created_at'],
         })
 
     async def chat_message_read(self, event):
-        """Получатель события chat.message_read."""
-        await self.send_json({
-            'type': 'message.read',
-            'conversation_id': event['conversation_id'],
-            'read_by_id': event['read_by_id'],
-            'marked_count': event['marked_count'],
+        """Получатель события chat.message_read из Redis."""
+        await self._send_event("message.read", {
+            "conversation_id": self.conversation_id,
+            "read_by_id": event['read_by_id'],
+            "marked_count": event['marked_count'],
         })
 
     async def chat_typing_start(self, event):
-        """Получатель события chat.typing_start."""
-        await self.send_json({
-            'type': 'typing.start',
-            'conversation_id': event['conversation_id'],
-            'user_id': event['user_id'],
-            'user_name': event['user_name'],
+        """Получатель события chat.typing_start из Redis."""
+        await self._send_event("typing.start", {
+            "conversation_id": self.conversation_id,
+            "user_id": event['user_id'],
+            "user_name": event['user_name'],
         })
 
     async def chat_typing_stop(self, event):
-        """Получатель события chat.typing_stop."""
-        await self.send_json({
-            'type': 'typing.stop',
-            'conversation_id': event['conversation_id'],
-            'user_id': event['user_id'],
+        """Получатель события chat.typing_stop из Redis."""
+        await self._send_event("typing.stop", {
+            "conversation_id": self.conversation_id,
+            "user_id": event['user_id'],
         })
 
-    # ─── Вспомогательные методы (sync_to_async) ─────────────────────
+    # ─── Вспомогательные методы (БД) ────────────────────────────────
 
     @database_sync_to_async
     def _check_conversation_membership(self, conversation_id, user):
-        """Проверить участие пользователя в диалоге."""
         return Conversation.objects.filter(
             Q(user1=user) | Q(user2=user),
             pk=conversation_id
@@ -207,7 +234,6 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
 
     @database_sync_to_async
     def _save_message(self, conversation_id, user, text):
-        """Сохранить сообщение в БД."""
         conversation = Conversation.objects.get(pk=conversation_id)
         msg = Message.objects.create(
             conversation=conversation,
@@ -219,7 +245,6 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
 
     @database_sync_to_async
     def _mark_messages_read(self, conversation_id, user):
-        """Отметить сообщения собеседника как прочитанные."""
         count = Message.objects.filter(
             conversation_id=conversation_id,
             is_read=False
