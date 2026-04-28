@@ -321,6 +321,8 @@ class TournamentMatchesView(generics.ListAPIView):
     permission_classes = [permissions.AllowAny]
 
     def get_queryset(self):
+        if getattr(self, 'swagger_fake_view', False):
+            return TournamentMatch.objects.none()
         tournament = get_object_or_404(Tournament, pk=self.kwargs['pk'])
         qs = tournament.matches.select_related('team1', 'team2', 'winner', 'court')
 
@@ -340,6 +342,9 @@ class TournamentMatchesView(generics.ListAPIView):
 
     def get_serializer_context(self):
         ctx = super().get_serializer_context()
+        if getattr(self, 'swagger_fake_view', False):
+            ctx['total_rounds'] = 1
+            return ctx
         tournament = get_object_or_404(Tournament, pk=self.kwargs['pk'])
         agg = tournament.matches.aggregate(
             m=__import__('django.db.models', fromlist=['Max']).Max('round_number')

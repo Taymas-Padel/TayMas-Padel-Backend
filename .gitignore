@@ -13,6 +13,11 @@ __pycache__/
 # Логи
 *.log
 
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
 # IDE / редакторы
 .vscode/
 .idea/
