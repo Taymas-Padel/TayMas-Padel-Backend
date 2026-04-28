@@ -4,8 +4,6 @@ from channels.generic.websocket import AsyncJsonWebsocketConsumer
 from channels.db import database_sync_to_async
 from django.contrib.auth import get_user_model
 from django.db.models import Q
-from rest_framework_simplejwt.authentication import JWTAuthentication
-from rest_framework_simplejwt.exceptions import InvalidToken
 
 from .models import Conversation, Message
 
@@ -27,31 +25,26 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
     """
 
     async def connect(self):
-        """Подключение к WebSocket с аутентификацией JWT."""
+        """Подключение к WebSocket."""
         self.conversation_id = self.scope['url_route']['kwargs']['conversation_id']
         self.room_group_name = f'chat_{self.conversation_id}'
-        self.user = None
+        self.user = self.scope.get('user')
 
-        # 1. Проверяем JWT токен из query params
-        try:
-            token = self._get_token_from_scope()
-            if not token:
-                await self.close(code=4001)
-                return
-
-            self.user = await self._authenticate_token(token)
-            if not self.user:
-                await self.close(code=4001)
-                return
-        except Exception as e:
-            logger.error(f"Auth error: {e}")
+        # 1. Проверяем, прошла ли аутентификация в Middleware
+        if not self.user or not self.user.is_authenticated:
+            logger.warning(
+                f"Connection rejected (4001): Unauthenticated access attempt to conversation {self.conversation_id}."
+            )
             await self.close(code=4001)
             return
 
         # 2. Проверяем права доступа (юзер участник диалога?)
         is_member = await self._check_conversation_membership(self.conversation_id, self.user)
         if not is_member:
-            logger.warning(f"User {self.user.id} tried to access conversation {self.conversation_id}")
+            # Безопасный лог: пишем ID юзера и ID комнаты, никаких секретов
+            logger.warning(
+                f"Connection rejected (4003): User {self.user.id} tried to access foreign conversation {self.conversation_id}."
+            )
             await self.close(code=4003)  # Forbidden
             return
 
@@ -65,7 +58,7 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
         """Отключение от WebSocket."""
         if hasattr(self, 'room_group_name'):
             await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
-        if self.user:
+        if hasattr(self, 'user') and self.user and self.user.is_authenticated:
             logger.info(f"User {self.user.id} disconnected from chat {self.conversation_id}, code={close_code}")
 
     async def receive_json(self, content, **kwargs):
@@ -203,27 +196,6 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
         })
 
     # ─── Вспомогательные методы (sync_to_async) ─────────────────────
-
-    def _get_token_from_scope(self):
-        """Получить JWT токен из query params."""
-        query_string = self.scope.get('query_string', b'').decode()
-        for param in query_string.split('&'):
-            if '=' in param:
-                key, value = param.split('=', 1)
-                if key == 'token':
-                    return value
-        return None
-
-    @database_sync_to_async
-    def _authenticate_token(self, token):
-        """Аутентифицировать пользователя по JWT токену."""
-        try:
-            auth = JWTAuthentication()
-            validated_token = auth.get_validated_token(token)
-            user = auth.get_user(validated_token)
-            return user if user and user.is_active else None
-        except InvalidToken:
-            return None
 
     @database_sync_to_async
     def _check_conversation_membership(self, conversation_id, user):
