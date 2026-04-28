@@ -125,10 +125,12 @@ const ws = new WebSocket(
 - Если OK: отправителю приходит `ack` с `request_id` и `message_id`, а всем в комнате рассылается `message.new`
 - Если ошибка: `{"v": 1, "type": "error", "payload": {"code": "validation_error", "message": "Текст пуст"}}`
 
-**Валидация:**
+**Валидация и Лимиты:**
 - `text` не пустой
 - Макс 4000 символов
+- `request_id` макс 100 символов
 - Сохраняется в БД: `Message(conversation, sender, text, is_read=False, created_at=now)`
+- **Rate Limit:** макс. 20 сообщений в 60 секунд. При превышении возвращается `rate_limit_exceeded`.
 
 ---
 
@@ -145,6 +147,7 @@ const ws = new WebSocket(
 **Действие:**
 - Отмечает все **непрочитанные сообщения собеседника** в диалоге как `is_read=True`
 - Рассылает событие `message.read` в комнату
+- **Rate Limit:** макс. 5 отметок в 10 секунд.
 
 **Ответ для других участников:**
 ```json
@@ -646,6 +649,15 @@ async def test_message_new():
 - **Redis**: ~10k concurrent connections
 - **Daphne процессы**: 1-4 на ядро CPU
 - **БД**: пулинг Postgres (connection limit)
+
+### Защита от флуда (Rate Limiting)
+
+- Размер payload WebSocket ограничен **10 КБ** (защита от OOM при JSON парсинге). Превышение -> закрытие с кодом 4009.
+- Алгоритм: Sliding Window в памяти (без обращения к Redis)
+- Лимиты:
+  - `message.send` — 20 в 60 секунд
+  - `message.read` — 5 в 10 секунд
+  - `typing.*` — 5 в 5 секунд
 
 ---
 

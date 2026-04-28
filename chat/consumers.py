@@ -1,5 +1,6 @@
 import json
 import logging
+import time
 from channels.generic.websocket import AsyncJsonWebsocketConsumer
 from channels.db import database_sync_to_async
 from django.contrib.auth import get_user_model
@@ -20,6 +21,15 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
     
     # Фиксируем версию протокола для этого консьюмера
     PROTOCOL_VERSION = 1
+
+    # Лимиты: (кол-во запросов, окно в секундах)
+    RATE_LIMITS = {
+        'message.send': (20, 60),  # 20 сообщений за 60 секунд
+        'message.read': (5, 10),   # 5 отметок за 10 секунд
+        'typing.start': (5, 5),    # 5 событий за 5 секунд
+        'typing.stop': (5, 5),
+        'default': (20, 10),
+    }
 
     async def connect(self):
         """Подключение к WebSocket."""
@@ -48,6 +58,8 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
         await self.channel_layer.group_add(self.room_group_name, self.channel_name)
         await self.accept()
 
+        self._rate_limit_records = {}  # Инициализация словаря для rate limit
+
         logger.info(f"User {self.user.id} connected to chat {self.conversation_id}")
 
     async def disconnect(self, close_code):
@@ -56,6 +68,36 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
             await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
         if hasattr(self, 'user') and self.user and self.user.is_authenticated:
             logger.info(f"User {self.user.id} disconnected from chat {self.conversation_id}, code={close_code}")
+
+    async def receive(self, text_data=None, bytes_data=None, **kwargs):
+        """Переопределение базового метода для защиты от гигантских payload."""
+        # Ограничение размера кадра WebSocket в 10 КБ
+        if text_data and len(text_data) > 10 * 1024:
+            logger.warning(f"Connection rejected (4009): Payload too large from user {getattr(self, 'user', 'Unknown')}.")
+            await self.close(code=4009)
+            return
+            
+        await super().receive(text_data=text_data, bytes_data=bytes_data, **kwargs)
+
+    async def _check_rate_limit(self, event_type: str) -> bool:
+        """Возвращает True, если лимит превышен."""
+        limit_count, limit_window = self.RATE_LIMITS.get(event_type, self.RATE_LIMITS['default'])
+        now = time.time()
+        
+        if event_type not in self._rate_limit_records:
+            self._rate_limit_records[event_type] = []
+            
+        records = self._rate_limit_records[event_type]
+        # Очищаем старые записи
+        records = [ts for ts in records if now - ts < limit_window]
+        
+        if len(records) >= limit_count:
+            self._rate_limit_records[event_type] = records
+            return True
+            
+        records.append(now)
+        self._rate_limit_records[event_type] = records
+        return False
 
     async def receive_json(self, content, **kwargs):
         """Получение JSON от клиента и строгая валидация v1."""
@@ -70,12 +112,18 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
             event_type = content.get('type')
             payload = content.get('payload')
 
-            if not event_type or not isinstance(event_type, str):
-                await self._send_error("bad_format", "Поле 'type' обязательно и должно быть строкой.")
+            if not event_type or not isinstance(event_type, str) or len(event_type) > 50:
+                await self._send_error("bad_format", "Поле 'type' обязательно и должно быть строкой (макс 50 символов).")
                 return
                 
             if payload is None or not isinstance(payload, dict):
                 await self._send_error("bad_format", "Поле 'payload' обязательно и должно быть объектом.")
+                return
+
+            # 3. Проверка Rate Limit
+            if await self._check_rate_limit(event_type):
+                logger.warning(f"Rate limit exceeded for {event_type} by user {getattr(self.user, 'id', 'Unknown')}")
+                await self._send_error("rate_limit_exceeded", "Слишком много запросов. Подождите немного.")
                 return
 
             # 3. Маршрутизация событий
@@ -124,6 +172,10 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
         
         if len(text) > 4000:
             await self._send_error("validation_error", "Текст слишком длинный (макс 4000)")
+            return
+
+        if request_id and (not isinstance(request_id, str) or len(request_id) > 100):
+            await self._send_error("validation_error", "Некорректный request_id (ожидается строка до 100 символов)")
             return
 
         try:
