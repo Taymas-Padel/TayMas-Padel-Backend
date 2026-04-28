@@ -9,6 +9,11 @@
 
 ## Архитектура: как сделать "быструю" доставку
 
+<<<<<<< HEAD
+Бэкенд предоставляет **REST API**. Для быстрой доставки сообщений используй **short polling** с параметром `after` — это забирает только новые сообщения и работает моментально.
+
+### Рекомендуемая схема (Flutter)
+=======
 Бэкенд предоставляет **WebSocket API** для реального времени и **REST API** для загрузки истории и фоллбека. 
 
 Для полноценной работы (realtime доставка, typing индикаторы, статусы прочитанности) рекомендуется использовать WebSocket. Если WebSocket по какой-то причине недоступен (обрыв сети), приложение должно временно перейти на REST API (short polling с параметром `after`).
@@ -49,6 +54,7 @@
 > Более подробно про события WebSocket (новые сообщения, прочитанность, печать собеседника) читай в файле [CHAT_WEBSOCKET_FLOW.md](./CHAT_WEBSOCKET_FLOW.md).
 
 ### Вариант 2: REST API (Fallback / Альтернатива)
+>>>>>>> origin/main
 
 ```
 ┌─────────────────────────────────────────────────┐
@@ -277,6 +283,8 @@ class ChatService {
     });
   }
 
+<<<<<<< HEAD
+=======
   // Пример интеграции WebSocket
   void connectWebSocket(int convId, String token) {
     final wsUrl = 'ws://api.example.com/ws/chat/$convId/?token=$token';
@@ -307,6 +315,7 @@ class ChatService {
     }));
   }
 
+>>>>>>> origin/main
   void stopPolling() {
     _pollTimer?.cancel();
   }

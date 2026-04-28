@@ -256,6 +256,12 @@ const ws = new WebSocket(
 
 ```json
 {
+<<<<<<< HEAD
+  "type": "message.read",
+  "conversation_id": 123,
+  "read_by_id": 2,
+  "marked_count": 3
+=======
   "v": 1,
   "type": "message.read",
   "payload": {
@@ -263,6 +269,7 @@ const ws = new WebSocket(
     "read_by_id": 2,
     "marked_count": 3
   }
+>>>>>>> origin/main
 }
 ```
 
@@ -275,6 +282,12 @@ const ws = new WebSocket(
 
 ```json
 {
+<<<<<<< HEAD
+  "type": "typing.start",
+  "conversation_id": 123,
+  "user_id": 2,
+  "user_name": "Мария Сидорова"
+=======
   "v": 1,
   "type": "typing.start",
   "payload": {
@@ -282,6 +295,7 @@ const ws = new WebSocket(
     "user_id": 2,
     "user_name": "Мария Сидорова"
   }
+>>>>>>> origin/main
 }
 ```
 
@@ -291,12 +305,18 @@ const ws = new WebSocket(
 
 ```json
 {
+<<<<<<< HEAD
+  "type": "typing.stop",
+  "conversation_id": 123,
+  "user_id": 2
+=======
   "v": 1,
   "type": "typing.stop",
   "payload": {
     "conversation_id": 123,
     "user_id": 2
   }
+>>>>>>> origin/main
 }
 ```
 
@@ -557,6 +577,12 @@ npm install -g wscat
 wscat -c "ws://127.0.0.1:8000/ws/chat/123/?token=eyJ0..."
 
 # Отправить
+<<<<<<< HEAD
+{"type": "message.new", "text": "Hello"}
+
+# Получить
+{"type": "message.new", "message_id": 456, ...}
+=======
 {"v": 1, "type": "message.send", "payload": {"text": "Hello", "request_id": "test"}}
 
 # Получить (ack)
@@ -564,6 +590,7 @@ wscat -c "ws://127.0.0.1:8000/ws/chat/123/?token=eyJ0..."
 
 # Получить (new message)
 {"v": 1, "type": "message.new", "payload": {"message_id": 456, "conversation_id": 123, "sender_id": 1, "text": "Hello", "created_at": "..."}}
+>>>>>>> origin/main
 ```
 
 ---
@@ -584,6 +611,14 @@ async def test_message_new():
     assert connected
 
     await communicator.send_json_to({
+<<<<<<< HEAD
+        "type": "message.new",
+        "text": "Test"
+    })
+
+    response = await communicator.receive_json_from()
+    assert response['type'] == 'message.new'
+=======
         "v": 1,
         "type": "message.send",
         "payload": {
@@ -593,6 +628,7 @@ async def test_message_new():
 
     response = await communicator.receive_json_from()
     assert response['type'] in ('ack', 'message.new')
+>>>>>>> origin/main
 ```
 
 ---
