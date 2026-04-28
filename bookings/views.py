@@ -277,6 +277,8 @@ class BookingDetailView(generics.RetrieveAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
+        if getattr(self, 'swagger_fake_view', False):
+            return Booking.objects.none()
         user = self.request.user
         if user.role in ['ADMIN', 'RECEPTIONIST']:
             return Booking.objects.all()
