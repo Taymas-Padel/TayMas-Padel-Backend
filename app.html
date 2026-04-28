@@ -363,6 +363,10 @@ body{font-family:'Outfit',sans-serif;background:#0a0c12;color:var(--tx);min-heig
         <div id="chatMessages" style="max-height:400px;overflow-y:auto;margin-bottom:8px;padding:4px"></div>
         <div class="fg"><textarea id="chatInput" placeholder="Введите сообщение..." rows="2" maxlength="4000"></textarea></div>
         <button class="b b1" onclick="sendChatMessage()">📤 Отправить</button>
+        <div style="display:flex;gap:6px;margin-top:6px">
+          <button class="b b2" onclick="testWsFlood()" style="flex:1;font-size:10px">🚀 Тест: Флуд WS</button>
+          <button class="b b2" onclick="testWsPayload()" style="flex:1;font-size:10px">📦 Тест: Payload</button>
+        </div>
         <div id="chatSendRes" style="margin-top:4px"></div>
       </div>
     </div>
@@ -2945,6 +2949,53 @@ upd();
 // Preload news and leaderboard on home
 loadNewsHome();
 loadLeaderMini();
+
+// --- WS TESTS (Flood & Payload) ---
+let _testWs = null;
+function getWsUrl() {
+  const host = B().replace(/^http/, 'ws');
+  return `${host}/ws/chat/${_chatConvId}/?token=${AT}`;
+}
+
+function testWsFlood() {
+  if(!_chatConvId) return alert('Откройте диалог');
+  if(_testWs) _testWs.close();
+  _testWs = new WebSocket(getWsUrl());
+  _testWs.onopen = () => {
+    $('chatSendRes').innerHTML = '<div class="al al-i">WS подключен. Отправляем 22 сообщения...</div>';
+    for(let i=1; i<=22; i++) {
+      _testWs.send(JSON.stringify({
+        v: 1, type: "message.send", payload: { text: "Спам " + i, request_id: "req-"+i }
+      }));
+    }
+  };
+  _testWs.onmessage = e => {
+    const d = JSON.parse(e.data);
+    if(d.type === 'error' && d.payload?.code === 'rate_limit_exceeded') {
+      $('chatSendRes').innerHTML = `<div class="al al-s">✅ Успех! Сервер заблокировал флуд: ${d.payload.message}</div>`;
+      _testWs.close();
+    }
+  };
+  _testWs.onerror = e => console.error("WS error:", e);
+}
+
+function testWsPayload() {
+  if(!_chatConvId) return alert('Откройте диалог');
+  if(_testWs) _testWs.close();
+  _testWs = new WebSocket(getWsUrl());
+  _testWs.onopen = () => {
+    $('chatSendRes').innerHTML = '<div class="al al-i">WS подключен. Отправляем кадр 15 КБ...</div>';
+    const hugeStr = "A".repeat(15 * 1024);
+    _testWs.send(hugeStr); // Отправляем просто огромный текст
+  };
+  _testWs.onclose = e => {
+    if(e.code === 4009) {
+      $('chatSendRes').innerHTML = `<div class="al al-s">✅ Успех! Сервер разорвал соединение (код 4009) из-за слишком большого Payload.</div>`;
+    } else {
+      $('chatSendRes').innerHTML = `<div class="al al-e">WS закрыт с другим кодом: ${e.code}</div>`;
+    }
+  };
+}
 </script>
 </body>
 </html>
