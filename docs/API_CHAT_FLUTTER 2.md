@@ -9,9 +9,52 @@
 
 ## Архитектура: как сделать "быструю" доставку
 
+<<<<<<< HEAD
 Бэкенд предоставляет **REST API**. Для быстрой доставки сообщений используй **short polling** с параметром `after` — это забирает только новые сообщения и работает моментально.
 
 ### Рекомендуемая схема (Flutter)
+=======
+Бэкенд предоставляет **WebSocket API** для реального времени и **REST API** для загрузки истории и фоллбека. 
+
+Для полноценной работы (realtime доставка, typing индикаторы, статусы прочитанности) рекомендуется использовать WebSocket. Если WebSocket по какой-то причине недоступен (обрыв сети), приложение должно временно перейти на REST API (short polling с параметром `after`).
+
+### Вариант 1: WebSocket (Основной, Рекомендуемый)
+
+**URL для подключения:**
+`ws://{HOST}/ws/chat/<conversation_id>/?token=<jwt_access_token>`
+
+Протокол обмена (строгий формат v1):
+Все сообщения оборачиваются в объект с версией протокола, типом события и полезной нагрузкой.
+
+**Отправка сообщения клиентом:**
+```json
+{
+  "v": 1,
+  "type": "message.send",
+  "payload": {
+    "text": "Привет!",
+    "request_id": "уникальный_id_фронта"
+  }
+}
+```
+
+**Получение подтверждения отправки (ACK) от сервера:**
+```json
+{
+  "v": 1,
+  "type": "ack",
+  "payload": {
+    "request_id": "уникальный_id_фронта",
+    "message_id": 158,
+    "status": "ok"
+  }
+}
+```
+
+> Более подробно про события WebSocket (новые сообщения, прочитанность, печать собеседника) читай в файле [CHAT_WEBSOCKET_FLOW.md](./CHAT_WEBSOCKET_FLOW.md).
+
+### Вариант 2: REST API (Fallback / Альтернатива)
+>>>>>>> origin/main
 
 ```
 ┌─────────────────────────────────────────────────┐
@@ -240,6 +283,39 @@ class ChatService {
     });
   }
 
+<<<<<<< HEAD
+=======
+  // Пример интеграции WebSocket
+  void connectWebSocket(int convId, String token) {
+    final wsUrl = 'ws://api.example.com/ws/chat/$convId/?token=$token';
+    final channel = IOWebSocketChannel.connect(Uri.parse(wsUrl));
+    
+    channel.stream.listen((message) {
+      final data = jsonDecode(message);
+      if (data['v'] != 1) return;
+      
+      switch (data['type']) {
+        case 'message.new':
+          // новое сообщение от собеседника
+          break;
+        case 'ack':
+          // сообщение доставлено на сервер
+          break;
+      }
+    });
+    
+    // Отправка
+    channel.sink.add(jsonEncode({
+      "v": 1,
+      "type": "message.send",
+      "payload": {
+        "text": "Привет",
+        "request_id": "test-1"
+      }
+    }));
+  }
+
+>>>>>>> origin/main
   void stopPolling() {
     _pollTimer?.cancel();
   }

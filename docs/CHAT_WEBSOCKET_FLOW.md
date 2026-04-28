@@ -108,18 +108,22 @@ const ws = new WebSocket(
 
 ### Отправка с клиента → Backend
 
-#### `message.new` — отправить сообщение
+#### `message.send` — отправить сообщение
 
 ```json
 {
-  "type": "message.new",
-  "text": "Привет!"
+  "v": 1,
+  "type": "message.send",
+  "payload": {
+    "text": "Привет!",
+    "request_id": "unique-id-123"
+  }
 }
 ```
 
 **Ответ:**
-- Если OK: рассылается `message.new` всем в комнате
-- Если ошибка: `{"type": "error", "error": "Текст пуст"}`
+- Если OK: отправителю приходит `ack` с `request_id` и `message_id`, а всем в комнате рассылается `message.new`
+- Если ошибка: `{"v": 1, "type": "error", "payload": {"code": "validation_error", "message": "Текст пуст"}}`
 
 **Валидация:**
 - `text` не пустой
@@ -132,7 +136,9 @@ const ws = new WebSocket(
 
 ```json
 {
-  "type": "message.read"
+  "v": 1,
+  "type": "message.read",
+  "payload": {}
 }
 ```
 
@@ -143,10 +149,13 @@ const ws = new WebSocket(
 **Ответ для других участников:**
 ```json
 {
+  "v": 1,
   "type": "message.read",
-  "conversation_id": 123,
-  "read_by_id": 1,
-  "marked_count": 5
+  "payload": {
+    "conversation_id": 123,
+    "read_by_id": 1,
+    "marked_count": 5
+  }
 }
 ```
 
@@ -156,17 +165,22 @@ const ws = new WebSocket(
 
 ```json
 {
-  "type": "typing.start"
+  "v": 1,
+  "type": "typing.start",
+  "payload": {}
 }
 ```
 
 **Ответ для собеседника:**
 ```json
 {
+  "v": 1,
   "type": "typing.start",
-  "conversation_id": 123,
-  "user_id": 1,
-  "user_name": "Иван Петров"
+  "payload": {
+    "conversation_id": 123,
+    "user_id": 1,
+    "user_name": "Иван Петров"
+  }
 }
 ```
 
@@ -176,16 +190,21 @@ const ws = new WebSocket(
 
 ```json
 {
-  "type": "typing.stop"
+  "v": 1,
+  "type": "typing.stop",
+  "payload": {}
 }
 ```
 
 **Ответ для собеседника:**
 ```json
 {
+  "v": 1,
   "type": "typing.stop",
-  "conversation_id": 123,
-  "user_id": 1
+  "payload": {
+    "conversation_id": 123,
+    "user_id": 1
+  }
 }
 ```
 
@@ -193,16 +212,38 @@ const ws = new WebSocket(
 
 ### Получение с Backend → Клиента
 
+#### `ack` — подтверждение отправки (новое)
+
+```json
+{
+  "v": 1,
+  "type": "ack",
+  "payload": {
+    "request_id": "unique-id-123",
+    "message_id": 456,
+    "status": "ok"
+  }
+}
+```
+
+**Когда приходит:**
+- Сразу после успешной обработки `message.send` (только отправителю). Позволяет обновить локальный UI и убрать "часики".
+
+---
+
 #### `message.new` — новое сообщение
 
 ```json
 {
+  "v": 1,
   "type": "message.new",
-  "message_id": 456,
-  "conversation_id": 123,
-  "sender_id": 1,
-  "text": "Привет!",
-  "created_at": "2026-04-27T15:30:00Z"
+  "payload": {
+    "message_id": 456,
+    "conversation_id": 123,
+    "sender_id": 1,
+    "text": "Привет!",
+    "created_at": "2026-04-27T15:30:00Z"
+  }
 }
 ```
 
@@ -215,10 +256,20 @@ const ws = new WebSocket(
 
 ```json
 {
+<<<<<<< HEAD
   "type": "message.read",
   "conversation_id": 123,
   "read_by_id": 2,
   "marked_count": 3
+=======
+  "v": 1,
+  "type": "message.read",
+  "payload": {
+    "conversation_id": 123,
+    "read_by_id": 2,
+    "marked_count": 3
+  }
+>>>>>>> origin/main
 }
 ```
 
@@ -231,10 +282,20 @@ const ws = new WebSocket(
 
 ```json
 {
+<<<<<<< HEAD
   "type": "typing.start",
   "conversation_id": 123,
   "user_id": 2,
   "user_name": "Мария Сидорова"
+=======
+  "v": 1,
+  "type": "typing.start",
+  "payload": {
+    "conversation_id": 123,
+    "user_id": 2,
+    "user_name": "Мария Сидорова"
+  }
+>>>>>>> origin/main
 }
 ```
 
@@ -244,9 +305,18 @@ const ws = new WebSocket(
 
 ```json
 {
+<<<<<<< HEAD
   "type": "typing.stop",
   "conversation_id": 123,
   "user_id": 2
+=======
+  "v": 1,
+  "type": "typing.stop",
+  "payload": {
+    "conversation_id": 123,
+    "user_id": 2
+  }
+>>>>>>> origin/main
 }
 ```
 
@@ -507,10 +577,20 @@ npm install -g wscat
 wscat -c "ws://127.0.0.1:8000/ws/chat/123/?token=eyJ0..."
 
 # Отправить
+<<<<<<< HEAD
 {"type": "message.new", "text": "Hello"}
 
 # Получить
 {"type": "message.new", "message_id": 456, ...}
+=======
+{"v": 1, "type": "message.send", "payload": {"text": "Hello", "request_id": "test"}}
+
+# Получить (ack)
+{"v": 1, "type": "ack", "payload": {"request_id": "test", "message_id": 456, "status": "ok"}}
+
+# Получить (new message)
+{"v": 1, "type": "message.new", "payload": {"message_id": 456, "conversation_id": 123, "sender_id": 1, "text": "Hello", "created_at": "..."}}
+>>>>>>> origin/main
 ```
 
 ---
@@ -531,12 +611,24 @@ async def test_message_new():
     assert connected
 
     await communicator.send_json_to({
+<<<<<<< HEAD
         "type": "message.new",
         "text": "Test"
     })
 
     response = await communicator.receive_json_from()
     assert response['type'] == 'message.new'
+=======
+        "v": 1,
+        "type": "message.send",
+        "payload": {
+            "text": "Test"
+        }
+    })
+
+    response = await communicator.receive_json_from()
+    assert response['type'] in ('ack', 'message.new')
+>>>>>>> origin/main
 ```
 
 ---
