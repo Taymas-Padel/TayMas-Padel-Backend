@@ -18,3 +18,8 @@ __pycache__/
 .idea/
 *.swp
 *~
+
+# .env
+.env
+
+media/tmp_uploads/
