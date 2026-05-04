@@ -23,8 +23,11 @@ class MessageSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Message
-        fields = ['id', 'conversation', 'sender_id', 'text', 'is_read', 'created_at']
-        read_only_fields = ['id', 'conversation', 'sender_id', 'is_read', 'created_at']
+        fields = [
+            'id', 'conversation', 'sender_id', 'text',
+            'status', 'is_read', 'client_message_id', 'created_at',
+        ]
+        read_only_fields = ['id', 'conversation', 'sender_id', 'status', 'is_read', 'created_at']
 
 
 class ConversationSerializer(serializers.ModelSerializer):
@@ -44,6 +47,18 @@ class ConversationSerializer(serializers.ModelSerializer):
         return _ChatUserSerializer(self._get_companion(obj), context=self.context).data
 
     def get_last_message(self, obj):
+        # TAY-10: используем аннотированные значения из queryset — без N+1
+        last_id = getattr(obj, 'last_msg_id', None)
+        if last_id:
+            return {
+                'id': last_id,
+                'text': getattr(obj, 'last_msg_text', None),
+                'sender_id': getattr(obj, 'last_msg_sender_id', None),
+                'created_at': getattr(obj, 'last_msg_created_at', None),
+                'is_read': getattr(obj, 'last_msg_is_read', None),
+                'status': getattr(obj, 'last_msg_status', 'sent'),
+            }
+        # Fallback для случаев когда объект загружен без аннотаций
         msg = obj.messages.order_by('-created_at').first()
         if msg:
             return {
@@ -52,9 +67,13 @@ class ConversationSerializer(serializers.ModelSerializer):
                 'sender_id': msg.sender_id,
                 'created_at': msg.created_at,
                 'is_read': msg.is_read,
+                'status': msg.status,
             }
         return None
 
     def get_unread_count(self, obj):
+        # TAY-10: аннотированное значение без N+1
+        if hasattr(obj, 'unread_count_annotated'):
+            return obj.unread_count_annotated
         me = self.context['request'].user
         return obj.messages.filter(is_read=False).exclude(sender=me).count()

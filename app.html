@@ -151,7 +151,7 @@ body{font-family:'Outfit',sans-serif;background:#0a0c12;color:var(--tx);min-heig
     <h1>🏓 Padel App</h1>
     <div class="st"><div class="dot" id="dot"></div><span class="stxt" id="stxt">Не авторизован</span></div>
   </div>
-  <div class="sbar"><input type="text" id="baseUrl" value="http://213.155.23.227" placeholder="http://..."></div>
+  <div class="sbar"><input type="text" id="baseUrl" value="http://127.0.0.1:8000" placeholder="http://..."></div>
 
   <div class="cnt">
 
@@ -360,12 +360,17 @@ body{font-family:'Outfit',sans-serif;background:#0a0c12;color:var(--tx);min-heig
       <div id="chdialog" style="display:none">
         <button class="b b2 bsm" onclick="backToConvList()" style="margin-bottom:8px">← Назад</button>
         <div id="chatCompanion" style="margin-bottom:8px"></div>
+        <div id="chatTyping" style="font-size:11px;color:var(--ac);min-height:18px;margin-bottom:4px;font-style:italic"></div>
         <div id="chatMessages" style="max-height:400px;overflow-y:auto;margin-bottom:8px;padding:4px"></div>
         <div class="fg"><textarea id="chatInput" placeholder="Введите сообщение..." rows="2" maxlength="4000"></textarea></div>
         <button class="b b1" onclick="sendChatMessage()">📤 Отправить</button>
         <div style="display:flex;gap:6px;margin-top:6px">
-          <button class="b b2" onclick="testWsFlood()" style="flex:1;font-size:10px">🚀 Тест: Флуд WS</button>
-          <button class="b b2" onclick="testWsPayload()" style="flex:1;font-size:10px">📦 Тест: Payload</button>
+          <button class="b b2" onclick="testWsFlood()" style="flex:1;font-size:10px">🚀 Флуд WS</button>
+          <button class="b b2" onclick="testWsPayload()" style="flex:1;font-size:10px">📦 Payload limit</button>
+          <button class="b b2" onclick="testWsIdempotency()" style="flex:1;font-size:10px">🔁 Дублей нет</button>
+          <button class="b b2" onclick="testWsResync()" style="flex:1;font-size:10px">🔄 Resync</button>
+          <button class="b b2" onclick="testWsTyping()" style="flex:1;font-size:10px">⌨️ Typing</button>
+          <button class="b b2" onclick="testWsDelivery()" style="flex:1;font-size:10px">📬 Delivery</button>
         </div>
         <div id="chatSendRes" style="margin-top:4px"></div>
       </div>
@@ -771,6 +776,9 @@ const genDev=()=>'ios-'+Math.random().toString(36).substr(2,8)+'-'+Date.now();
 
 // ---- NAV ----
 function nav(p){
+  if(p!=='chat'){
+    stopChatPolling();
+  }
   document.querySelectorAll('.bnav button').forEach(b=>{
     b.classList.toggle('on', b.getAttribute('onclick')===`nav('${p}')`);
   });
@@ -783,7 +791,19 @@ function nav(p){
     if($('coachContent'))$('coachContent').style.display=isC?'block':'none';
     if(isC){ loadCoachSchedule(); loadCoachMatches(); }
   }
-  if(p==='chat'){ loadConversations(); loadChatBadge(); stopChatPolling(); }
+  if(p==='chat'){
+    loadConversations();
+    loadChatBadge();
+    if(_chatConvId && $('chdialog') && $('chdialog').style.display!=='none'){
+      connectChatMainWs();
+      if(!_chatPollTimer){
+        _chatPollTimer=setInterval(async()=>{
+          await loadMessages(true);
+          await api('POST',`/api/chat/conversations/${_chatConvId}/read/`);
+        },25000);
+      }
+    }
+  }
   if(p==='notifications'){ loadNotifications(); loadUnreadCount(); }
   if(p==='gym'){ updateGymQrUI(); }
   if(p==='lobby'){
@@ -2794,6 +2814,8 @@ async function deleteAccount(){
 
 // ============ CHAT ============
 let _chatConvId=null, _chatLastMsgId=null, _chatPollTimer=null;
+let _chatMainWs=null, _chatWsReconnectTimer=null, _chatTypingStopDebounce=null;
+let _lastTypingSent=0;
 
 function switchChatTab(btn,id){
   document.querySelectorAll('[data-cht]').forEach(b=>b.classList.remove('on'));
@@ -2801,7 +2823,104 @@ function switchChatTab(btn,id){
   ['chlist','chdialog'].forEach(x=>{const e=$(x);if(e)e.style.display=x===id?'block':'none'});
 }
 
-function stopChatPolling(){ if(_chatPollTimer){clearInterval(_chatPollTimer);_chatPollTimer=null;} }
+function stopChatPolling(){
+  if(_chatPollTimer){ clearInterval(_chatPollTimer); _chatPollTimer=null; }
+  disconnectChatMainWs();
+}
+
+/** Закрыть основной WS диалога (при уходе со страницы или смене диалога). */
+function disconnectChatMainWs(){
+  if(_chatWsReconnectTimer){ clearTimeout(_chatWsReconnectTimer); _chatWsReconnectTimer=null; }
+  if(_chatMainWs){
+    _chatMainWs.onclose=null;
+    try{ _chatMainWs.close(); }catch(e){}
+    _chatMainWs=null;
+  }
+  const tp=$('chatTyping'); if(tp) tp.textContent='';
+}
+
+/** WebSocket для диалога: мгновенные входящие + typing (не то же самое, что тестовые кнопки _testWs). */
+function connectChatMainWs(){
+  if(!AT || !_chatConvId) return;
+  if(_chatWsReconnectTimer){ clearTimeout(_chatWsReconnectTimer); _chatWsReconnectTimer=null; }
+  if(_chatMainWs){ try{ _chatMainWs.close(); }catch(e){} _chatMainWs=null; }
+  const host=B().replace(/^http/,'ws');
+  const ls=_chatLastMsgId!=null && _chatLastMsgId>0 ? '&last_seen='+encodeURIComponent(_chatLastMsgId) : '';
+  const url=`${host}/ws/chat/${_chatConvId}/?token=${encodeURIComponent(AT)}${ls}`;
+  try{ _chatMainWs=new WebSocket(url); }catch(e){ return; }
+  _chatMainWs.onmessage=function(ev){
+    let d; try{ d=JSON.parse(ev.data); }catch(x){ return; }
+    if(d.v!==1 || !d.type) return;
+    if(d.type==='message.new'){
+      const p=d.payload||{};
+      if(!p.message_id) return;
+      appendChatMessageIfNew({
+        id:p.message_id, sender_id:p.sender_id, text:p.text||'',
+        created_at:p.created_at, is_read:false,
+      });
+      if(p.sender_id!==UID){
+        api('POST','/api/chat/conversations/'+_chatConvId+'/read/').then(()=>loadChatBadge());
+      }
+      return;
+    }
+    if(d.type==='typing.start'){
+      const uid=(d.payload||{}).user_id;
+      const un=(d.payload||{}).user_name||'Собеседник';
+      if(uid!=null && uid!==UID){
+        const tp=$('chatTyping'); if(tp) tp.textContent=un+' печатает…';
+      }
+      return;
+    }
+    if(d.type==='typing.stop'){
+      const uid=(d.payload||{}).user_id;
+      if(uid!=null && uid!==UID){ const tp=$('chatTyping'); if(tp) tp.textContent=''; }
+      return;
+    }
+  };
+  _chatMainWs.onclose=function(){
+    _chatMainWs=null;
+    if(_chatConvId && AT){
+      _chatWsReconnectTimer=setTimeout(connectChatMainWs, 2800);
+    }
+  };
+}
+
+/** Печать: редкие typing.start (лимит на бэке), stop после паузы. */
+function chatInputTypingPing(){
+  if(!_chatMainWs || _chatMainWs.readyState!==1) return;
+  const now=Date.now();
+  if(now-_lastTypingSent<2200) return;
+  _lastTypingSent=now;
+  try{
+    _chatMainWs.send(JSON.stringify({v:1,type:'typing.start',payload:{}}));
+    clearTimeout(_chatTypingStopDebounce);
+    _chatTypingStopDebounce=setTimeout(function(){
+      if(_chatMainWs && _chatMainWs.readyState===1){
+        _chatMainWs.send(JSON.stringify({v:1,type:'typing.stop',payload:{}}));
+      }
+    }, 1800);
+  }catch(e){}
+}
+
+function renderChatBubbleHtml(m){
+  const mine=m.sender_id===UID;
+  const t=new Date(m.created_at).toLocaleTimeString('ru',{hour:'2-digit',minute:'2-digit'});
+  const tick=mine?(m.is_read?' ✓✓':' ✓'):'';
+  return `<div data-mid="${m.id}" style="display:flex;justify-content:${mine?'flex-end':'flex-start'};margin-bottom:6px">
+    <div style="max-width:75%;padding:8px 11px;border-radius:${mine?'12px 12px 2px 12px':'12px 12px 12px 2px'};background:${mine?'rgba(34,211,238,.15)':'var(--s2)'};border:1px solid ${mine?'rgba(34,211,238,.25)':'var(--bd)'}">
+      <div style="font-size:12px;color:var(--tx);word-break:break-word">${esc(m.text)}</div>
+      <div style="font-size:8px;color:var(--dm);text-align:right;margin-top:2px">${t}${tick}</div>
+    </div>
+  </div>`;
+}
+
+function appendChatMessageIfNew(m){
+  const box=$('chatMessages');
+  if(!box || box.querySelector('[data-mid="'+m.id+'"]')) return;
+  _chatLastMsgId=m.id;
+  box.insertAdjacentHTML('beforeend', renderChatBubbleHtml(m));
+  box.scrollTop=box.scrollHeight;
+}
 
 function backToConvList(){
   stopChatPolling();
@@ -2873,11 +2992,13 @@ async function openConversation(convId){
   await loadMessages(false);
   await api('POST',`/api/chat/conversations/${convId}/read/`);
   loadChatBadge();
+  connectChatMainWs();
 
+  // Резервный опрос (редко): основной канал — WebSocket выше; 2 c давали задержку и «шум» в логах
   _chatPollTimer=setInterval(async()=>{
     await loadMessages(true);
     await api('POST',`/api/chat/conversations/${convId}/read/`);
-  },2000);
+  },25000);
 }
 
 async function loadMessages(delta){
@@ -2894,15 +3015,9 @@ async function loadMessages(delta){
   if(!delta) $('chatMessages').innerHTML='';
   const box=$('chatMessages');
   msgs.forEach(m=>{
+    if(delta && box.querySelector('[data-mid="'+m.id+'"]')) return;
     _chatLastMsgId=m.id;
-    const mine=m.sender_id===UID;
-    const t=new Date(m.created_at).toLocaleTimeString('ru',{hour:'2-digit',minute:'2-digit'});
-    box.insertAdjacentHTML('beforeend',`<div style="display:flex;justify-content:${mine?'flex-end':'flex-start'};margin-bottom:6px">
-      <div style="max-width:75%;padding:8px 11px;border-radius:${mine?'12px 12px 2px 12px':'12px 12px 12px 2px'};background:${mine?'rgba(34,211,238,.15)':'var(--s2)'};border:1px solid ${mine?'rgba(34,211,238,.25)':'var(--bd)'}">
-        <div style="font-size:12px;color:var(--tx);word-break:break-word">${esc(m.text)}</div>
-        <div style="font-size:8px;color:var(--dm);text-align:right;margin-top:2px">${t}${mine?(m.is_read?' ✓✓':' ✓'):''}</div>
-      </div>
-    </div>`);
+    box.insertAdjacentHTML('beforeend', renderChatBubbleHtml(m));
   });
   box.scrollTop=box.scrollHeight;
 }
@@ -2927,22 +3042,26 @@ async function sendChatMessage(){
   </div>`);
   box.scrollTop=box.scrollHeight;
 
-  const r=await api('POST',`/api/chat/conversations/${_chatConvId}/send/`,{text});
+  const r=await api('POST',`/api/chat/conversations/${_chatConvId}/messages/`,{text});
   const tmp=$('tmpMsg');
   if(tmp)tmp.remove();
   if(r.ok){
-    _chatLastMsgId=r.data.id;
-    box.insertAdjacentHTML('beforeend',`<div style="display:flex;justify-content:flex-end;margin-bottom:6px">
-      <div style="max-width:75%;padding:8px 11px;border-radius:12px 12px 2px 12px;background:rgba(34,211,238,.15);border:1px solid rgba(34,211,238,.25)">
-        <div style="font-size:12px;color:var(--tx);word-break:break-word">${esc(r.data.text)}</div>
-        <div style="font-size:8px;color:var(--dm);text-align:right;margin-top:2px">${new Date(r.data.created_at).toLocaleTimeString('ru',{hour:'2-digit',minute:'2-digit'})} ✓</div>
-      </div>
-    </div>`);
-    box.scrollTop=box.scrollHeight;
+    appendChatMessageIfNew({
+      id:r.data.id, sender_id:r.data.sender_id||UID, text:r.data.text,
+      created_at:r.data.created_at, is_read:!!r.data.is_read,
+    });
   } else {
     showErr('chatSendRes',r.data.detail||r.data);
   }
 }
+
+(function(){
+  const inp=$('chatInput');
+  if(inp && !inp._padelTypingHook){
+    inp._padelTypingHook=true;
+    inp.addEventListener('input', chatInputTypingPing);
+  }
+})();
 
 // ============ INIT ============
 upd();
@@ -2986,15 +3105,160 @@ function testWsPayload() {
   _testWs.onopen = () => {
     $('chatSendRes').innerHTML = '<div class="al al-i">WS подключен. Отправляем кадр 15 КБ...</div>';
     const hugeStr = "A".repeat(15 * 1024);
-    _testWs.send(hugeStr); // Отправляем просто огромный текст
+    _testWs.send(hugeStr);
   };
   _testWs.onclose = e => {
     if(e.code === 4009) {
-      $('chatSendRes').innerHTML = `<div class="al al-s">✅ Успех! Сервер разорвал соединение (код 4009) из-за слишком большого Payload.</div>`;
+      $('chatSendRes').innerHTML = `<div class="al al-s">✅ Payload limit: сервер закрыл соединение с кодом 4009.</div>`;
     } else {
-      $('chatSendRes').innerHTML = `<div class="al al-e">WS закрыт с другим кодом: ${e.code}</div>`;
+      $('chatSendRes').innerHTML = `<div class="al al-e">WS закрыт с кодом: ${e.code}</div>`;
     }
   };
+}
+
+// ─── TAY-9: Тест идемпотентности — повторная отправка не создаёт дубликат ───
+function testWsIdempotency() {
+  if(!_chatConvId) return alert('Откройте диалог');
+  if(_testWs) _testWs.close();
+  _testWs = new WebSocket(getWsUrl());
+  const cmid = 'idem-test-' + Date.now();
+  let ackCount = 0;
+  let log = `<b>Тест идемпотентности</b> (client_message_id: ${cmid})<br>`;
+  $('chatSendRes').innerHTML = log + 'Отправляем одно и то же сообщение дважды...';
+  _testWs.onopen = () => {
+    const msg = JSON.stringify({ v:1, type:'message.send', payload:{ text:'Идемпотент-тест', client_message_id: cmid, request_id: 'req-a' }});
+    _testWs.send(msg);
+    setTimeout(() => _testWs.send(msg.replace('req-a','req-b')), 300);
+  };
+  _testWs.onmessage = e => {
+    const d = JSON.parse(e.data);
+    if(d.type === 'ack') {
+      ackCount++;
+      const dup = d.payload.is_duplicate ? ' [дубликат ✅]' : ' [новое]';
+      log += `ACK #${ackCount}: msg_id=${d.payload.message_id}${dup}<br>`;
+      $('chatSendRes').innerHTML = log;
+      if(ackCount === 2) {
+        const ok = d.payload.is_duplicate;
+        log += ok ? '<div class="al al-s">✅ Идемпотентность работает: оба ACK вернули один message_id</div>'
+                  : '<div class="al al-e">❌ Дубликат не был распознан!</div>';
+        $('chatSendRes').innerHTML = log;
+        _testWs.close();
+      }
+    }
+  };
+}
+
+// ─── TAY-15: Тест resync — переподключение с last_seen ───────────────────────
+function testWsResync() {
+  if(!_chatConvId) return alert('Откройте диалог');
+  let log = '<b>Тест Resync</b><br>';
+  $('chatSendRes').innerHTML = log + 'Шаг 1: подключаемся, отправляем сообщение, запоминаем msg_id...';
+  let firstMsgId = null;
+  const ws1 = new WebSocket(getWsUrl());
+  ws1.onopen = () => {
+    ws1.send(JSON.stringify({ v:1, type:'message.send', payload:{ text:'Resync-тест ' + Date.now(), request_id:'sync-1' }}));
+  };
+  ws1.onmessage = e => {
+    const d = JSON.parse(e.data);
+    if(d.type === 'ack' && !firstMsgId) {
+      firstMsgId = d.payload.message_id;
+      log += `Сообщение отправлено, msg_id=${firstMsgId}<br>`;
+      $('chatSendRes').innerHTML = log + 'Шаг 2: закрываем WS, переподключаемся с last_seen=' + (firstMsgId - 1) + '...';
+      ws1.close();
+      // Шаг 2: переподключаемся с last_seen на 1 меньше чтобы получить сообщение
+      setTimeout(() => {
+        const ws2 = new WebSocket(getWsUrl() + '&last_seen=' + (firstMsgId - 1));
+        ws2.onmessage = ev => {
+          const d2 = JSON.parse(ev.data);
+          if(d2.type === 'message.new') {
+            log += `✅ Resync работает: получили пропущенное msg_id=${d2.payload.message_id}<br>`;
+            $('chatSendRes').innerHTML = log + '<div class="al al-s">Resync прошёл успешно</div>';
+            ws2.close();
+          }
+        };
+        ws2.onerror = () => { log += '<div class="al al-e">WS ошибка при переподключении</div>'; $('chatSendRes').innerHTML = log; };
+      }, 500);
+    }
+  };
+}
+
+// ─── Тест typing indicators ──────────────────────────────────────────────────
+function testWsTyping() {
+  if(!_chatConvId) return alert('Откройте диалог');
+  if(_testWs) _testWs.close();
+  let log = '<b>Тест Typing Indicators</b><br>';
+  $('chatSendRes').innerHTML = log + 'Отправляем typing.start...';
+  _testWs = new WebSocket(getWsUrl());
+  _testWs.onopen = () => {
+    _testWs.send(JSON.stringify({ v:1, type:'typing.start', payload:{} }));
+    log += 'typing.start отправлен ✅<br>';
+    $('chatSendRes').innerHTML = log;
+    setTimeout(() => {
+      _testWs.send(JSON.stringify({ v:1, type:'typing.stop', payload:{} }));
+      log += 'typing.stop отправлен ✅<br>';
+      $('chatSendRes').innerHTML = log + '<div class="al al-s">Typing events успешно отправлены. Проверьте у второго пользователя.</div>';
+    }, 2000);
+  };
+  _testWs.onerror = e => { log += `<div class="al al-e">Ошибка: ${e}</div>`; $('chatSendRes').innerHTML = log; };
+}
+
+// ─── TAY-14: Тест delivery status (sent → delivered → read) ─────────────────
+// Важно: POST /read/ помечает только ВХОДЯЩИЕ (от собеседника). Свои исходящие
+// переходят в read, когда их прочитает другой пользователь (его вызов /read/).
+async function testWsDelivery() {
+  if(!_chatConvId) return alert('Откройте диалог');
+  if(!AT) return alert('Нужна авторизация');
+  let log = '<b>Тест Delivery Status</b><br>';
+  $('chatSendRes').innerHTML = log + 'Загружаем историю и профиль...';
+  try {
+    // auth=true по умолчанию — иначе запрос без Bearer и 401
+    const meR = await api('GET','/api/auth/users/me/');
+    if(!meR.ok || !meR.data || meR.data.id == null){
+      const detail = meR.data && (meR.data.detail || meR.data.message);
+      $('chatSendRes').innerHTML = log + '<div class="al al-e">Не удалось получить /api/auth/users/me/ '
+        + (meR.status ? '(' + meR.status + ')' : '') + (detail ? ': ' + esc(String(detail)) : '') + '</div>';
+      return;
+    }
+    const myId = meR.data.id;
+
+    const r = await api('POST', `/api/chat/conversations/${_chatConvId}/messages/`, { text: 'Delivery test ' + Date.now() });
+    if(!r.ok){ $('chatSendRes').innerHTML = log + '<div class="al al-e">Ошибка отправки: ' + esc(JSON.stringify(r.data)) + '</div>'; return; }
+    log += `Исходящее создано: id=${r.data.id}, status=${r.data.status} (у получателя позже: delivered → read)<br>`;
+    log += '<small>Своё сообщение через свой же POST /read/ не станет read — так задумано API.</small><br><br>';
+
+    const hist = await api('GET', `/api/chat/conversations/${_chatConvId}/messages/?limit=100`);
+    const list = Array.isArray(hist.data) ? hist.data : [];
+    const incomingUnread = list.filter(m => m.sender_id !== myId && m.is_read === false);
+    if(incomingUnread.length === 0){
+      log += 'Нет <b>непрочитанных входящих</b> от собеседника — нечего помечать через /read/.<br>';
+      log += 'Пусть второй пользователь напишет в этот диалог (или второе окно с его токеном), затем снова нажмите «📬 Delivery».<br>';
+      log += '<div class="al al-i">Проверка read: нужно хотя бы одно входящее сообщение не от вас.</div>';
+      $('chatSendRes').innerHTML = log;
+      return;
+    }
+    const target = incomingUnread.sort((a,b)=>b.id-a.id)[0];
+    log += `Берём входящее от собеседника: id=${target.id}, status=${target.status}, is_read=false<br>`;
+
+    const r2 = await api('POST', `/api/chat/conversations/${_chatConvId}/read/`);
+    log += `POST /read/: помечено ${r2.data.marked_read} сообщений<br>`;
+
+    const r3 = await api('GET', `/api/chat/conversations/${_chatConvId}/messages/?after_id=${target.id - 1}`);
+    const list2 = Array.isArray(r3.data) ? r3.data : [];
+    const msg = list2.find(m => m.id === target.id);
+    if(msg){
+      log += `Входящее #${msg.id} после /read/: status=${msg.status}, is_read=${msg.is_read}<br>`;
+      if(msg.status === 'read' && msg.is_read){
+        log += '<div class="al al-s">✅ Входящие: после mark_read статус read — ок.</div>';
+      }else{
+        log += '<div class="al al-e">❌ Ожидались status=read и is_read=true</div>';
+      }
+    }else{
+      log += '<div class="al al-e">Не нашли сообщение в выборке после /read/</div>';
+    }
+    $('chatSendRes').innerHTML = log;
+  } catch(e) {
+    $('chatSendRes').innerHTML = log + `<div class="al al-e">Ошибка: ${e.message}</div>`;
+  }
 }
 </script>
 </body>

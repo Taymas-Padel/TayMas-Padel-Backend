@@ -174,14 +174,24 @@ SWAGGER_SETTINGS = {
 # Django Channels
 ASGI_APPLICATION = 'config.asgi.application'
 
-# Настройка Redis как Channel Layer
+_REDIS_URL = os.getenv('REDIS_URL', 'redis://127.0.0.1:6379')
+
+# Channel Layer (WebSocket pub/sub через Redis)
 CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
         "CONFIG": {
-            "hosts": [("127.0.0.1", 6379)],
+            "hosts": [_REDIS_URL],
         },
     },
+}
+
+# Cache (используется для distributed rate-limiting в ChatConsumer)
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.redis.RedisCache",
+        "LOCATION": f"{_REDIS_URL}/1",
+    }
 }
 
 WSGI_APPLICATION = 'config.wsgi.application'

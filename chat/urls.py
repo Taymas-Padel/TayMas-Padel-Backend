@@ -11,7 +11,9 @@ from .views import (
 urlpatterns = [
     path('conversations/', ConversationListView.as_view(), name='conversation-list'),
     path('conversations/start/', StartConversationView.as_view(), name='start-conversation'),
+    # GET = история (cursor pagination), POST = отправить сообщение (с идемпотентностью)
     path('conversations/<int:conv_id>/messages/', MessageListView.as_view(), name='message-list'),
+    # POST only — алиас для старых клиентов / app.html (тот же handler, что и POST .../messages/)
     path('conversations/<int:conv_id>/send/', SendMessageView.as_view(), name='send-message'),
     path('conversations/<int:conv_id>/read/', MarkReadView.as_view(), name='mark-read'),
     path('unread-count/', UnreadCountView.as_view(), name='unread-count'),

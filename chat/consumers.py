@@ -1,6 +1,7 @@
-import json
 import logging
 import time
+from urllib.parse import parse_qs
+
 from channels.generic.websocket import AsyncJsonWebsocketConsumer
 from channels.db import database_sync_to_async
 from django.contrib.auth import get_user_model
@@ -15,118 +16,119 @@ logger = logging.getLogger(__name__)
 class ChatConsumer(AsyncJsonWebsocketConsumer):
     """
     WebSocket consumer для realtime чата (Контракт v1).
-    
-    URL: ws://host/ws/chat/<conversation_id>/?token=<jwt>
+
+    URL: ws://host/ws/chat/<conversation_id>/?token=<jwt>[&last_seen=<message_id>]
+
+    Контракт входящих событий (от клиента):
+      { "v": 1, "type": "message.send",  "payload": { "text": "...", "client_message_id": "uuid", "request_id": "uuid" } }
+      { "v": 1, "type": "message.read",  "payload": {} }
+      { "v": 1, "type": "typing.start",  "payload": {} }
+      { "v": 1, "type": "typing.stop",   "payload": {} }
+
+    Контракт исходящих событий (серверные push):
+      message.new   — новое сообщение в диалоге
+      message.read  — кто-то прочитал сообщения
+      typing.start  — собеседник печатает
+      typing.stop   — собеседник перестал печатать
+      ack           — подтверждение отправки (только отправителю)
+      error         — ошибка валидации / rate-limit
     """
-    
-    # Фиксируем версию протокола для этого консьюмера
+
     PROTOCOL_VERSION = 1
 
     # Лимиты: (кол-во запросов, окно в секундах)
     RATE_LIMITS = {
-        'message.send': (20, 60),  # 20 сообщений за 60 секунд
-        'message.read': (5, 10),   # 5 отметок за 10 секунд
-        'typing.start': (5, 5),    # 5 событий за 5 секунд
+        'message.send': (20, 60),   # 20 сообщений за 60 с
+        'message.read': (5, 10),    # 5 отметок за 10 с
+        'typing.start': (5, 5),     # 5 событий за 5 с
         'typing.stop': (5, 5),
         'default': (20, 10),
     }
 
+    # ─── Connection lifecycle ─────────────────────────────────────────
+
     async def connect(self):
-        """Подключение к WebSocket."""
         self.conversation_id = self.scope['url_route']['kwargs']['conversation_id']
         self.room_group_name = f'chat_{self.conversation_id}'
         self.user = self.scope.get('user')
 
-        # 1. Проверяем, прошла ли аутентификация в Middleware
         if not self.user or not self.user.is_authenticated:
-            logger.warning(
-                f"Connection rejected (4001): Unauthenticated access attempt to conversation {self.conversation_id}."
-            )
+            logger.warning("ws.connect.rejected.unauth conv=%s", self.conversation_id)
             await self.close(code=4001)
             return
 
-        # 2. Проверяем права доступа (юзер участник диалога?)
         is_member = await self._check_conversation_membership(self.conversation_id, self.user)
         if not is_member:
             logger.warning(
-                f"Connection rejected (4003): User {self.user.id} tried to access foreign conversation {self.conversation_id}."
+                "ws.connect.rejected.forbidden user=%s conv=%s",
+                self.user.id, self.conversation_id,
             )
-            await self.close(code=4003)  # Forbidden
+            await self.close(code=4003)
             return
 
-        # 3. Присоединяемся к группе (Redis)
         await self.channel_layer.group_add(self.room_group_name, self.channel_name)
         await self.accept()
 
-        self._rate_limit_records = {}  # Инициализация словаря для rate limit
+        logger.info("ws.connect.ok user=%s conv=%s channel=%s", self.user.id, self.conversation_id, self.channel_name)
 
-        logger.info(f"User {self.user.id} connected to chat {self.conversation_id}")
+        # TAY-14: Помечаем все неполученные сообщения как delivered
+        await self._mark_delivered_on_connect(self.conversation_id, self.user)
+
+        # TAY-15: Resync — отправляем пропущенные сообщения
+        query_string = self.scope.get('query_string', b'').decode()
+        params = parse_qs(query_string)
+        last_seen_raw = params.get('last_seen', [None])[0]
+        if last_seen_raw and last_seen_raw.isdigit():
+            await self._resync(int(last_seen_raw))
 
     async def disconnect(self, close_code):
-        """Отключение от WebSocket."""
         if hasattr(self, 'room_group_name'):
             await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
-        if hasattr(self, 'user') and self.user and self.user.is_authenticated:
-            logger.info(f"User {self.user.id} disconnected from chat {self.conversation_id}, code={close_code}")
+        user_id = getattr(self.user, 'id', None) if hasattr(self, 'user') else None
+        if user_id:
+            logger.info(
+                "ws.disconnect user=%s conv=%s code=%s",
+                user_id, self.conversation_id, close_code,
+            )
+
+    # ─── Receive ─────────────────────────────────────────────────────
 
     async def receive(self, text_data=None, bytes_data=None, **kwargs):
-        """Переопределение базового метода для защиты от гигантских payload."""
-        # Ограничение размера кадра WebSocket в 10 КБ
+        """Защита от огромных payload до десериализации JSON."""
         if text_data and len(text_data) > 10 * 1024:
-            logger.warning(f"Connection rejected (4009): Payload too large from user {getattr(self, 'user', 'Unknown')}.")
+            logger.warning(
+                "ws.payload_too_large user=%s conv=%s size=%d",
+                getattr(self.user, 'id', '?'), self.conversation_id, len(text_data),
+            )
             await self.close(code=4009)
             return
-            
         await super().receive(text_data=text_data, bytes_data=bytes_data, **kwargs)
 
-    async def _check_rate_limit(self, event_type: str) -> bool:
-        """Возвращает True, если лимит превышен."""
-        limit_count, limit_window = self.RATE_LIMITS.get(event_type, self.RATE_LIMITS['default'])
-        now = time.time()
-        
-        if event_type not in self._rate_limit_records:
-            self._rate_limit_records[event_type] = []
-            
-        records = self._rate_limit_records[event_type]
-        # Очищаем старые записи
-        records = [ts for ts in records if now - ts < limit_window]
-        
-        if len(records) >= limit_count:
-            self._rate_limit_records[event_type] = records
-            return True
-            
-        records.append(now)
-        self._rate_limit_records[event_type] = records
-        return False
-
     async def receive_json(self, content, **kwargs):
-        """Получение JSON от клиента и строгая валидация v1."""
         try:
-            # 1. Проверяем версию протокола
-            version = content.get('v')
-            if version != self.PROTOCOL_VERSION:
-                await self._send_error("bad_format", f"Неподдерживаемая версия. Ожидается v={self.PROTOCOL_VERSION}")
+            if content.get('v') != self.PROTOCOL_VERSION:
+                await self._send_error("bad_format", f"Ожидается v={self.PROTOCOL_VERSION}")
                 return
 
-            # 2. Проверяем обязательные поля
             event_type = content.get('type')
             payload = content.get('payload')
 
             if not event_type or not isinstance(event_type, str) or len(event_type) > 50:
-                await self._send_error("bad_format", "Поле 'type' обязательно и должно быть строкой (макс 50 символов).")
+                await self._send_error("bad_format", "Поле 'type' обязательно (строка, макс 50).")
                 return
-                
             if payload is None or not isinstance(payload, dict):
-                await self._send_error("bad_format", "Поле 'payload' обязательно и должно быть объектом.")
+                await self._send_error("bad_format", "Поле 'payload' обязательно (объект).")
                 return
 
-            # 3. Проверка Rate Limit
+            # Fix: Redis-backed rate limiting (TAY-6 patch)
             if await self._check_rate_limit(event_type):
-                logger.warning(f"Rate limit exceeded for {event_type} by user {getattr(self.user, 'id', 'Unknown')}")
-                await self._send_error("rate_limit_exceeded", "Слишком много запросов. Подождите немного.")
+                logger.warning(
+                    "ws.rate_limit user=%s conv=%s event=%s",
+                    getattr(self.user, 'id', '?'), self.conversation_id, event_type,
+                )
+                await self._send_error("rate_limit_exceeded", "Слишком много запросов. Подождите.")
                 return
 
-            # 3. Маршрутизация событий
             if event_type == 'message.send':
                 await self._handle_message_send(payload)
             elif event_type == 'message.read':
@@ -136,76 +138,77 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
             elif event_type == 'typing.stop':
                 await self._handle_typing_stop(payload)
             else:
-                await self._send_error("unknown_event", f"Неизвестный тип события: {event_type}")
+                await self._send_error("unknown_event", f"Неизвестное событие: {event_type}")
 
-        except Exception as e:
-            logger.error(f"Error processing message: {e}")
-            await self._send_error("server_error", "Внутренняя ошибка сервера при обработке события")
+        except Exception as exc:
+            logger.exception(
+                "ws.error user=%s conv=%s", getattr(self.user, 'id', '?'), self.conversation_id,
+            )
+            await self._send_error("server_error", "Ошибка сервера.")
 
-    # ─── Единые методы для отправки (v1) ───────────────────────────
+    # ─── Event helpers ────────────────────────────────────────────────
 
     async def _send_event(self, event_type: str, payload: dict):
-        """Обертка для отправки любых сообщений в формате v1."""
-        await self.send_json({
-            "v": self.PROTOCOL_VERSION,
-            "type": event_type,
-            "payload": payload
-        })
+        await self.send_json({"v": self.PROTOCOL_VERSION, "type": event_type, "payload": payload})
 
     async def _send_error(self, code: str, message: str):
-        """Единый формат отправки ошибок (Acceptance Criteria)."""
-        await self._send_event("error", {
-            "code": code,
-            "message": message
-        })
+        await self._send_event("error", {"code": code, "message": message})
 
-    # ─── Обработчики событий (от клиента) ──────────────────────────
+    # ─── Handlers (client → server) ──────────────────────────────────
 
     async def _handle_message_send(self, payload):
-        """Обработка события message.send (бывшее message.new)."""
         text = (payload.get('text') or '').strip()
-        request_id = payload.get('request_id')  # Достаем ID от фронтенда
-        
+        request_id = payload.get('request_id')
+        client_message_id = payload.get('client_message_id') or None
+
         if not text:
             await self._send_error("validation_error", "Текст сообщения пуст")
             return
-        
         if len(text) > 4000:
             await self._send_error("validation_error", "Текст слишком длинный (макс 4000)")
             return
-
         if request_id and (not isinstance(request_id, str) or len(request_id) > 100):
-            await self._send_error("validation_error", "Некорректный request_id (ожидается строка до 100 символов)")
+            await self._send_error("validation_error", "Некорректный request_id (строка, макс 100)")
             return
 
         try:
-            msg = await self._save_message(self.conversation_id, self.user, text)
-            
-            # 1. Отправляем ACK (подтверждение) только отправителю
+            msg, created = await self._save_message(
+                self.conversation_id, self.user, text, client_message_id
+            )
+
+            # ACK только отправителю
             if request_id:
                 await self._send_event("ack", {
                     "request_id": request_id,
                     "message_id": msg.id,
-                    "status": "ok"
+                    "status": "ok",
+                    "is_duplicate": not created,
                 })
 
-            # 2. Рассылаем message.new всем в комнате
-            await self.channel_layer.group_send(
-                self.room_group_name,
-                {
-                    'type': 'chat.message_new',
-                    'message_id': msg.id,
-                    'sender_id': msg.sender_id,
-                    'text': msg.text,
-                    'created_at': msg.created_at.isoformat(),
-                }
-            )
-        except Exception as e:
-            logger.error(f"Error saving message: {e}")
+            # Рассылаем всем в комнате только если сообщение новое
+            if created:
+                await self.channel_layer.group_send(
+                    self.room_group_name,
+                    {
+                        'type': 'chat.message_new',
+                        'message_id': msg.id,
+                        'sender_id': msg.sender_id,
+                        'text': msg.text,
+                        'created_at': msg.created_at.isoformat(),
+                        'status': msg.status,
+                        'client_message_id': msg.client_message_id,
+                    }
+                )
+                logger.info(
+                    "ws.message_sent user=%s conv=%s msg=%s",
+                    self.user.id, self.conversation_id, msg.id,
+                )
+
+        except Exception:
+            logger.exception("ws.save_message.error user=%s conv=%s", self.user.id, self.conversation_id)
             await self._send_error("server_error", "Ошибка сохранения сообщения")
 
     async def _handle_message_read(self, payload):
-        """Обработка события message.read."""
         try:
             count = await self._mark_messages_read(self.conversation_id, self.user)
             await self.channel_layer.group_send(
@@ -216,89 +219,178 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
                     'marked_count': count,
                 }
             )
-        except Exception as e:
-            logger.error(f"Error marking read: {e}")
+            logger.info(
+                "ws.message_read user=%s conv=%s count=%d",
+                self.user.id, self.conversation_id, count,
+            )
+        except Exception:
+            logger.exception("ws.mark_read.error user=%s", self.user.id)
 
     async def _handle_typing_start(self, payload):
-        """Обработка события typing.start."""
+        user_name = f"{self.user.first_name} {self.user.last_name}".strip() or str(self.user.id)
         await self.channel_layer.group_send(
             self.room_group_name,
-            {
-                'type': 'chat.typing_start',
-                'user_id': self.user.id,
-                'user_name': f"{self.user.first_name} {self.user.last_name}".strip() or self.user.username,
-            }
+            {'type': 'chat.typing_start', 'user_id': self.user.id, 'user_name': user_name},
         )
 
     async def _handle_typing_stop(self, payload):
-        """Обработка события typing.stop."""
         await self.channel_layer.group_send(
             self.room_group_name,
-            {
-                'type': 'chat.typing_stop',
-                'user_id': self.user.id,
-            }
+            {'type': 'chat.typing_stop', 'user_id': self.user.id},
         )
 
-    # ─── Получатели событий из Redis (type.handler) ─────────────────
+    # ─── Redis group receivers (server → client) ──────────────────────
 
     async def chat_message_new(self, event):
-        """Получатель события chat.message_new из Redis."""
+        # TAY-14: помечаем как delivered, когда сообщение получает получатель
+        if event['sender_id'] != self.user.id:
+            await self._mark_single_delivered(event['message_id'])
+
         await self._send_event("message.new", {
             "message_id": event['message_id'],
-            "conversation_id": self.conversation_id,
+            "conversation_id": int(self.conversation_id),
             "sender_id": event['sender_id'],
             "text": event['text'],
             "created_at": event['created_at'],
+            "status": event.get('status', 'sent'),
+            "client_message_id": event.get('client_message_id'),
         })
 
     async def chat_message_read(self, event):
-        """Получатель события chat.message_read из Redis."""
         await self._send_event("message.read", {
-            "conversation_id": self.conversation_id,
+            "conversation_id": int(self.conversation_id),
             "read_by_id": event['read_by_id'],
             "marked_count": event['marked_count'],
         })
 
     async def chat_typing_start(self, event):
-        """Получатель события chat.typing_start из Redis."""
         await self._send_event("typing.start", {
-            "conversation_id": self.conversation_id,
+            "conversation_id": int(self.conversation_id),
             "user_id": event['user_id'],
             "user_name": event['user_name'],
         })
 
     async def chat_typing_stop(self, event):
-        """Получатель события chat.typing_stop из Redis."""
         await self._send_event("typing.stop", {
-            "conversation_id": self.conversation_id,
+            "conversation_id": int(self.conversation_id),
             "user_id": event['user_id'],
         })
 
-    # ─── Вспомогательные методы (БД) ────────────────────────────────
+    # ─── Rate limiting — Redis через Django cache ─────────────────────
+    # Fix TAY-6: заменяем in-memory на cache-based (работает с несколькими воркерами)
+
+    async def _check_rate_limit(self, event_type: str) -> bool:
+        return await self._check_rate_limit_sync(event_type)
+
+    @database_sync_to_async
+    def _check_rate_limit_sync(self, event_type: str) -> bool:
+        from django.core.cache import cache
+
+        limit_count, limit_window = self.RATE_LIMITS.get(event_type, self.RATE_LIMITS['default'])
+        now = time.time()
+        key = f"ws_rl:{self.user.id}:{event_type}"
+
+        records = cache.get(key) or []
+        records = [ts for ts in records if now - ts < limit_window]
+
+        if len(records) >= limit_count:
+            cache.set(key, records, timeout=int(limit_window) + 1)
+            return True
+
+        records.append(now)
+        cache.set(key, records, timeout=int(limit_window) + 1)
+        return False
+
+    # ─── DB helpers ───────────────────────────────────────────────────
 
     @database_sync_to_async
     def _check_conversation_membership(self, conversation_id, user):
         return Conversation.objects.filter(
-            Q(user1=user) | Q(user2=user),
-            pk=conversation_id
+            Q(user1=user) | Q(user2=user), pk=conversation_id
         ).exists()
 
     @database_sync_to_async
-    def _save_message(self, conversation_id, user, text):
+    def _save_message(self, conversation_id, user, text, client_message_id=None):
+        """TAY-9: Идемпотентное сохранение. Возвращает (message, created)."""
+        from django.db import transaction
+
         conversation = Conversation.objects.get(pk=conversation_id)
-        msg = Message.objects.create(
-            conversation=conversation,
-            sender=user,
-            text=text
-        )
-        conversation.save(update_fields=['updated_at'])
-        return msg
+
+        if client_message_id:
+            existing = Message.objects.filter(
+                conversation=conversation,
+                sender=user,
+                client_message_id=client_message_id,
+            ).first()
+            if existing:
+                return existing, False
+
+        with transaction.atomic():
+            msg = Message.objects.create(
+                conversation=conversation,
+                sender=user,
+                text=text,
+                client_message_id=client_message_id,
+                status=Message.Status.SENT,
+            )
+            conversation.save(update_fields=['updated_at'])
+        return msg, True
 
     @database_sync_to_async
     def _mark_messages_read(self, conversation_id, user):
-        count = Message.objects.filter(
+        """Помечает все сообщения собеседника как прочитанные."""
+        return Message.objects.filter(
             conversation_id=conversation_id,
-            is_read=False
-        ).exclude(sender=user).update(is_read=True)
-        return count
+            is_read=False,
+        ).exclude(sender=user).update(is_read=True, status=Message.Status.READ)
+
+    @database_sync_to_async
+    def _mark_delivered_on_connect(self, conversation_id, user):
+        """TAY-14: При подключении помечаем sent → delivered для сообщений получателя."""
+        Message.objects.filter(
+            conversation_id=conversation_id,
+            status=Message.Status.SENT,
+        ).exclude(sender=user).update(status=Message.Status.DELIVERED)
+
+    @database_sync_to_async
+    def _mark_single_delivered(self, message_id):
+        """TAY-14: Помечаем конкретное сообщение как delivered когда WS получатель его видит."""
+        Message.objects.filter(
+            pk=message_id,
+            status=Message.Status.SENT,
+        ).update(status=Message.Status.DELIVERED)
+
+    @database_sync_to_async
+    def _get_missed_messages(self, conversation_id, last_seen_id):
+        """TAY-15: Возвращает сообщения новее last_seen_id (максимум 200)."""
+        msgs = list(
+            Message.objects
+            .filter(conversation_id=conversation_id, id__gt=last_seen_id)
+            .order_by('created_at')
+            .select_related('sender')[:200]
+        )
+        return [
+            {
+                'message_id': m.id,
+                'sender_id': m.sender_id,
+                'text': m.text,
+                'created_at': m.created_at.isoformat(),
+                'status': m.status,
+                'client_message_id': m.client_message_id,
+            }
+            for m in msgs
+        ]
+
+    async def _resync(self, last_seen_id: int):
+        """TAY-15: Отправляем пропущенные сообщения после переподключения."""
+        missed = await self._get_missed_messages(self.conversation_id, last_seen_id)
+        if missed:
+            logger.info(
+                "ws.resync user=%s conv=%s missed=%d since_id=%d",
+                self.user.id, self.conversation_id, len(missed), last_seen_id,
+            )
+        for msg_data in missed:
+            await self._send_event("message.new", {
+                **msg_data,
+                "conversation_id": int(self.conversation_id),
+            })

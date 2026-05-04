@@ -36,6 +36,11 @@ class Conversation(models.Model):
 
 
 class Message(models.Model):
+    class Status(models.TextChoices):
+        SENT = 'sent', _('Отправлено')
+        DELIVERED = 'delivered', _('Доставлено')
+        READ = 'read', _('Прочитано')
+
     conversation = models.ForeignKey(
         Conversation, on_delete=models.CASCADE, related_name='messages',
     )
@@ -43,6 +48,25 @@ class Message(models.Model):
         User, on_delete=models.CASCADE, related_name='sent_messages',
     )
     text = models.TextField(verbose_name=_('Текст сообщения'))
+
+    # TAY-14: Статус доставки (sent → delivered → read)
+    status = models.CharField(
+        max_length=10,
+        choices=Status.choices,
+        default=Status.SENT,
+        verbose_name=_('Статус'),
+        db_index=True,
+    )
+
+    # TAY-9: Идемпотентность — клиентский ID для дедупликации повторных отправок
+    client_message_id = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+        verbose_name=_('Клиентский ID'),
+        db_index=True,
+    )
+
     is_read = models.BooleanField(default=False, verbose_name=_('Прочитано'))
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
 
@@ -50,6 +74,16 @@ class Message(models.Model):
         verbose_name = _('Сообщение')
         verbose_name_plural = _('Сообщения')
         ordering = ['created_at']
+        indexes = [
+            models.Index(fields=['conversation', 'created_at'], name='chat_msg_conv_created_idx'),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=['conversation', 'sender', 'client_message_id'],
+                condition=models.Q(client_message_id__isnull=False),
+                name='unique_client_message_id_per_conv',
+            )
+        ]
 
     def __str__(self):
         preview = self.text[:40] + ('…' if len(self.text) > 40 else '')
