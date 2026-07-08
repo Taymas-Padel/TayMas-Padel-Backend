@@ -31,7 +31,10 @@ DEBUG = os.getenv('DEBUG') == 'True'
 
 ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS').split(',')
 
-CSRF_TRUSTED_ORIGINS = ['https://*.ngrok-free.app']
+CSRF_TRUSTED_ORIGINS = [
+    "https://taymaspadel.newlevelhub.kz",
+    'https://*.ngrok-free.app',
+    ]
 # Application definition
 # Исправление ссылок для ngrok / прокси
 USE_X_FORWARDED_HOST = True
